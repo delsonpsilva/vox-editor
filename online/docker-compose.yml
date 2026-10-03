@@ -1,0 +1,39 @@
+# Gerado e usado pelo instalador (scripts/instalar-online.sh). Os valores vêm do arquivo .env ao lado.
+name: editor-ia
+services:
+  editor:
+    build: ..
+    image: editor-ia:latest
+    container_name: editor-ia
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      EDITOR_NICE: "10"
+      EDITOR_THREADS: ${CPUS:-4}
+    ports:
+      - "${BIND:-127.0.0.1}:${PORTA:-8765}:8765"
+    volumes:
+      # os dados ficam FORA da pasta do código: atualizar o programa nunca mexe neles
+      - ${DADOS:-./dados}:/dados
+    # limites: o editor nunca passa disso, e o outro sistema da VPS continua com o resto
+    cpus: ${CPUS:-4}
+    mem_limit: ${MEMORIA:-6g}
+    pids_limit: 512
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+
+  caddy:  # só é usado quando as portas 80/443 estão livres (o instalador decide)
+    image: caddy:2-alpine
+    container_name: editor-ia-https
+    profiles: ["caddy"]
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment:
+      DOMINIO: ${DOMINIO:-localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./caddy/data:/data
+      - ./caddy/config:/config
+    cpus: 0.5
+    mem_limit: 256m

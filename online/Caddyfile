@@ -1,0 +1,10 @@
+{$DOMINIO} {
+	encode zstd gzip
+	reverse_proxy editor:8765 {
+		flush_interval -1
+		transport http {
+			read_timeout 1h
+			write_timeout 1h
+		}
+	}
+}

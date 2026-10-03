@@ -1,0 +1,15 @@
+# Nunca vão para o GitHub: dados, ambiente Python, programas baixados e senhas
+.venv/
+dados/
+teste_dados/
+ffmpeg/
+online/dados/
+online/caddy/
+online/.env
+online/docker-compose.override.yml
+__pycache__/
+*.pyc
+*.log
+*.zip
+Thumbs.db
+desktop.ini

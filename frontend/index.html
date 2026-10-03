@@ -1,0 +1,740 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Editor IA</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- Login (só na versão online com senha) -->
+<section id="view-login" class="view hidden">
+  <form id="login-form" class="login-card">
+    <div class="brand big"><span class="logo app-logo"></span><span class="app-name">Editor IA</span></div>
+    <label for="login-pass">Senha de acesso</label>
+    <input id="login-pass" type="password" autocomplete="current-password" required>
+    <button class="btn primary" type="submit">Entrar</button>
+    <p id="login-err" class="err"></p>
+  </form>
+</section>
+
+<!-- Início: estúdio com menu lateral -->
+<section id="view-home" class="view hidden">
+  <div class="shell">
+    <aside class="side">
+      <a class="side-brand" href="#/">
+        <span class="logo app-logo"></span>
+        <span class="side-name app-name">Editor IA</span>
+      </a>
+      <nav class="side-nav" aria-label="Menu principal">
+        <a href="#/" data-page="inicio">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>Início</a>
+        <a href="#/projetos" data-page="projetos">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 9h18M8 4v5M16 4v5"/></svg>Projetos <span class="count" id="nav-count-p"></span></a>
+        <a href="#/exportados" data-page="exportados">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg>Exportados <span class="count" id="nav-count-r"></span></a>
+        <a href="#/publicacoes" data-page="publicacoes">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><path d="M10 15l2 2 4-4"/></svg>Publicações <span class="count" id="nav-count-q"></span></a>
+        <a href="#/modelos" data-page="modelos">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M6 7h12M9 16h6"/></svg>Modelos</a>
+        <a href="#/redes" data-page="redes">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>Redes sociais</a>
+        <a href="#/marca" data-page="marca">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.9 6.3 6.9.7-5.2 4.6 1.5 6.8L12 17l-6.1 3.4 1.5-6.8L2.2 9l6.9-.7z"/></svg>Marca</a>
+        <a href="#/ia" data-page="ia">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>Inteligência artificial <span class="count ok hidden" id="nav-ia-on">ligada</span></a>
+        <button type="button" data-open-settings>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Configurações</button>
+      </nav>
+      <div class="side-foot">
+        <div class="storage">
+          <div class="row between"><span>Espaço usado</span><b id="st-used">—</b></div>
+          <div class="bar"><i id="st-bar"></i></div>
+          <button class="linkbtn" id="btn-clean">Liberar espaço</button>
+        </div>
+        <span class="hint" id="sys-badge"></span>
+      </div>
+    </aside>
+
+    <main class="pages">
+      <!-- Início -->
+      <section class="page" id="pg-inicio">
+        <header class="page-head">
+          <div>
+            <h1 class="app-name">Editor IA</h1>
+            <p class="app-tagline">Do vídeo longo ao Reels pronto, com legenda.</p>
+          </div>
+        </header>
+        <label id="dropzone" class="drop-timeline" for="file-input">
+          <input id="file-input" type="file" accept="video/*,audio/*,.mkv,.mov,.mxf" hidden>
+          <span class="ruler" aria-hidden="true"></span>
+          <span class="track" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+          <span class="playhead" aria-hidden="true"></span>
+          <span class="drop-copy">
+            <strong>Arraste um vídeo para esta faixa</strong>
+            <span>ou clique para escolher. Pregação, aula, live ou podcast — de minutos a várias horas.</span>
+          </span>
+          <span id="upload-progress" class="upload-progress hidden"><span class="bar"><i></i></span><span></span></span>
+        </label>
+        <form id="link-form" class="linkbar" onsubmit="return false">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>
+          <input id="link-url" type="url" placeholder="Ou cole o link do YouTube (ou de outro site) e o programa traz o vídeo" aria-label="Link do vídeo">
+          <button class="btn primary" id="link-go" type="submit">Importar</button>
+        </form>
+        <p class="hint link-note">Use em vídeos seus ou que você tem permissão para editar.</p>
+        <p class="summary" id="dash-summary"></p>
+        <div class="section-head">
+          <h2>Continuar de onde parou</h2>
+          <a href="#/projetos" class="linkbtn">Ver todos os projetos</a>
+        </div>
+        <div id="recent-list" class="proj-grid"></div>
+      </section>
+
+      <!-- Projetos -->
+      <section class="page hidden" id="pg-projetos">
+        <header class="page-head">
+          <div><h1>Projetos</h1><p>Cada vídeo enviado vira um projeto, com a edição, os cortes e os exportados.</p></div>
+          <label class="btn primary" for="file-input-2">Novo projeto<input id="file-input-2" type="file" accept="video/*,audio/*,.mkv,.mov,.mxf" hidden></label>
+        </header>
+        <div class="toolbar">
+          <label class="search"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+            <input type="search" id="proj-search" placeholder="Buscar projeto pelo nome" aria-label="Buscar projeto"></label>
+          <select id="proj-sort" aria-label="Ordenar">
+            <option value="updated">Editados recentemente</option>
+            <option value="created">Mais novos</option>
+            <option value="name">Nome (A–Z)</option>
+            <option value="duration">Mais longos</option>
+          </select>
+        </div>
+        <div id="project-list" class="proj-grid"></div>
+      </section>
+
+      <!-- Exportados -->
+      <section class="page hidden" id="pg-exportados">
+        <header class="page-head">
+          <div><h1>Exportados</h1><p>Todos os vídeos prontos, de todos os projetos, num só lugar.</p></div>
+        </header>
+        <div class="toolbar">
+          <select id="lib-project" aria-label="Filtrar por projeto"><option value="">Todos os projetos</option></select>
+          <select id="lib-platform" aria-label="Filtrar por destino"><option value="">Todos os destinos</option></select>
+        </div>
+        <div id="lib-list" class="lib-grid"></div>
+      </section>
+
+
+      <!-- Publicações -->
+      <section class="page hidden" id="pg-publicacoes">
+        <header class="page-head">
+          <div><h1>Publicações</h1><p>Vídeos aprovados entram na fila e são postados sozinhos no horário marcado. O programa precisa estar aberto (no computador ou na versão online) para postar.</p></div>
+          <a class="btn primary" href="#/exportados">Agendar um vídeo</a>
+        </header>
+        <div class="seg small" id="q-filter">
+          <button class="seg-btn active" data-v="agendado">Na fila</button>
+          <button class="seg-btn" data-v="publicado">Publicados</button>
+          <button class="seg-btn" data-v="erro">Com erro</button>
+        </div>
+        <div id="q-list" class="q-list"></div>
+        <section class="pane">
+          <h2>Horários da agenda</h2>
+          <p class="hint">Quando você escolhe "próximo horário livre", o vídeo vai para o primeiro destes horários que ainda não tem postagem naquela rede.</p>
+          <div id="slots" class="slots"></div>
+          <div class="row"><button class="btn small" id="slot-add">Adicionar horário</button></div>
+        </section>
+      </section>
+
+      <!-- Modelos -->
+      <section class="page hidden" id="pg-modelos">
+        <header class="page-head">
+          <div><h1>Modelos</h1><p>A moldura e o estilo de legenda que todo projeto novo já recebe. Cada projeto ainda pode trocar o seu.</p></div>
+        </header>
+        <section class="pane">
+          <h2>Moldura padrão</h2>
+          <div id="m-frames" class="style-grid frames"></div>
+        </section>
+        <section class="pane">
+          <h2>Estilo de legenda padrão</h2>
+          <div id="m-styles" class="style-grid"></div>
+          <div class="style-custom">
+            <label class="field"><span class="lbl">Tamanho da letra <b id="m-size-out"></b></span><input type="range" min="50" max="150" step="5" id="m-size"></label>
+            <label class="field"><span class="lbl">Altura na tela <b id="m-y-out"></b></span><input type="range" min="0" max="100" step="2" id="m-y"></label>
+            <label class="field">Enquadramento 9:16
+              <select id="m-layout"><option value="face">Seguir o rosto de quem fala</option><option value="center">Centro da imagem</option><option value="blur">Vídeo inteiro com fundo desfocado</option></select>
+            </label>
+          </div>
+        </section>
+        <div class="row end"><label class="checkline"><input type="checkbox" id="m-apply-all"> Aplicar também nos projetos que já existem</label>
+          <button class="btn primary" id="m-save">Salvar como padrão</button></div>
+      </section>
+
+      <!-- Redes sociais -->
+      <section class="page hidden" id="pg-redes">
+        <header class="page-head">
+          <div><h1>Redes sociais</h1><p>Conecte as contas para postar direto e defina os selos com o seu @ que aparecem nos vídeos.</p></div>
+        </header>
+        <div id="net-msg"></div>
+        <section class="pane">
+          <h2>Contas para postar</h2>
+          <p class="hint">A conexão é feita pelo login oficial de cada rede. O programa nunca vê nem guarda a sua senha.</p>
+          <div id="net-cards" class="net-cards"></div>
+        </section>
+        <section class="pane">
+          <h2>Selos nos vídeos</h2>
+    
+    <p class="hint">O selo entra e sai do vídeo com o seu @ e um convite ("Siga", "Inscreva-se"). Ele usa um ícone genérico de "seguir"; se quiser o ícone oficial, envie o arquivo do kit de marca da rede.</p>
+    <div id="br-socials" class="socials"></div>
+    <div class="style-custom brand">
+      <label class="field">Qual selo mostrar
+        <select id="br-soc-mode">
+          <option value="destino">Só o da rede para onde vou exportar</option>
+          <option value="todas">Todas as redes ativadas, uma de cada vez</option>
+          <option value="off">Não mostrar selos</option>
+        </select>
+      </label>
+      <label class="field">Aparece a cada
+        <select id="br-soc-every"><option value="8">8 segundos</option><option value="12">12 segundos</option><option value="20">20 segundos</option><option value="30">30 segundos</option></select>
+      </label>
+      <label class="field">Lado
+        <select id="br-soc-side"><option value="direita">Direita</option><option value="esquerda">Esquerda</option></select>
+      </label>
+    </div>
+        </section>
+      </section>
+
+      <!-- Inteligência artificial -->
+      <section class="page hidden" id="pg-ia">
+        <header class="page-head">
+          <div><h1>Inteligência artificial</h1><p>Quase tudo no programa funciona sem IA paga. A chave entra só onde é preciso entender o sentido da fala.</p></div>
+        </header>
+        <form id="ia-form" class="settings ia-page" onsubmit="return false">
+          <section class="pane">
+            <h2>Qual IA usar</h2>
+            <div class="ia-choices">
+              <label class="ia-choice"><input type="radio" name="ai.provider" value="none">
+                <span><b>Sem IA</b><small>Grátis. Os cortes usam a análise local do programa.</small></span></label>
+              <label class="ia-choice"><input type="radio" name="ai.provider" value="anthropic">
+                <span><b>Claude <em class="ia-tag">recomendado</em></b><small>Da Anthropic. Ótimo em português e segue bem o formato dos cortes.</small></span></label>
+              <label class="ia-choice"><input type="radio" name="ai.provider" value="openai_compat">
+                <span><b>GPT / compatível</b><small>OpenAI, ou outros que usam o mesmo formato (OpenRouter, DeepSeek, Groq).</small></span></label>
+            </div>
+            <div data-show="ai.provider!=none" class="ia-key">
+              <div class="grid2">
+                <label>Modelo <input name="ai.model" list="ia-models" autocomplete="off"><datalist id="ia-models"></datalist></label>
+                <label data-show="ai.provider=openai_compat">Endereço da API <input name="ai.base_url"></label>
+              </div>
+              <label>Chave da API <input name="ai.api_key" type="password" autocomplete="off" data-key></label>
+              <p class="hint" id="ia-where"></p>
+              <div class="row gap"><button type="button" class="btn" id="ia-test">Testar conexão</button><span id="ia-test-msg" class="hint"></span></div>
+              <p class="ia-cost" id="ia-cost"></p>
+            </div>
+          </section>
+          <section class="pane ia-uses">
+            <div>
+              <h2>Onde a IA entra</h2>
+              <ul class="ticks ai">
+                <li><b>Escolher os melhores momentos</b> do vídeo longo para virar reels e resumos.</li>
+                <li><b>Título e texto da publicação</b>, com hashtags.</li>
+                <li><b>Limpeza da fala com IA</b>: recomeços, correções e comentários fora do assunto.</li>
+              </ul>
+              <p class="hint">A IA lê só o texto da transcrição, uma vez por vídeo. Não recebe o vídeo nem o áudio.</p>
+            </div>
+            <div>
+              <h2>Sempre grátis, sem IA</h2>
+              <ul class="ticks">
+                <li>Transcrição no seu computador</li>
+                <li>Silêncios, respirações e vícios ("é", "né")</li>
+                <li>Palavras quebradas e frases repetidas</li>
+                <li>Legendas, molduras, selos e postagem</li>
+                <li>Importar vídeo pelo link do YouTube</li>
+              </ul>
+            </div>
+          </section>
+          <section class="pane">
+            <h2>Transcrição da fala</h2>
+            <p class="hint">No computador é grátis. Pela API fica bem mais rápido em PC fraco ou no servidor, e custa centavos por hora de vídeo.</p>
+
+      <label>Onde transcrever
+        <select name="transcription.provider">
+          <option value="local">Neste computador (grátis, offline)</option>
+          <option value="api">API externa (mais rápida em PC fraco)</option>
+        </select>
+      </label>
+      <div data-show="transcription.provider=local" class="grid2">
+        <label>Modelo
+          <select name="transcription.local_model">
+            <option value="base">Base — muito rápido</option>
+            <option value="small">Small — equilibrado (recomendado sem GPU)</option>
+            <option value="medium">Medium — mais preciso</option>
+            <option value="large-v3-turbo">Large v3 Turbo — máxima precisão (ideal com GPU)</option>
+          </select>
+        </label>
+        <label>Processar com
+          <select name="transcription.device">
+            <option value="auto">Automático</option>
+            <option value="cuda">Placa de vídeo NVIDIA</option>
+            <option value="cpu">Processador</option>
+          </select>
+        </label>
+      </div>
+      <div data-show="transcription.provider=api">
+        <div class="presets">Atalhos:
+          <button type="button" class="btn small" data-preset="groq">Groq (barato)</button>
+          <button type="button" class="btn small" data-preset="openai">OpenAI</button>
+        </div>
+        <div class="grid2">
+          <label>Endereço da API <input name="transcription.api_base"></label>
+          <label>Modelo <input name="transcription.api_model"></label>
+        </div>
+        <label>Chave da API <input name="transcription.api_key" type="password" autocomplete="off" data-key></label>
+      </div>
+      <label>Idioma
+        <select name="transcription.language">
+          <option value="pt">Português</option><option value="en">Inglês</option><option value="es">Espanhol</option><option value="auto">Detectar</option>
+        </select>
+      </label>
+    
+          </section>
+          <div class="row end ia-save"><span id="ia-saved" class="hint"></span><button type="button" class="btn primary" id="ia-save">Salvar</button></div>
+        </form>
+      </section>
+
+      <!-- Marca -->
+      <section class="page hidden" id="pg-marca">
+        <header class="page-head">
+          <div><h1>Marca</h1><p>Deixe o programa com a sua cara e defina a identidade que vai em todos os vídeos.</p></div>
+        </header>
+        <div class="brand-cols">
+          <section class="pane">
+            <h2>Identidade do programa</h2>
+            <p class="hint">Aparece no menu, no título da janela e na tela de entrada.</p>
+            <div class="app-logo-edit">
+              <span class="logo app-logo big"></span>
+              <div class="row">
+                <label class="btn small" for="app-logo-file">Enviar logo</label>
+                <input type="file" id="app-logo-file" accept="image/*" hidden>
+                <button class="btn small ghost" id="app-logo-del">Usar o padrão</button>
+              </div>
+            </div>
+            <label class="field">Nome do programa<input type="text" id="app-name" maxlength="40"></label>
+            <label class="field">Frase de apresentação<input type="text" id="app-tagline" maxlength="90"></label>
+            <label class="field">Cor principal<input type="color" id="app-accent"></label>
+          </section>
+          <section class="pane">
+            <h2>Kit de marca dos vídeos</h2>
+            <p class="hint">Seu @, logo, cores das tarjas, selo padrão e selos das redes sociais. Vale para todos os cortes.</p>
+            <div id="brand-summary" class="brand-summary"></div>
+            <button class="btn primary" id="btn-open-brand">Editar kit de marca</button>
+          </section>
+        </div>
+      </section>
+    </main>
+  </div>
+</section>
+
+<!-- Projeto -->
+<section id="view-editor" class="view hidden">
+  <header class="topbar">
+    <button class="btn icon ghost" id="btn-back" aria-label="Voltar aos projetos">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <div class="brand"><span class="logo app-logo"></span></div>
+    <span id="ed-name" class="proj-name"></span>
+    <span id="ed-dur" class="chip mono"></span>
+    <div class="seg" role="tablist" aria-label="Modo">
+      <button class="seg-btn active" data-mode="edit" role="tab">Edição</button>
+      <button class="seg-btn" data-mode="studio" role="tab">Cortes &amp; Resumos <span class="dot-new"></span></button>
+    </div>
+    <div class="grow"></div>
+    <button class="btn ghost" data-open-settings>Configurações</button>
+    <div class="menu-wrap edit-only">
+      <button class="btn" id="btn-export">Exportar ▾</button>
+      <div class="menu hidden" id="menu-export">
+        <a data-export="xml">XML para Premiere / DaVinci</a>
+        <a data-export="edl">EDL (qualquer editor)</a>
+        <a data-export="srt">Legendas SRT (vídeo editado)</a>
+        <a data-export="srt-original">Legendas SRT (vídeo original)</a>
+        <a data-export="txt">Transcrição em texto</a>
+      </div>
+    </div>
+    <div class="menu-wrap edit-only">
+      <button class="btn primary" id="btn-render">Renderizar vídeo ▾</button>
+      <div class="menu hidden" id="menu-render">
+        <a data-render='{"subtitles":true}'>Horizontal com legendas</a>
+        <a data-render='{"subtitles":false}'>Horizontal sem legendas</a>
+        <a data-render='{"subtitles":true,"vertical":true}'>Vertical 9:16 com legendas (vídeo inteiro)</a>
+      </div>
+    </div>
+  </header>
+
+  <div id="processing" class="processing hidden">
+    <div class="proc-card">
+      <div class="spinner"></div>
+      <h2 id="proc-title">Analisando o vídeo…</h2>
+      <p id="proc-msg"></p>
+      <div class="bar big"><i id="proc-bar"></i></div>
+      <button id="btn-retry" class="btn primary hidden">Tentar novamente</button>
+    </div>
+  </div>
+
+  <!-- ===== EDIÇÃO ===== -->
+  <div id="editor-body" class="editor hidden">
+    <aside class="panel left" id="tools"></aside>
+
+    <main class="center">
+      <div class="player">
+        <video id="video" playsinline preload="metadata"></video>
+        <div id="audio-only" class="audio-only hidden">Somente áudio</div>
+        <div class="controls">
+          <button class="btn icon round" id="btn-play" aria-label="Reproduzir">
+            <svg class="ico-play" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4l14 8-14 8z"/></svg>
+            <svg class="ico-pause hidden" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="4" width="5" height="16"/><rect x="14" y="4" width="5" height="16"/></svg>
+          </button>
+          <span id="time" class="mono">0:00</span>
+          <label class="switch-label"><input type="checkbox" id="chk-preview" checked> Prévia com cortes</label>
+          <div class="grow"></div>
+          <span class="hint wide">Espaço: tocar/pausar · selecione palavras e aperte Delete para cortar</span>
+        </div>
+      </div>
+
+      <section class="transcript-box">
+        <div class="tb-head">
+          <strong>Transcrição</strong>
+          <span class="hint wide">clique numa palavra para ir até ela · clique num corte para desfazê-lo · dois cliques corrige a palavra</span>
+          <div class="grow"></div>
+          <span class="legend"><i class="c-sil"></i>silêncio</span>
+          <span class="legend"><i class="c-br"></i>respiração</span>
+          <span class="legend"><i class="c-fil"></i>vício</span>
+          <span class="legend"><i style="background:#FACC15"></i>palavra quebrada</span>
+          <span class="legend"><i class="c-ia"></i>IA</span>
+          <span class="legend"><i class="c-man"></i>manual</span>
+          <button class="btn small ghost" id="btn-reset">Desfazer ajustes manuais</button>
+        </div>
+        <div id="transcript" class="transcript"></div>
+        <div id="sel-bar" class="sel-bar hidden"><button class="btn small primary" id="btn-cut-sel">Cortar trecho selecionado</button></div>
+      </section>
+    </main>
+
+    <aside class="panel right">
+      <div class="panel-title">Exportados</div>
+      <div class="jobs-box"></div>
+      <div class="renders-box"></div>
+    </aside>
+
+    <section class="timeline">
+      <div class="row">
+        <strong>Linha do tempo</strong>
+        <span id="stats" class="hint"></span>
+        <div class="grow"></div>
+        <button class="btn icon small" id="zoom-out" aria-label="Diminuir zoom">−</button>
+        <button class="btn icon small" id="zoom-in" aria-label="Aumentar zoom">+</button>
+      </div>
+      <div class="tl-scroll" id="tl-scroll"><canvas id="tl"></canvas></div>
+    </section>
+  </div>
+
+  <!-- ===== ESTÚDIO DE CORTES ===== -->
+  <div id="studio-body" class="studio hidden">
+    <aside class="panel s-left">
+      <section class="s-sec">
+        <h3>1. Para onde vai o vídeo?</h3>
+        <div id="s-platforms" class="plat-grid"></div>
+        <p id="s-plat-hint" class="hint"></p>
+      </section>
+      <section class="s-sec">
+        <h3>2. O que criar?</h3>
+        <div class="seg full" id="s-mode">
+          <button class="seg-btn" data-v="cortes">Cortes</button>
+          <button class="seg-btn" data-v="resumo">Resumo</button>
+          <button class="seg-btn" data-v="ambos">Os dois</button>
+        </div>
+        <p class="hint" id="s-mode-hint"></p>
+      </section>
+      <section class="s-sec">
+        <h3>3. Duração</h3>
+        <div class="chips" id="s-dur">
+          <button class="chip-btn" data-v="30">30s</button>
+          <button class="chip-btn" data-v="60">60s</button>
+          <button class="chip-btn" data-v="90">90s</button>
+          <button class="chip-btn" data-v="120">2 min</button>
+          <button class="chip-btn" data-v="livre">Livre</button>
+        </div>
+        <div class="grid2 hidden" id="s-free">
+          <label class="field">Mínimo (s)<input type="number" min="5" max="600" id="s-min"></label>
+          <label class="field">Máximo (s)<input type="number" min="5" max="600" id="s-max"></label>
+        </div>
+      </section>
+      <section class="s-sec">
+        <h3>4. Quantos?</h3>
+        <div class="stepper"><button class="btn icon small" id="s-cnt-minus" aria-label="Menos">−</button><b id="s-count">5</b><button class="btn icon small" id="s-cnt-plus" aria-label="Mais">+</button></div>
+      </section>
+      <section class="s-sec">
+        <label class="field" for="s-instr"><span class="lbl">Instruções para a IA <i>(opcional)</i></span></label>
+        <textarea id="s-instr" rows="3" placeholder="Ex.: é uma pregação; destaque as frases de fé, a ilustração principal e o apelo final."></textarea>
+      </section>
+      <button class="btn primary big" id="s-generate">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>
+        Gerar com IA
+      </button>
+      <p class="hint center" id="s-ai-hint"></p>
+
+      <section class="s-sec look">
+        <h3>Visual</h3>
+        <button class="style-pick" id="s-frame-btn">
+          <img id="s-frame-img" alt="">
+          <span><b id="s-frame-name"></b><small>Trocar moldura, tarja e marca</small></span>
+        </button>
+        <button class="style-pick" id="s-style-btn">
+          <img id="s-style-img" alt="">
+          <span><b id="s-style-name"></b><small>Trocar estilo da legenda</small></span>
+        </button>
+        <label class="field">Enquadramento 9:16
+          <select id="s-layout">
+            <option value="face">Seguir o rosto de quem fala</option>
+            <option value="center">Centro da imagem</option>
+            <option value="blur">Vídeo inteiro com fundo desfocado</option>
+          </select>
+        </label>
+        <label class="field">Título escrito no vídeo
+          <select id="s-title">
+            <option value="inicio">Nos primeiros 4 segundos</option>
+            <option value="fixo">O tempo todo</option>
+            <option value="nao">Sem título</option>
+          </select>
+        </label>
+        <label class="field">Melhorar imagem
+          <select id="s-enhance">
+            <option value="auto">Automático (limpa e dá nitidez quando amplia)</option>
+            <option value="on">Sempre</option>
+            <option value="off">Nunca (imagem original)</option>
+          </select>
+        </label>
+        <label class="checkline"><input type="checkbox" id="s-subs"> Legendas no vídeo</label>
+        <label class="checkline"><input type="checkbox" id="s-zoom"> Disfarçar emendas com zoom (corte de câmera)</label>
+      </section>
+    </aside>
+
+    <main class="s-center">
+      <div class="row s-head">
+        <div>
+          <h2 id="s-count-title">Cortes e resumos</h2>
+          <span class="hint" id="s-source"></span>
+        </div>
+        <div class="grow"></div>
+        <div class="seg small" id="s-filter">
+          <button class="seg-btn active" data-v="all">Todos</button>
+          <button class="seg-btn" data-v="corte">Cortes</button>
+          <button class="seg-btn" data-v="resumo">Resumos</button>
+        </div>
+        <button class="btn" id="s-export-all">Exportar todos</button>
+      </div>
+      <div id="s-gen-progress" class="gen-progress hidden"><div class="spinner small"></div><span></span></div>
+      <div id="s-grid" class="clip-grid"></div>
+    </main>
+
+    <aside class="panel s-right">
+      <div class="phone">
+        <div class="phone-screen" id="s-screen">
+          <video id="svideo" playsinline preload="metadata" muted></video>
+          <div class="ph-title hidden" id="s-ph-title"></div>
+          <div class="ph-cap" id="s-cap"></div>
+          <div class="ph-empty" id="s-ph-empty">Escolha um corte para ver a prévia</div>
+        </div>
+        <div class="ph-controls">
+          <button class="btn icon round" id="s-play" aria-label="Reproduzir prévia">
+            <svg class="ico-play" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4l14 8-14 8z"/></svg>
+            <svg class="ico-pause hidden" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="4" width="5" height="16"/><rect x="14" y="4" width="5" height="16"/></svg>
+          </button>
+          <div class="bar ph-bar"><i id="s-ph-bar"></i></div>
+          <span class="mono hint" id="s-ph-time">0:00</span>
+          <button class="btn icon small ghost" id="s-mute" aria-label="Ligar ou desligar o som">
+            <svg class="ico-muted" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4z"/><path d="M23 9l-6 6M17 9l6 6"/></svg>
+            <svg class="ico-sound hidden" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/></svg>
+          </button>
+        </div>
+        <p class="hint center">Prévia aproximada · a legenda final segue exatamente o estilo escolhido</p>
+      </div>
+      <div id="s-clipedit" class="post-box hidden">
+        <strong>Textos deste corte</strong>
+        <label class="field">Título na tarja<input type="text" id="s-ed-hook" maxlength="90"></label>
+        <label class="field">Selo (chamada)<input type="text" id="s-ed-kicker" maxlength="34" placeholder="Ex.: PALAVRA DE HOJE"></label>
+        <a class="btn small" id="s-cover" download>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg>
+          Baixar capa (thumbnail)
+        </a>
+      </div>
+      <div id="s-post" class="post-box hidden">
+        <div class="row between"><strong>Texto para a publicação</strong><button class="btn small" id="s-copy-post">Copiar</button></div>
+        <p id="s-post-text"></p>
+      </div>
+      <div class="panel-title">Exportados</div>
+      <div class="jobs-box"></div>
+      <div class="renders-box"></div>
+    </aside>
+  </div>
+</section>
+
+<!-- Galeria de molduras + marca -->
+<dialog id="framesdlg">
+  <div class="styles-wrap">
+    <header class="row between"><div><h2>Moldura</h2><span class="hint">Prévias reais com um quadro do seu vídeo · vale para todos os cortes</span></div><button class="btn icon ghost" id="frames-close" aria-label="Fechar">✕</button></header>
+    <div id="frame-grid" class="style-grid frames"></div>
+    <div class="row end"><button class="btn" id="btn-frames-brand">Editar marca: logo, @ e redes sociais</button></div>
+  </div>
+</dialog>
+
+<!-- Kit de marca -->
+<dialog id="branddlg">
+  <div class="styles-wrap">
+    <header class="row between"><div><h2>Kit de marca dos vídeos</h2><span class="hint">Vale para todos os cortes, de todos os projetos</span></div><button class="btn icon ghost" id="brand-close" aria-label="Fechar">✕</button></header>
+    <div class="style-custom brand">
+      <label class="field">Seu @perfil<input type="text" id="br-handle" placeholder="@suaigreja" maxlength="40"></label>
+      <label class="field">Selo padrão<input type="text" id="br-kicker" placeholder="PALAVRA DE HOJE" maxlength="34"></label>
+      <label class="field">Cor da tarja / destaque<input type="color" id="br-color"></label>
+      <label class="field">Cor do texto<input type="color" id="br-text"></label>
+      <label class="field">Cor do fundo<input type="color" id="br-bg"></label>
+      <label class="checkline"><input type="checkbox" id="br-progress"> Barra de progresso</label>
+    </div>
+    <h3 class="sub-h">Logo pessoal (marca d'água, estilo logo de TV)</h3>
+    <div class="style-custom brand">
+      <div class="field">Logo
+        <div class="row">
+          <img id="br-logo-img" class="logo-thumb hidden" alt="Logo atual">
+          <label class="btn small" for="br-logo-file">Enviar logo</label>
+          <input type="file" id="br-logo-file" accept="image/*" hidden>
+          <button class="btn small ghost hidden" id="br-logo-del">Remover</button>
+        </div>
+      </div>
+      <label class="field">Posição
+        <select id="br-logo-pos">
+          <option value="auto">Automática (pela moldura)</option>
+          <option value="sup_esq">Canto superior esquerdo</option>
+          <option value="sup_dir">Canto superior direito</option>
+          <option value="inf_esq">Canto inferior esquerdo</option>
+          <option value="inf_dir">Canto inferior direito</option>
+        </select>
+      </label>
+      <label class="field">Tamanho
+        <select id="br-logo-size"><option value="p">Pequeno</option><option value="m">Médio</option><option value="g">Grande</option></select>
+      </label>
+      <label class="field"><span class="lbl">Transparência <b id="br-logo-op-out"></b></span><input type="range" min="20" max="100" step="5" id="br-logo-op"></label>
+    </div>
+    <p class="hint">Os selos das redes sociais (o seu @ entrando e saindo no vídeo) ficam no menu <b>Redes sociais</b>.</p>
+  </div>
+</dialog>
+
+<!-- Agendar publicação -->
+<dialog id="pubdlg">
+  <form method="dialog" class="settings" id="pub-form">
+    <header class="row between"><h2>Publicar nas redes</h2><button class="btn icon ghost" value="cancel" aria-label="Fechar">✕</button></header>
+    <div class="pub-head"><img id="pub-thumb" alt=""><div><b id="pub-label"></b><span class="hint" id="pub-meta"></span></div></div>
+    <fieldset><legend>Onde publicar</legend><div id="pub-nets" class="pub-nets"></div></fieldset>
+    <label>Título (YouTube)<input type="text" id="pub-title" maxlength="100"></label>
+    <label>Legenda da publicação<textarea id="pub-caption" rows="5" maxlength="2200"></textarea></label>
+    <fieldset><legend>Quando</legend>
+      <label class="checkline"><input type="radio" name="pub-when" value="slot" checked> No próximo horário livre da agenda</label>
+      <label class="checkline"><input type="radio" name="pub-when" value="now"> Agora</label>
+      <label class="checkline"><input type="radio" name="pub-when" value="at"> Em data e hora específicas</label>
+      <input type="datetime-local" id="pub-at" class="hidden">
+    </fieldset>
+    <label>Visibilidade
+      <select id="pub-privacy"><option value="public">Pública</option><option value="private">Privada (só eu vejo)</option></select>
+    </label>
+    <p class="err" id="pub-err"></p>
+    <footer class="row end"><button class="btn ghost" value="cancel">Cancelar</button><button class="btn primary" id="pub-ok" value="default">Aprovar e colocar na fila</button></footer>
+  </form>
+</dialog>
+
+<!-- App da rede (chaves do desenvolvedor) -->
+<dialog id="appdlg">
+  <form method="dialog" class="settings" id="app-form">
+    <header class="row between"><h2 id="app-title"></h2><button class="btn icon ghost" value="cancel" aria-label="Fechar">✕</button></header>
+    <div id="app-help" class="app-help"></div>
+    <label>Endereço de retorno (copie e cole no app da rede)<input type="text" id="app-redirect" readonly></label>
+    <label id="app-id-lbl">ID do app<input type="text" id="app-id" autocomplete="off"></label>
+    <label>Chave secreta<input type="password" id="app-secret" autocomplete="off"></label>
+    <footer class="row end"><button class="btn ghost" value="cancel">Cancelar</button><button class="btn primary" id="app-save" value="default">Salvar</button></footer>
+  </form>
+</dialog>
+
+<!-- Confirmação / renomear -->
+<dialog id="askdlg">
+  <form method="dialog" class="ask">
+    <h2 id="ask-title"></h2>
+    <p id="ask-text" class="hint"></p>
+    <input type="text" id="ask-input" class="hidden" maxlength="120">
+    <div class="row end">
+      <button class="btn ghost" value="cancel">Cancelar</button>
+      <button class="btn primary" id="ask-ok" value="ok">OK</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Galeria de estilos de legenda -->
+<dialog id="styles">
+  <div class="styles-wrap">
+    <header class="row between"><div><h2>Estilo da legenda</h2><span class="hint">Prévias reais, geradas com um quadro do seu vídeo</span></div><button class="btn icon ghost" id="styles-close" aria-label="Fechar">✕</button></header>
+    <div id="style-grid" class="style-grid"></div>
+    <div class="style-custom">
+      <label class="field">Fonte<select id="sc-font"></select></label>
+      <label class="field"><span class="lbl">Tamanho da letra <b id="sc-size-out"></b></span><input type="range" min="50" max="150" step="5" id="sc-size"></label>
+      <label class="field"><span class="lbl">Altura na tela <b id="sc-y-out"></b></span><input type="range" min="0" max="100" step="2" id="sc-y"></label>
+      <label class="field">Cor do texto<input type="color" id="sc-color"></label>
+      <label class="field">Cor de destaque<input type="color" id="sc-hl"></label>
+      <label class="checkline"><input type="checkbox" id="sc-upper"> MAIÚSCULAS</label>
+      <label class="field">Letras por linha <b id="sc-chars-out"></b><input type="range" min="8" max="42" id="sc-chars"></label>
+    </div>
+    <p class="hint" id="sc-band-note"></p>
+  </div>
+</dialog>
+
+<!-- Fechar com tarefas pendentes (programa do PC) -->
+<dialog id="closedlg">
+  <form method="dialog" class="settings">
+    <h2>Fechar o programa?</h2>
+    <p id="close-msg" class="hint"></p>
+    <footer class="row end">
+      <button class="btn ghost" value="cancel">Cancelar</button>
+      <button class="btn" id="close-force" value="force">Fechar mesmo assim</button>
+      <button class="btn primary" id="close-min" value="min">Minimizar e continuar</button>
+    </footer>
+  </form>
+</dialog>
+
+<!-- Configurações -->
+<dialog id="settings">
+  <form method="dialog" id="settings-form" class="settings">
+    <header class="row between"><h2>Configurações</h2><button class="btn icon ghost" value="cancel" aria-label="Fechar">✕</button></header>
+
+    <p class="hint">A chave da IA (Claude ou GPT) e a transcrição agora ficam no menu, em <a href="#/ia" data-close-settings>Inteligência artificial</a>.</p>
+    <fieldset>
+      <legend>Renderização</legend>
+      <div class="grid2">
+        <label>Codificador
+          <select name="render.encoder">
+            <option value="auto">Automático (usa a GPU se houver)</option>
+            <option value="h264_nvenc">NVIDIA (NVENC)</option>
+            <option value="h264_qsv">Intel (Quick Sync)</option>
+            <option value="h264_amf">AMD (AMF)</option>
+            <option value="libx264">Processador (x264)</option>
+          </select>
+        </label>
+        <label>Qualidade padrão
+          <select name="render.quality">
+            <option value="maxima">Máxima</option><option value="alta">Alta</option><option value="rapida">Rápida</option>
+          </select>
+        </label>
+      </div>
+      <p id="sys-info" class="hint"></p>
+    </fieldset>
+
+    <footer class="row end">
+      <button class="btn ghost" value="cancel">Cancelar</button>
+      <button class="btn primary" id="btn-save-settings" value="default">Salvar</button>
+    </footer>
+  </form>
+</dialog>
+
+<div id="toast" class="toast hidden"></div>
+<script src="app.js"></script>
+</body>
+</html>

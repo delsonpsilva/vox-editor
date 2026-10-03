@@ -1,0 +1,12 @@
+.venv
+dados
+teste_dados
+tests
+ffmpeg
+online/dados
+online/caddy
+**/__pycache__
+*.bat
+*.ps1
+online/docker-compose.override.yml
+.git

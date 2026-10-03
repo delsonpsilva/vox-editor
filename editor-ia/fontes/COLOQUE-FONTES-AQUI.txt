@@ -1,0 +1,2 @@
+Coloque aqui arquivos .ttf ou .otf para usar nas legendas (ex.: Montserrat-Bold.ttf).
+Depois escreva o nome da fonte no campo "Fonte" do painel.
