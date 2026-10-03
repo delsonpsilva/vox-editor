@@ -18,11 +18,15 @@ vermelho() { printf "\033[31m%s\033[0m\n" "$*"; }
 passo() { echo; printf "\033[36m[%s] %s\033[0m\n" "$1" "$2"; }
 
 compose() { (cd "$ON" && docker compose "$@"); }
-perfil() { grep -q '^MODO=caddy' "$ON/.env" 2>/dev/null && echo "--profile caddy" || true; }
+# Só o modo "caddy" (portas 80/443 livres) usa o Caddy próprio. Atenção: "caddy-docker" NÃO — ali o Caddy é
+# o do outro sistema, e ligar o nosso tomaria as portas 80/443 dele.
+perfil() { grep -qx 'MODO=caddy' "$ON/.env" 2>/dev/null && echo "--profile caddy" || true; }
 
 # ---------------------------------------------------------------- atualizar
 if [ "${1:-}" = "--atualizar" ]; then
   [ -f "$ON/.env" ] || { vermelho "Ainda não instalado. Rode sem --atualizar."; exit 1; }
+  # proteção: se o Caddy próprio existir mas não for o modo dele, remove (nunca disputar as portas 80/443)
+  if ! grep -qx 'MODO=caddy' "$ON/.env" 2>/dev/null; then docker rm -f editor-ia-https > /dev/null 2>&1 || true; fi
   passo 1/2 "Reconstruindo o container com a versão nova..."
   # shellcheck disable=SC2046
   compose $(perfil) up -d --build

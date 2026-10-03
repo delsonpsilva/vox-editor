@@ -107,6 +107,7 @@ verde "      OK"
 passo 4/5 "Reconstruindo o container (o editor fica fora do ar só alguns segundos no fim)..."
 if ! reconstruir; then
   vermelho "A construção falhou. Voltando para a versão anterior..."
+  (cd "$APP_DIR/online" && docker compose logs --tail 20 editor 2>/dev/null | sed 's/^/      /') || true
   git reset -q --hard "$ATUAL"; reconstruir || true
   vermelho "Ficou na versão $(versao_de "$ATUAL"), que já funcionava. Nada foi perdido."
   exit 1
