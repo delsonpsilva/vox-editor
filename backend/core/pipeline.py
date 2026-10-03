@@ -5,7 +5,7 @@ import json
 import time
 from pathlib import Path
 
-from ..engine import audio, edits, exports, frames, platforms, socials, reframe, render, seams, smartcuts, subtitles, transcribe
+from ..engine import audio, destaques, edits, exports, frames, platforms, socials, reframe, render, seams, smartcuts, subtitles, transcribe
 from ..engine import ffmpeg_tools as ff
 from . import store
 
@@ -293,6 +293,56 @@ def brand_settings(cfg: dict | None = None) -> dict:
     return b
 
 
+MUSICAS = store.BRAND_DIR / "musicas"
+
+
+def musica_path(nome: str) -> str | None:
+    if not nome or "/" in nome or "\\" in nome or nome.startswith("."):
+        return None
+    f = MUSICAS / nome
+    return str(f) if f.is_file() else None
+
+
+def destaques_do_trecho(pid: str, keeps: list[list[float]], st: dict, cfg: dict, progress=None) -> dict:
+    """Palavras-chave e emojis das palavras deste trecho. Com IA ligada, pergunta só o que ainda não perguntou
+    (fica guardado no projeto); sem IA, usa a escolha local. Nunca trava o render: se a IA falhar, segue sem ela."""
+    proj = store.load(pid)
+    words = proj.get("words") or []
+    if not words:
+        return {}
+    idxs = destaques.palavras_do_trecho(words, keeps)
+    local = destaques.locais(words)
+    ai = cfg.get("ai") or {}
+    salvo = proj.get("destaques_ia") or {"feitos": [], "mapa": {}}
+    feitos = set(salvo.get("feitos") or [])
+    usar_ia = st["subtitles"].get("ai_highlights", True) and ai.get("provider") not in (None, "none") and ai.get("api_key")
+    if usar_ia:
+        faltam = [i for i in idxs if i not in feitos]
+        if len(faltam) >= 8:
+            if progress:
+                progress(0.015, "A IA está escolhendo as palavras-chave e os emojis…")
+            try:
+                novo = destaques.com_ia(words, faltam, ai)
+
+                def fn(p):
+                    d = p.setdefault("destaques_ia", {"feitos": [], "mapa": {}})
+                    d["feitos"] = sorted(set(d.get("feitos") or []) | set(faltam))
+                    d.setdefault("mapa", {}).update({str(k): v for k, v in novo.items()})
+                salvo = store.update(pid, fn)["destaques_ia"]
+                feitos = set(salvo["feitos"])
+            except Exception as e:  # sem crédito, sem internet…: usa a escolha local
+                print("destaques com IA falharam:", e)
+    mapa = {}
+    for i in idxs:
+        if i in feitos:
+            d = (salvo.get("mapa") or {}).get(str(i))
+        else:
+            d = local.get(i)
+        if d:
+            mapa[str(i)] = d
+    return mapa
+
+
 def clip_framing(pid: str, clip_id: str) -> dict:
     proj = store.load(pid)
     clip = next((c for c in proj.get("clips", []) if c["id"] == clip_id), None)
@@ -332,6 +382,22 @@ def _render_keeps(pid: str, progress, keeps: list[list[float]], *, name: str, pl
         center_fn = None
 
     brand = brand_settings(cfg)
+    # destaques (palavras-chave, emojis, momentos fortes): só nos vídeos verticais/cortes com legenda
+    mapa: dict = {}
+    sub_cfg = st["subtitles"]
+    quer_kw = with_subs and sub_cfg.get("keywords", True)
+    quer_emoji = with_subs and sub_cfg.get("emojis", True) and bool(out_w) and media.get("has_video")
+    quer_zoom = bool(out_w) and st["studio"].get("emphasis_zoom", True) and media.get("has_video")
+    if proj.get("words") and (quer_kw or quer_emoji or quer_zoom):
+        mapa = destaques_do_trecho(pid, keeps, st, cfg, progress)
+    words_leg = destaques.marcar(proj.get("words") or [], mapa) if quer_kw else (proj.get("words") or [])
+    fortes = []
+    if quer_zoom:
+        try:
+            feats = audio.load_features(folder)
+        except Exception:
+            feats = None
+        fortes = destaques.momentos_fortes(proj.get("words") or [], feats, keeps, mapa)
     geom = frames.geometry(frame_layout if out_w and out_h and out_h > out_w else "cheia", out_w or 1920, out_h or 1080) \
         if out_w else None
 
@@ -347,7 +413,7 @@ def _render_keeps(pid: str, progress, keeps: list[list[float]], *, name: str, pl
         has_text = (with_subs and proj.get("words")) or (title and title_mode != "nao") or fevents
         if not has_text:
             return None
-        caps = subtitles.build_captions(proj["words"], tmap, st["subtitles"]) if with_subs and proj.get("words") else []
+        caps = subtitles.build_captions(words_leg, tmap, st["subtitles"]) if with_subs and proj.get("words") else []
         frame = {"styles": fstyles, "events": fevents, "sub_pos": g.get("sub"), "band_title": bool(g.get("title"))}
         tm = title_mode if not g.get("title") else "nao"
         return subtitles.to_ass(caps, st["subtitles"], w, h, title=title, title_mode=tm, total=tmap.total, frame=frame)
@@ -359,6 +425,16 @@ def _render_keeps(pid: str, progress, keeps: list[list[float]], *, name: str, pl
         g = frames.geometry(geom["layout"], out_w, out_h) if geom else frames.geometry("cheia", out_w, out_h)
         ovs = [socials.logo_overlay(g, brand, brand.get("logo_path"))]
         ovs += socials.icon_overlays(g, brand, platform, total, brand.get("icons") or {})
+        if quer_emoji and mapa:
+            x, y, tam = subtitles.emoji_box(sub_cfg, out_w, out_h, g.get("sub"))
+            for ev in destaques.eventos_emoji(proj.get("words") or [], mapa, snapped):
+                f = destaques.arquivo_emoji(ev["e"])
+                if not f:
+                    continue
+                s0, s1 = ev["s"], ev["fim"]
+                ovs.append({"path": str(f), "h": tam, "x": str(int(x - tam / 2)),
+                            "y": f"{y}+{int(tam * 0.18)}*(1-clip((t-{s0:.3f})/0.18,0,1))",
+                            "enable": f"between(t,{s0:.3f},{s1:.3f})", "fade": (s0, s1)})
         return [o for o in ovs if o]
 
     ext = "mp4" if media.get("has_video") else "m4a"
@@ -370,7 +446,9 @@ def _render_keeps(pid: str, progress, keeps: list[list[float]], *, name: str, pl
         "src": str(folder / proj["source"]), "folder": str(folder), "media": media, "keeps": keeps,
         "ducks": ed["active_ducks"], "out": str(out), "out_w": out_w, "out_h": out_h, "layout": layout,
         "center_fn": center_fn, "ass_builder": ass_builder if media.get("has_video") else None,
-        "zoom_cuts": zoom_cuts, "enhance": st["studio"].get("enhance", "auto"),
+        "zoom_cuts": zoom_cuts, "enhance": st["studio"].get("enhance", "auto"), "emphasis": fortes,
+        "audio_clean": bool(st["audio"].get("clean")), "music_path": musica_path(st["audio"].get("music", "")),
+        "music_volume": st["audio"].get("music_volume", 0.12),
         "geom": geom, "bg_color": brand.get("bg"), "overlay_builder": overlay_builder,
         "normalize": st["audio"]["normalize"], "target_lufs": st["audio"]["target_lufs"],
         "encoder": cfg["render"].get("encoder", "auto"),

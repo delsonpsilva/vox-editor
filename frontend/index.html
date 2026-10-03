@@ -2,7 +2,11 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e0f13">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
 <title>Editor IA</title>
 <link rel="stylesheet" href="style.css">
 </head>
@@ -95,7 +99,12 @@
       <section class="page hidden" id="pg-projetos">
         <header class="page-head">
           <div><h1>Projetos</h1><p>Cada vídeo enviado vira um projeto, com a edição, os cortes e os exportados.</p></div>
-          <label class="btn primary" for="file-input-2">Novo projeto<input id="file-input-2" type="file" accept="video/*,audio/*,.mkv,.mov,.mxf" hidden></label>
+          <div class="row wrap head-actions">
+            <button type="button" class="btn pc-only" id="btn-from-online">Trazer do online</button>
+            <label class="btn" for="vox-input" title="Abre um projeto salvo em outra instalação (arquivo .vox), sem perder nada">Importar projeto (.vox)
+              <input id="vox-input" type="file" accept=".vox,application/zip" hidden></label>
+            <label class="btn primary" for="file-input-2">Novo projeto<input id="file-input-2" type="file" accept="video/*,audio/*,.mkv,.mov,.mxf" hidden></label>
+          </div>
         </header>
         <div class="toolbar">
           <label class="search"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
@@ -161,6 +170,19 @@
             <label class="field">Enquadramento 9:16
               <select id="m-layout"><option value="face">Seguir o rosto de quem fala</option><option value="center">Centro da imagem</option><option value="blur">Vídeo inteiro com fundo desfocado</option></select>
             </label>
+          </div>
+        </section>
+        <section class="pane">
+          <h2>Destaques e áudio padrão</h2>
+          <div class="style-custom">
+            <label class="checkline"><input type="checkbox" id="m-kw"> Pintar as palavras-chave na legenda
+              <input type="color" id="m-kwcolor" class="mini-color" aria-label="Cor das palavras-chave"></label>
+            <label class="checkline"><input type="checkbox" id="m-emoji"> Emojis nos momentos marcantes</label>
+            <label class="checkline"><input type="checkbox" id="m-emph"> Aproximar a câmera quando a fala fica mais forte</label>
+            <label class="checkline"><input type="checkbox" id="m-clean"> Voz de estúdio (tira chiado, eco e ronco)</label>
+            <label class="field">Música de fundo<select id="m-music"><option value="">Sem música</option></select></label>
+            <label class="field"><span class="lbl">Volume da música <b id="m-musicvol-out"></b></span>
+              <input type="range" min="2" max="40" step="1" id="m-musicvol"></label>
           </div>
         </section>
         <div class="row end"><label class="checkline"><input type="checkbox" id="m-apply-all"> Aplicar também nos projetos que já existem</label>
@@ -354,6 +376,9 @@
         <a data-export="srt">Legendas SRT (vídeo editado)</a>
         <a data-export="srt-original">Legendas SRT (vídeo original)</a>
         <a data-export="txt">Transcrição em texto</a>
+        <hr>
+        <a id="exp-pacote">Projeto completo (.vox) para abrir em outra instalação</a>
+        <a id="exp-online" class="pc-only">Enviar este projeto para o online</a>
       </div>
     </div>
     <div class="menu-wrap edit-only">
@@ -510,6 +535,32 @@
         </label>
         <label class="checkline"><input type="checkbox" id="s-subs"> Legendas no vídeo</label>
         <label class="checkline"><input type="checkbox" id="s-zoom"> Disfarçar emendas com zoom (corte de câmera)</label>
+      </section>
+
+      <section class="s-sec look">
+        <h3>Destaques <span class="tag-new">novo</span></h3>
+        <label class="checkline"><input type="checkbox" id="s-kw"> Pintar as palavras-chave na legenda
+          <input type="color" id="s-kwcolor" class="mini-color" aria-label="Cor das palavras-chave"></label>
+        <label class="checkline"><input type="checkbox" id="s-emoji"> Emojis nos momentos marcantes</label>
+        <label class="checkline"><input type="checkbox" id="s-emph"> Aproximar a câmera quando a fala fica mais forte</label>
+        <p class="hint" id="s-kw-hint"></p>
+      </section>
+
+      <section class="s-sec look">
+        <h3>Áudio <span class="tag-new">novo</span></h3>
+        <label class="checkline"><input type="checkbox" id="s-clean"> Voz de estúdio (tira chiado, eco e ronco)</label>
+        <label class="field">Música de fundo
+          <select id="s-music"><option value="">Sem música</option></select>
+        </label>
+        <label class="field" id="s-musicvol-wrap"><span class="lbl">Volume da música <b id="s-musicvol-out"></b></span>
+          <input type="range" min="2" max="40" step="1" id="s-musicvol"></label>
+        <div class="row wrap">
+          <label class="btn small" for="s-music-file">Enviar música<input type="file" id="s-music-file" accept="audio/*,.mp3,.m4a,.wav,.ogg,.flac" hidden></label>
+          <button type="button" class="btn small ghost hidden" id="s-music-play">Ouvir</button>
+        </div>
+        <audio id="s-music-audio" preload="none"></audio>
+        <p class="hint">A música abaixa sozinha quando a pessoa fala e volta nas pausas. Vale para os cortes e para o vídeo editado.
+          Use só músicas que você tem direito de usar.</p>
       </section>
     </aside>
 
@@ -727,12 +778,66 @@
       <p id="sys-info" class="hint"></p>
     </fieldset>
 
+    <fieldset class="pc-only" id="fs-senha">
+      <legend>Senha do programa</legend>
+      <p class="hint" id="pw-status"></p>
+      <div class="grid2">
+        <label id="pw-cur-wrap">Senha atual<input type="password" id="pw-cur" autocomplete="current-password"></label>
+        <label>Senha nova<input type="password" id="pw-new" autocomplete="new-password" placeholder="mínimo 4 caracteres"></label>
+        <label>Repita a senha nova<input type="password" id="pw-new2" autocomplete="new-password"></label>
+      </div>
+      <div class="row end">
+        <button type="button" class="btn ghost hidden" id="pw-remove">Tirar a senha</button>
+        <button type="button" class="btn" id="pw-save">Salvar senha</button>
+      </div>
+    </fieldset>
+
+    <fieldset class="pc-only" id="fs-online">
+      <legend>Versão online</legend>
+      <p class="hint">Liga este programa ao seu editor online, para enviar projetos, trazer de volta e copiar as configurações.</p>
+      <div class="grid2">
+        <label>Endereço<input type="url" id="on-url" placeholder="https://editor.voxapps.app"></label>
+        <label>Senha do online<input type="password" id="on-pass" autocomplete="off"></label>
+      </div>
+      <p class="hint" id="on-msg"></p>
+      <div class="row end wrap">
+        <button type="button" class="btn" id="on-test">Salvar e testar</button>
+        <button type="button" class="btn" id="on-copy">Copiar configurações para o online</button>
+      </div>
+      <p class="hint">Copia as chaves de IA, a transcrição, a marca, a logo, os modelos, as músicas e a agenda de postagem.
+        As contas das redes sociais não vão: conecte-as no online, que fica ligado 24 horas para a autopostagem.</p>
+    </fieldset>
+
     <footer class="row end">
       <button class="btn ghost" value="cancel">Cancelar</button>
       <button class="btn primary" id="btn-save-settings" value="default">Salvar</button>
     </footer>
   </form>
 </dialog>
+
+<!-- Trazer do online -->
+<dialog id="onlinedlg">
+  <form method="dialog" class="settings">
+    <header class="row between"><h2>Trazer do online</h2><button class="btn icon ghost" value="cancel" aria-label="Fechar">✕</button></header>
+    <p class="hint">Escolha o projeto do seu editor online. Ele vem completo (vídeo, edição, cortes e exportados) e não é analisado de novo.</p>
+    <div id="online-list" class="online-list"><p class="hint">Carregando…</p></div>
+  </form>
+</dialog>
+
+<div id="xfer" class="xfer hidden" role="status" aria-live="polite">
+  <div class="row between"><b id="xfer-title"></b><button class="btn icon small ghost" id="xfer-close" aria-label="Esconder">✕</button></div>
+  <span id="xfer-msg" class="hint"></span>
+  <div class="bar"><i id="xfer-bar"></i></div>
+</div>
+
+<!-- Menu de baixo (celular) -->
+<nav class="bottom-nav" aria-label="Menu">
+  <a href="#/" data-page="inicio"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg><span>Início</span></a>
+  <a href="#/projetos" data-page="projetos"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 9h18M8 4v5M16 4v5"/></svg><span>Projetos</span></a>
+  <a href="#/exportados" data-page="exportados"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg><span>Exportados</span></a>
+  <a href="#/publicacoes" data-page="publicacoes"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span>Postagens</span></a>
+  <button type="button" id="bn-more"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg><span>Mais</span></button>
+</nav>
 
 <div id="toast" class="toast hidden"></div>
 <script src="app.js"></script>

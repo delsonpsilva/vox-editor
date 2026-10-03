@@ -199,7 +199,13 @@ class Api:
             return None
         dest = r if isinstance(r, str) else r[0]
         src = url if url.startswith("http") else f"http://127.0.0.1:{PORT}{url}"
-        with urllib.request.urlopen(src) as resp, open(dest, "wb") as fh:
+        req = urllib.request.Request(src)
+        try:  # com senha ligada, a janela se identifica pelo código interno (mesmo processo do servidor)
+            from .app import INTERNO
+            req.add_header("X-Vox-Interno", INTERNO)
+        except Exception:
+            pass
+        with urllib.request.urlopen(req) as resp, open(dest, "wb") as fh:
             while True:
                 buf = resp.read(4 * 1024 * 1024)
                 if not buf:

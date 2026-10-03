@@ -24,7 +24,8 @@ echo "Endereço do repositório no GitHub. Pode colar o link inteiro"
 read -rp "(ex.: https://github.com/seunome/vox-editor): " REPO
 REPO=$(echo "$REPO" | tr -d ' ' | sed -E 's#^(https?://)?(www\.)?github\.com[/:]##; s#^git@github\.com:##; s#\.git$##; s#/+$##')
 if ! [[ "$REPO" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then vermelho "Não entendi o endereço: '$REPO'. Use o formato seunome/repositorio."; exit 1; fi
-read -rp "Ramo [main]: " RAMO; RAMO=${RAMO:-main}
+read -rp "Ramo (só aperte Enter) [main]: " RAMO; RAMO=${RAMO:-main}
+if ! [[ "$RAMO" =~ ^[A-Za-z0-9._/-]+$ ]]; then amarelo "'$RAMO' não é um nome de ramo; usando main."; RAMO=main; fi
 
 passo 1/4 "Conferindo o git..."
 command -v git > /dev/null || { apt-get update -qq && apt-get install -y -qq git > /dev/null; }
@@ -69,6 +70,11 @@ fi
 verde "      OK - a VPS consegue ler o repositório"
 
 passo 3/4 "Baixando o código..."
+if [ -z "$(git ls-remote --heads "$APELIDO:$REPO.git" "$RAMO")" ]; then
+  vermelho "O repositório ainda não tem o ramo '$RAMO' (está vazio?)."
+  vermelho "No PC, rode o PUBLICAR.bat até aparecer \"Pronto!\" e depois rode de novo:  bash /root/preparar-voxeditor.sh"
+  exit 1
+fi
 mkdir -p "$BASE_DIR/dados" "$BASE_DIR/backups"
 if [ -d "$APP_DIR/.git" ]; then
   git -C "$APP_DIR" fetch -q origin "$RAMO" && git -C "$APP_DIR" reset -q --hard "origin/$RAMO"

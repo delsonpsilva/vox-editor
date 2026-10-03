@@ -11,15 +11,17 @@ import time
 import webbrowser
 from pathlib import Path
 
+import httpx
+
 from fastapi import Body, FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from .core import importer, jobs, pipeline, publish, store
+from .core import importer, jobs, online, pacote, pipeline, publish, store
 from .engine import edits, frames, platforms, reframe, socials, subtitles, transcribe
 from .engine import ffmpeg_tools as ff
 
-VERSION = "0.8.1"
+VERSION = "0.9.0"
 FRONT = store.ROOT / "frontend"
 PASSWORD = os.environ.get("APP_PASSWORD", "")
 SECRET = os.environ.get("APP_SECRET") or secrets.token_hex(16)
@@ -43,17 +45,40 @@ def _start_scheduler():
                 pass
 
 
+# Senha: na versão online vem do instalador (APP_PASSWORD); no PC é opcional, criada em Configurações.
+INTERNO = secrets.token_hex(16)  # a janela do PC (mesmo processo) usa este código para baixar arquivos
+_LIVRES = ("/api/login", "/api/status", "/api/meta")
+_RE_OAUTH = re.compile(r"^/api/oauth/[a-z]+/(start|callback)$")  # o login das redes abre no navegador
+
+
+def _senha_base() -> str:
+    return PASSWORD or store.password_hash()
+
+
 def _token() -> str:
-    return hmac.new(SECRET.encode(), PASSWORD.encode(), hashlib.sha256).hexdigest()
+    return hmac.new(SECRET.encode(), _senha_base().encode(), hashlib.sha256).hexdigest()
+
+
+def _local(request: Request) -> bool:
+    return (request.client.host if request.client else "") in ("127.0.0.1", "::1", "localhost")
 
 
 @app.middleware("http")
 async def auth(request: Request, call_next):
-    """Senha opcional para a versão online (variável APP_PASSWORD). No PC não é usada."""
-    if PASSWORD and request.url.path.startswith("/api/") and request.url.path not in ("/api/login", "/api/status"):
-        if not hmac.compare_digest(request.cookies.get("editor_auth", ""), _token()):
+    path = request.url.path
+    if path.startswith("/api/") and path not in _LIVRES and not _RE_OAUTH.match(path) and _senha_base():
+        interno = request.headers.get("x-vox-interno", "")
+        ok = (interno and _local(request) and hmac.compare_digest(interno, INTERNO)) \
+            or hmac.compare_digest(request.cookies.get("editor_auth", ""), _token())
+        if not ok:
             return JSONResponse({"detail": "login necessário"}, status_code=401)
     return await call_next(request)
+
+
+def _cookie(r: Response) -> Response:
+    r.set_cookie("editor_auth", _token(), httponly=True, samesite="lax", secure=HTTPS,
+                 max_age=60 * 60 * 24 * 30)
+    return r
 
 
 def _404(fn):
@@ -98,7 +123,8 @@ def status():
         encs, ff_ok = {}, False
     return {"version": VERSION, "ffmpeg": ff_ok, "encoders": encs,
             "encoder": ff.best_encoder() if ff_ok else None, "local_transcription": transcribe.local_available(),
-            "gpu_transcription": transcribe._cuda_available(), "login_required": bool(PASSWORD),
+            "gpu_transcription": transcribe._cuda_available(), "login_required": bool(_senha_base()),
+            "online_mode": bool(PASSWORD),
             "name": store.load_config()["app"].get("name", "Editor IA"),
             "tagline": store.load_config()["app"].get("tagline", ""),
             "accent": store.load_config()["app"].get("accent", "#FF8A3D"),
@@ -126,16 +152,31 @@ def login(request: Request, data: dict = Body(...)):
     if len(falhas) >= 5:
         espera = int(900 - (agora - falhas[0])) // 60 + 1
         raise HTTPException(429, f"Muitas tentativas erradas. Tente de novo em {espera} min.")
-    if not PASSWORD or not hmac.compare_digest(str(data.get("password", "")), PASSWORD):
+    pw = str(data.get("password", ""))
+    certo = hmac.compare_digest(pw, PASSWORD) if PASSWORD else store.check_password(pw)
+    if not certo:
         falhas.append(agora)
         _FALHAS[ip] = falhas
         time.sleep(1)
         raise HTTPException(401, "Senha incorreta")
     _FALHAS.pop(ip, None)
-    r = JSONResponse({"ok": True})
-    r.set_cookie("editor_auth", _token(), httponly=True, samesite="lax", secure=HTTPS,
-                 max_age=60 * 60 * 24 * 30)
-    return r
+    return _cookie(JSONResponse({"ok": True}))
+
+
+@app.post("/api/security/password")
+def set_pc_password(data: dict = Body(...)):
+    """Cria, troca ou tira a senha do programa do PC. Na versão online a senha vem do instalador."""
+    if PASSWORD:
+        raise HTTPException(400, "Na versão online, a senha é definida pelo instalador da VPS.")
+    atual, nova = str(data.get("current", "")), str(data.get("new", ""))
+    if store.password_hash() and not store.check_password(atual):
+        time.sleep(1)
+        raise HTTPException(401, "A senha atual não confere.")
+    if nova and len(nova) < 4:
+        raise HTTPException(400, "A senha precisa ter pelo menos 4 caracteres.")
+    store.set_password(nova)
+    r = JSONResponse({"ok": True, "password_set": bool(nova)})
+    return _cookie(r) if nova else r
 
 
 @app.get("/api/settings")
@@ -415,7 +456,7 @@ def import_link(data: dict = Body(...)):
 
 
 def _is_local(request: Request) -> bool:
-    return not PASSWORD and (request.client.host if request.client else "") in ("127.0.0.1", "::1", "localhost")
+    return not PASSWORD and _local(request)
 
 
 @app.post("/api/projects/path")
@@ -431,6 +472,110 @@ def import_path(request: Request, data: dict = Body(...)):
     store.update(pid, lambda p: p.update(status="baixando", progress={"pct": 0, "msg": "Preparando o vídeo…"}))
     _import_job(pid, "importar", lambda step: (importer.from_path(pid, str(src), step), ""))
     return view(store.load(pid))
+
+
+# ---------- pacote do projeto (.vox) e ligação PC ↔ online ----------
+
+@app.get("/api/projects/{pid}/pacote")
+def baixar_pacote(pid: str):
+    """Baixa o projeto inteiro num arquivo .vox, para abrir em outra instalação (PC ↔ online) sem perder nada."""
+    proj = _404(lambda: store.load(pid))
+    from urllib.parse import quote
+    nome = pacote.nome_arquivo(proj)
+    return StreamingResponse(pacote.gerar(pid), media_type="application/zip", headers={
+        "Content-Disposition": f"attachment; filename*=UTF-8''{quote(nome)}",
+        "X-Vox-Bytes": str(pacote.tamanho(pid))})
+
+
+@app.post("/api/projects/importar-pacote")
+async def importar_pacote(request: Request):
+    """Recebe um .vox (do botão "Importar projeto do PC" ou do "Enviar para o online") e abre como estava."""
+    tmp = store.DATA / f"_recebendo-{secrets.token_hex(6)}.vox"
+    size, limit = 0, (MAX_UPLOAD_GB + 2) * 1024 ** 3
+    try:
+        with open(tmp, "wb") as fh:
+            async for chunk in request.stream():
+                size += len(chunk)
+                if size > limit:
+                    raise HTTPException(413, f"Projeto maior que {MAX_UPLOAD_GB:g} GB")
+                fh.write(chunk)
+        if size == 0:
+            raise HTTPException(400, "Arquivo vazio")
+        import asyncio
+        try:
+            proj = await asyncio.get_running_loop().run_in_executor(None, pacote.importar, tmp)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+    finally:
+        tmp.unlink(missing_ok=True)
+    return view(proj)
+
+
+@app.post("/api/sync/config")
+def receber_config(data: dict = Body(...)):
+    """Lado do online: recebe as configurações copiadas do PC."""
+    return {"ok": True, "updated": online.aplicar_config(data)}
+
+
+def _so_pc():
+    if PASSWORD:
+        raise HTTPException(400, "Esta opção é do programa do PC.")
+
+
+def _falha_online(fn):
+    try:
+        return fn()
+    except RuntimeError as e:
+        raise HTTPException(400, str(e))
+    except httpx.HTTPError as e:
+        raise HTTPException(400, f"Falha de conexão com o online: {e}")
+
+
+@app.put("/api/online/config")
+def online_config(data: dict = Body(...)):
+    _so_pc()
+    store.save_config({"online": {"url": data.get("url", ""), "password": data.get("password", "")}})
+    return store.public_config(store.load_config())["online"]
+
+
+@app.post("/api/online/testar")
+def online_testar():
+    _so_pc()
+    return _falha_online(online.testar)
+
+
+@app.post("/api/online/copiar-config")
+def online_copiar():
+    _so_pc()
+    return _falha_online(online.copiar_config)
+
+
+@app.get("/api/online/projetos")
+def online_projetos():
+    _so_pc()
+    return _falha_online(online.projetos_online)
+
+
+@app.post("/api/projects/{pid}/enviar-online")
+def enviar_online(pid: str):
+    _so_pc()
+    proj = _404(lambda: store.load(pid))
+    if proj.get("status") != "pronto":
+        raise HTTPException(400, "Espere a análise terminar antes de enviar.")
+    _falha_online(lambda: online._cfg())
+    jobs.submit("enviar", pid, lambda pr: online.enviar_projeto(pid, pr), queue="download", label="Enviando para o online")
+    return view(store.load(pid))
+
+
+@app.post("/api/online/trazer/{rid}")
+def trazer_online(rid: str):
+    _so_pc()
+    if any(c not in "0123456789abcdef" for c in rid):
+        raise HTTPException(400, "Projeto inválido")
+    _falha_online(lambda: online._cfg())
+    job = jobs.submit("trazer", "_online", lambda pr: online.trazer_projeto(rid, pr), queue="download",
+                      label="Trazendo do online")
+    return job
 
 
 @app.get("/api/projects/{pid}")
@@ -719,6 +864,66 @@ def brand_icon_get(net: str):
     return FileResponse(f, media_type="image/png", headers={"Cache-Control": "no-cache"})
 
 
+# ---------- músicas de fundo ----------
+
+_AUDIO_OK = (".mp3", ".m4a", ".aac", ".wav", ".ogg", ".opus", ".flac")
+
+
+@app.get("/api/musicas")
+def musicas():
+    pipeline.MUSICAS.mkdir(parents=True, exist_ok=True)
+    out = []
+    for f in sorted(pipeline.MUSICAS.iterdir()):
+        if f.is_file() and f.suffix.lower() in _AUDIO_OK:
+            try:
+                dur = ff.probe(str(f)).get("duration", 0)
+            except Exception:
+                dur = 0
+            out.append({"nome": f.name, "duracao": round(dur or 0, 1), "tamanho": f.stat().st_size})
+    return out
+
+
+@app.post("/api/musicas")
+async def musica_enviar(request: Request):
+    from urllib.parse import unquote
+    nome = re.sub(r"[\\/:*?\"<>|]+", "_", unquote(request.headers.get("x-filename", "musica.mp3"))).strip()
+    if not nome or nome.startswith(".") or Path(nome).suffix.lower() not in _AUDIO_OK:
+        raise HTTPException(400, "Envie uma música em MP3, M4A, WAV, OGG ou FLAC.")
+    pipeline.MUSICAS.mkdir(parents=True, exist_ok=True)
+    dest = pipeline.MUSICAS / nome
+    size = 0
+    with open(dest, "wb") as fh:
+        async for chunk in request.stream():
+            size += len(chunk)
+            if size > 60 * 1024 * 1024:
+                fh.close()
+                dest.unlink(missing_ok=True)
+                raise HTTPException(413, "Música muito grande (máx. 60 MB)")
+            fh.write(chunk)
+    try:
+        ff.probe(str(dest))
+    except Exception:
+        dest.unlink(missing_ok=True)
+        raise HTTPException(400, "Não consegui ler esse arquivo de áudio.")
+    return musicas()
+
+
+@app.get("/api/musicas/{nome}")
+def musica_ouvir(nome: str):
+    f = pipeline.musica_path(nome)
+    if not f:
+        raise HTTPException(404, "Música não encontrada")
+    return FileResponse(f)
+
+
+@app.delete("/api/musicas/{nome}")
+def musica_apagar(nome: str):
+    f = pipeline.musica_path(nome)
+    if f:
+        Path(f).unlink(missing_ok=True)
+    return musicas()
+
+
 # ---------- modelos padrão ----------
 
 @app.get("/api/defaults")
@@ -732,7 +937,7 @@ def get_defaults():
 def put_defaults(data: dict = Body(...)):
     cfg = store.load_config()
     d = cfg.get("defaults") or {}
-    for sec in ("subtitles", "studio"):
+    for sec in ("subtitles", "studio", "audio"):
         if isinstance(data.get(sec), dict):
             d[sec] = {**(d.get(sec) or {}), **data[sec]}
     store.save_config({"defaults": d})
@@ -741,7 +946,7 @@ def put_defaults(data: dict = Body(...)):
         for p in store.list_projects():
             def fn(proj):
                 st = proj.setdefault("settings", {})
-                for sec in ("subtitles", "studio"):
+                for sec in ("subtitles", "studio", "audio"):
                     if isinstance(data.get(sec), dict):
                         st[sec] = {**(st.get(sec) or {}), **data[sec]}
             store.update(p["id"], fn)

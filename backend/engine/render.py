@@ -10,6 +10,7 @@ from typing import Callable, Optional
 
 import numpy as np
 
+from . import destaques
 from . import ffmpeg_tools as ff
 from .edits import snap_keeps
 
@@ -88,6 +89,42 @@ def build_audio(raw_src: Path, keeps: list[list[float]], ducks: list[list[float]
                 fo.write(np.clip(blk, -32768, 32767).astype(np.int16).tobytes())
                 written += len(blk)
     return written / ASR
+
+
+# Voz de estúdio: corta o ronco grave, tira o chiado constante (ar-condicionado, ventilador, som da igreja),
+# tira o "abafado", dá presença e segura os picos. Suave de propósito: melhora sem deixar a voz robótica.
+VOZ_LIMPA = ("highpass=f=80,afftdn=nr=12:nf=-35:tn=1,"
+             "equalizer=f=250:t=q:w=1.0:g=-2.5,equalizer=f=3200:t=q:w=1.2:g=3,equalizer=f=9000:t=q:w=1.5:g=1.5,"
+             "acompressor=threshold=-20dB:ratio=3:attack=8:release=140:makeup=2,alimiter=limit=0.95:level=disabled")
+
+
+def post_audio(raw: Path, total: float, job: dict, out: Path) -> Path:
+    """Limpeza da voz e música de fundo (que abaixa sozinha quando a pessoa fala e sobe nas pausas).
+    Devolve o arquivo de áudio final (ou o mesmo, se nada foi pedido)."""
+    clean = bool(job.get("audio_clean"))
+    music = job.get("music_path")
+    if music and not Path(music).exists():
+        music = None
+    if not clean and not music:
+        return raw
+    args = [ff.ffmpeg(), "-y", "-hide_banner", "-loglevel", "error",
+            "-f", "s16le", "-ar", str(ASR), "-ac", str(CH), "-i", str(raw)]
+    voz = VOZ_LIMPA if clean else "anull"
+    if music:
+        vol = max(0.0, min(1.0, float(job.get("music_volume", 0.12))))
+        fade_out = max(0.0, total - 2.5)
+        args += ["-stream_loop", "-1", "-i", str(music)]
+        graph = (f"[0:a]{voz}[v];[v]asplit=2[va][vs];"
+                 f"[1:a]aresample={ASR},aformat=sample_fmts=fltp:channel_layouts=stereo,volume={vol:.3f},"
+                 f"atrim=0:{total + 0.5:.3f},afade=t=in:d=1.5,afade=t=out:st={fade_out:.3f}:d=2.5[m];"
+                 "[m][vs]sidechaincompress=threshold=0.025:ratio=10:attack=20:release=450:makeup=1[md];"
+                 "[va][md]amix=inputs=2:duration=first:normalize=0[out]")
+    else:
+        graph = f"[0:a]{voz}[out]"
+    args += ["-filter_complex", graph, "-map", "[out]", "-t", f"{total:.4f}",
+             "-f", "s16le", "-ar", str(ASR), "-ac", str(CH), "-c:a", "pcm_s16le", str(out)]
+    ff.run(args)
+    return out
 
 
 def measure_loudness(raw: Path, target: float) -> Optional[dict]:
@@ -207,8 +244,11 @@ def _layout_chain(job: dict, keeps: list[list[float]], w: int, h: int) -> tuple[
     if enhance != "off" and (upscale > 1.25 or enhance == "on"):
         chain.append("hqdn3d=1.5:1.5:3:3")  # tira o "chuvisco" antes de ampliar
     zooms = _zoom_levels(keeps) if job.get("zoom_cuts") else [1.0]
-    if len(set(zooms)) > 1:
-        zexpr = _piecewise(zooms, keeps, fmt=lambda v: f"{v:.2f}")
+    fortes = job.get("emphasis") or []
+    if len(set(zooms)) > 1 or fortes:
+        zexpr = _piecewise(zooms, keeps, fmt=lambda v: f"{v:.2f}") if len(set(zooms)) > 1 else "1"
+        if fortes:  # aproxima devagar nos momentos fortes da fala e volta
+            zexpr = f"({zexpr})*{destaques.expr_zoom(fortes)}"
         chain.append(f"scale=w='trunc({out_w}*({zexpr})/2)*2':h='trunc({out_h}*({zexpr})/2)*2':eval=frame{lanczos}")
         # recorta o centro, um pouco acima do meio (o rosto fica no terço de cima)
         chain.append(f"crop={out_w}:{out_h}:'(in_w-{out_w})/2':'(in_h-{out_h})*0.35'")
@@ -268,6 +308,10 @@ def frame_graph(job: dict, keeps: list[list[float]], src_label: str, folder: Pat
     for n, (idx, ov) in enumerate(overlays or []):
         op = max(0.05, min(1.0, float(ov.get("opacity", 1.0))))
         alpha = f",colorchannelmixer=aa={op:.2f}" if op < 0.999 else ""
+        if ov.get("fade"):  # emoji: aparece e some suave
+            a, b = ov["fade"]
+            alpha += (f",fade=t=in:st={a:.3f}:d=0.15:alpha=1,"
+                      f"fade=t=out:st={max(a + 0.2, b - 0.25):.3f}:d=0.25:alpha=1")
         parts.append(f"[{idx}:v]scale=-1:{int(ov['h'])}:flags=lanczos,format=rgba{alpha}[ov{n}]")
         en = f":enable='{ov['enable']}'" if ov.get("enable") else ""
         out = "[v]" if n == len(overlays) - 1 else f"[ovo{n}]"
@@ -300,6 +344,12 @@ def render(job: dict, progress: Optional[Callable[[float, str], None]] = None) -
     ensure_render_audio(job["src"], raw_src)
     out_raw = folder / f"tmp_{tag}.raw"
     total = build_audio(raw_src, keeps, job.get("ducks") or [], out_raw)
+    if job.get("audio_clean") or job.get("music_path"):
+        p(0.06, "Limpando a voz e mixando a música…" if job.get("music_path") else "Limpando a voz…")
+        mixed = post_audio(out_raw, total, job, folder / f"tmp_{tag}.mix.raw")
+        if mixed != out_raw:
+            out_raw.unlink(missing_ok=True)
+            out_raw = mixed
     af = None
     if job.get("normalize", True):
         p(0.08, "Medindo volume (normalização)…")

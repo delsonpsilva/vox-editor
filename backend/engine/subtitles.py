@@ -63,7 +63,10 @@ def build_captions(words: list[dict], tmap: TimeMap | None, cfg: dict,
         text = w["w"].strip()
         if not text:
             continue
-        out_words.append({"w": text.upper() if upper else text, "s": max(0.0, s), "e": max(s + 0.04, e)})
+        item = {"w": text.upper() if upper else text, "s": max(0.0, s), "e": max(s + 0.04, e)}
+        if w.get("kw"):
+            item["kw"] = True
+        out_words.append(item)
     out_words.sort(key=lambda x: x["s"])
 
     blocks, cur = [], []
@@ -237,6 +240,11 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     pos_tag = f"\\an5\\pos({sub_pos[0]},{sub_pos[1]})" if sub_pos else ""
     hlc = _c(hl)
     blur = "\\blur6" if style == "neon" else ""
+    # palavras-chave: cor própria (desligue em "Destacar palavras-chave")
+    kwc = _c(cfg.get("keyword_color") or "#39E75F") if cfg.get("keywords", True) else None
+
+    def kw(w, t):
+        return f"{{\\c{kwc}}}{t}{{\\c{_c(col)}}}" if kwc and w.get("kw") else t
 
     def line_text(c, active=None, mode=""):
         """Monta o texto do bloco. active = índice global da palavra falada."""
@@ -246,19 +254,20 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             for w in line:
                 t = _esc(w["w"])
                 if active is None:
-                    ws.append(t)
+                    ws.append(kw(w, t))
                 elif mode == "palavra_ativa":
-                    ws.append(f"{{\\c{hlc}\\fscx112\\fscy112}}{t}{{\\r}}" if idx == active else t)
+                    ws.append(f"{{\\c{hlc}\\fscx112\\fscy112}}{t}{{\\r}}" if idx == active else kw(w, t))
                 elif mode == "neon":
-                    ws.append(f"{{\\c{hlc}\\blur10}}{t}{{\\r\\blur6}}" if idx == active else t)
+                    ws.append(f"{{\\c{hlc}\\blur10}}{t}{{\\r\\blur6}}" if idx == active else kw(w, t))
                 elif mode == "box_front":  # palavra ativa visível, demais invisíveis (camada da caixa)
                     ws.append(f"{{\\alpha&H00&}}{t}{{\\alpha&HFF&}}" if idx == active else t)
                 elif mode == "box_back":  # demais visíveis, palavra ativa invisível
-                    ws.append(f"{{\\alpha&HFF&}}{t}{{\\alpha&H00&\\4a&H90&}}" if idx == active else t)
+                    ws.append(f"{{\\alpha&HFF&}}{t}{{\\alpha&H00&\\4a&H90&}}" if idx == active else kw(w, t))
                 idx += 1
             parts.append(" ".join(ws))
         return "\\N".join(parts)
 
+    tem_kw = bool(kwc) and any(x.get("kw") for c2 in caps for l2 in c2["lines"] for x in l2)
     for c in caps:
         flat = [w for line in c["lines"] for w in line]
         if style in PER_WORD:
@@ -286,7 +295,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             ev.append(f"Dialogue: 0,{_ts_ass(c['s'])},{_ts_ass(c['e'])},Default,,0,0,0,," + "\\N".join(parts))
         elif style == "uma_palavra":
             w = flat[0]
-            strong = len(w["w"].strip(".,!?…")) >= 6
+            strong = w.get("kw") if tem_kw else len(w["w"].strip(".,!?…")) >= 6
             color = f"\\c{hlc}" if strong else ""
             ev.append(f"Dialogue: 0,{_ts_ass(c['s'])},{_ts_ass(c['e'])},Default,,0,0,0,,"
                       f"{{{color}\\fscx70\\fscy70\\t(0,90,\\fscx108\\fscy108)\\t(90,170,\\fscx100\\fscy100)}}{_esc(w['w'])}")
@@ -303,3 +312,44 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         end = total if title_mode == "fixo" and total > 0 else min(4.0, total or 4.0)
         ev.append(f"Dialogue: 2,{_ts_ass(0)},{_ts_ass(end)},Title,,0,0,0,,{{\\fad(150,200)}}{_wrap_title(title)}")
     return header + "\n".join(ev) + "\n"
+
+
+def emoji_box(cfg: dict, width: int, height: int, frame_sub_pos=None) -> tuple[int, int, int]:
+    """Onde o emoji aparece: logo acima da legenda (ou abaixo, se a legenda estiver no topo).
+    Devolve (x_centro, y_topo, tamanho) em pixels do vídeo final. Usa as mesmas contas do to_ass."""
+    style = cfg.get("style", "palavra_ativa")
+    if style not in STYLES:
+        style = "palavra_ativa"
+    vertical = height > width
+    base = min(width, height)
+    factor = {"uma_palavra": 0.13, "impacto": 0.095, "minimalista": 0.05, "caixa": 0.056,
+              "classico": 0.056}.get(style, 0.066)
+    if not vertical:
+        factor *= 0.78
+    pct = cfg.get("size_pct")
+    if pct is None:
+        pct = {"p": 82, "m": 100, "g": 120}.get(cfg.get("size", "m"), 100)
+    size = int(base * factor * max(40, min(180, float(pct))) / 100)
+    n_lines = 1 if style == "uma_palavra" else int(cfg.get("lines") or 2)
+    altura_txt = int(size * 1.25 * n_lines)
+    tam = int(base * (0.15 if vertical else 0.09))
+    gap = int(size * 0.35)
+    sub_pos = frame_sub_pos
+    y_pct = cfg.get("y_pct")
+    if not sub_pos and y_pct is not None:
+        sub_pos = (width // 2, int(height * (1 - (0.08 + 0.84 * max(0.0, min(100.0, float(y_pct))) / 100))))
+    elif sub_pos and cfg.get("band_offset"):
+        sub_pos = (sub_pos[0], int(sub_pos[1] + float(cfg["band_offset"]) * height / 1920))
+    if sub_pos:
+        x, yc = sub_pos
+        y = yc - altura_txt // 2 - gap - tam
+        if y < height * 0.05:  # sem espaço em cima: vai para baixo da legenda
+            y = yc + altura_txt // 2 + gap
+        return int(x), int(y), tam
+    pos = cfg.get("position", "baixo")
+    margin_v = int(height * (0.2 if vertical else 0.08))
+    if pos == "topo":
+        return width // 2, margin_v + altura_txt + gap, tam
+    if pos == "meio":
+        return width // 2, height // 2 - altura_txt // 2 - gap - tam, tam
+    return width // 2, height - margin_v - altura_txt - gap - tam, tam

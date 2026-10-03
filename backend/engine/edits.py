@@ -11,13 +11,14 @@ DEFAULT_SETTINGS = {
                 "repetitions": True, "speech_errors": True, "ai_cleanup": True},
     "subtitles": {"enabled": True, "style": "palavra_ativa", "max_chars": 18, "lines": 2, "uppercase": True,
                   "font": "Poppins ExtraBold", "color": "#FFFFFF", "highlight": "#FFD400", "position": "baixo",
-                  "size": "m", "size_pct": 100, "y_pct": 18},
-    "audio": {"normalize": True, "target_lufs": -14.0},
+                  "size": "m", "size_pct": 100, "y_pct": 18,
+                  "keywords": True, "keyword_color": "#39E75F", "emojis": True, "ai_highlights": True},
+    "audio": {"normalize": True, "target_lufs": -14.0, "clean": False, "music": "", "music_volume": 0.12},
     "render": {"quality": "alta"},
     "clips": {"min": 30, "max": 60, "count": 5},
     "studio": {"platform": "ig_reels", "mode": "cortes", "duration": "60", "min": 20, "max": 90, "count": 5,
                "instructions": "", "layout": "face", "title_mode": "inicio", "subtitles": True, "zoom_cuts": True,
-               "enhance": "auto", "frame": "cheia"},
+               "enhance": "auto", "frame": "cheia", "emphasis_zoom": True},
 }
 
 # Fornecedor das "emendas inteligentes" (definido pelo pipeline: carrega a análise de áudio do projeto)

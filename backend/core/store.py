@@ -30,6 +30,8 @@ DEFAULT_CONFIG = {
     "brand": {"handle": "", "kicker": "", "color": "#FF8A3D", "text": "#FFFFFF", "bg": "#101114", "progress": True,
               "logo": "", "logo_pos": "auto", "logo_size": "m", "logo_opacity": 1.0, "socials": {},
               "social_mode": "destino", "social_every": 12, "social_side": "direita"},
+    "security": {},   # senha do programa do PC (só o "hash"); nunca vai para o navegador
+    "online": {"url": "", "password": ""},  # endereço e senha da versão online, para enviar projetos do PC
 }
 BRAND_DIR = DATA / "marca"
 BRAND_DIR.mkdir(parents=True, exist_ok=True)
@@ -66,6 +68,10 @@ def load_config() -> dict:
 def public_config(cfg: dict) -> dict:
     """Nunca devolve chaves de API ao navegador: só informa se estão definidas."""
     out = json.loads(json.dumps(cfg))
+    sec_ = out.pop("security", {}) or {}
+    out["security"] = {"password_set": bool(sec_.get("hash"))}
+    onl = out.get("online") or {}
+    out["online"] = {"url": onl.get("url", ""), "password_set": bool(onl.get("password"))}
     for app, c in (out.get("publish") or {}).items():
         if isinstance(c, dict) and "client_secret" in c:
             c["secret_set"] = bool(c.pop("client_secret"))
@@ -80,7 +86,13 @@ def public_config(cfg: dict) -> dict:
 def save_config(update: dict) -> dict:
     cfg = load_config()
     for sec, vals in (update or {}).items():
-        if sec not in cfg or not isinstance(vals, dict):
+        if sec not in cfg or not isinstance(vals, dict) or sec == "security":
+            continue  # a senha do programa só muda por set_password (exige a senha atual)
+        if sec == "online":
+            if "url" in vals:
+                cfg["online"]["url"] = str(vals["url"]).strip().rstrip("/")
+            if vals.get("password"):
+                cfg["online"]["password"] = str(vals["password"])
             continue
         for k, v in vals.items():
             if k in ("api_key_set", "api_key_hint"):
@@ -94,6 +106,36 @@ def save_config(update: dict) -> dict:
             cfg[sec][k] = v
     _write_json(CONFIG_FILE, cfg)
     return cfg
+
+
+# ---------- senha do programa do PC ----------
+
+def _hash_pw(pw: str, salt: bytes) -> str:
+    import hashlib
+    return hashlib.pbkdf2_hmac("sha256", pw.encode("utf-8"), salt, 200_000).hex()
+
+
+def password_hash() -> str:
+    return (load_config().get("security") or {}).get("hash", "")
+
+
+def check_password(pw: str) -> bool:
+    import hmac
+    sec = load_config().get("security") or {}
+    if not sec.get("hash"):
+        return False
+    return hmac.compare_digest(_hash_pw(pw, bytes.fromhex(sec["salt"])), sec["hash"])
+
+
+def set_password(new: str) -> None:
+    """Grava a senha nova (vazia = sem senha). Só o "hash" fica salvo, nunca a senha."""
+    cfg = load_config()
+    if new:
+        salt = os.urandom(16)
+        cfg["security"] = {"hash": _hash_pw(new, salt), "salt": salt.hex()}
+    else:
+        cfg["security"] = {}
+    _write_json(CONFIG_FILE, cfg)
 
 
 def pdir(pid: str) -> Path:

@@ -1,4 +1,44 @@
-# Editor IA — edição de vídeo com cortes inteligentes (versão 0.8.1)
+# Editor IA — edição de vídeo com cortes inteligentes (versão 0.9)
+
+## Novidades da versão 0.9 — celular, PC ↔ online, destaques e áudio de estúdio
+
+### Começar no PC e continuar no celular (ou ao contrário)
+- **Enviar para o online:** no menu ⋯ do projeto (ou em Exportar, dentro do editor) clique em **Enviar para o online**.
+  Vai o projeto completo: vídeo, transcrição, edição, cortes e vídeos exportados. No online ele abre do jeito que estava,
+  **sem nova análise e sem gastar API**. Antes, coloque o endereço e a senha do online em **Configurações → Versão online**.
+- **Trazer do online:** em Projetos, botão **Trazer do online** (só no programa do PC).
+- **Importar projeto (.vox):** em qualquer instalação (PC ou online), em Projetos. O arquivo .vox é baixado pelo menu ⋯
+  do projeto → **Baixar projeto completo (.vox)**. Serve também como cópia de segurança de um projeto.
+- **Copiar configurações para o online:** em Configurações → Versão online. Leva as chaves de IA, a transcrição, a marca,
+  a logo, os modelos, as músicas e a agenda. As **contas das redes não vão**: conecte-as no online, que fica ligado
+  24 horas e faz a autopostagem (assim o mesmo vídeo nunca sai duas vezes).
+- Os dados do PC e do online continuam separados: limpar espaço num não apaga nada no outro.
+
+### Senha no programa do PC
+- Em **Configurações → Senha do programa**. Com a senha ligada, o editor pede a senha ao abrir. Para tirar ou trocar,
+  é preciso a senha atual. Só um código embaralhado (hash) fica salvo, nunca a senha.
+
+### Editor no celular
+- O editor online agora se adapta ao celular: menu embaixo, menu completo numa gaveta (botão **Mais**), vídeo sempre à
+  vista enquanto rola a transcrição, botões e campos maiores para o dedo e janelas que ocupam a tela.
+- Dá para **instalar como app**: no Chrome do celular, abra o editor online → menu ⋮ → **Adicionar à tela inicial**
+  (no iPhone: Compartilhar → Adicionar à Tela de Início).
+
+### Destaques automáticos (nos cortes)
+- **Palavras-chave coloridas na legenda** (cor escolhida por você). Sem IA usa uma lista de palavras de fé e números;
+  com o Claude ligado, a IA escolhe as palavras de cada corte. A escolha fica guardada: cada trecho só é perguntado à IA
+  uma vez.
+- **Emojis nos momentos marcantes:** aparecem acima da legenda, com animação suave, um de cada vez. São 83 emojis
+  escolhidos para pregações e falas (licença livre Twemoji).
+- **Zoom nos momentos fortes:** quando a voz enfatiza uma frase, a câmera aproxima devagar e volta.
+- Tudo liga e desliga no estúdio de cortes (seção **Destaques**) e pode virar padrão em **Modelos**.
+
+### Áudio de estúdio
+- **Voz de estúdio:** tira o ronco grave, o chiado constante (ar-condicionado, ventilador, eco da igreja), dá presença à
+  voz e segura os picos.
+- **Música de fundo:** envie suas músicas (MP3, M4A, WAV…) no estúdio. A música **abaixa sozinha quando a pessoa fala** e
+  sobe nas pausas, entra e sai com suavidade e repete se o vídeo for maior. O volume final continua no padrão das redes.
+  Use só músicas que você tem direito de usar.
 
 ## Novidades da versão 0.8.1 — versão online na VPS e atualização pelo GitHub
 

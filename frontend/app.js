@@ -49,7 +49,7 @@ function show(view) {
 
 async function boot() {
   try { S.status = await api("GET", "/api/status"); } catch (e) { S.status = {}; }
-  applyAppIdentity();
+  applyAppIdentity(); applyMode();
   if (S.status.login_required) {
     try { await api("GET", "/api/projects"); } catch (_) { show("login"); return; }
   }
@@ -144,6 +144,8 @@ function renderProjectCards(box, list, compact = false) {
         <a data-act="studio">Abrir cortes e resumos</a>
         <a data-act="exports">Ver vídeos exportados (${p.renders})</a>
         <a data-act="rename">Renomear</a>
+        ${p.status === "pronto" ? `<a data-act="pacote">Baixar projeto completo (.vox)</a>` : ""}
+        ${p.status === "pronto" && !isOnline() ? `<a data-act="online">Enviar para o online</a>` : ""}
         <a data-act="delete" class="danger">Excluir projeto</a>
       </div>
       <div class="body">
@@ -168,6 +170,8 @@ async function projectAction(act, p) {
   if (act === "edit") location.hash = "#/p/" + p.id;
   if (act === "studio") location.hash = "#/p/" + p.id + "/cortes";
   if (act === "exports") { S.libProject = p.id; location.hash = "#/exportados"; }
+  if (act === "pacote") baixarPacote(p);
+  if (act === "online") enviarOnline(p);
   if (act === "rename") {
     const name = await ask("Renomear projeto", "", p.name);
     if (name && name.trim() && name.trim() !== p.name) {
@@ -482,6 +486,7 @@ async function renderModelos() {
   $("#m-size").value = sub.size_pct ?? 100; $("#m-size-out").textContent = $("#m-size").value + "%";
   $("#m-y").value = sub.y_pct ?? 18; $("#m-y-out").textContent = yLabel(+$("#m-y").value);
   $("#m-layout").value = d.defaults.studio.layout || "face";
+  renderModelosExtras(d.defaults);
 }
 
 function setupModelos() {
@@ -492,8 +497,10 @@ function setupModelos() {
     const subtitles = { style: k, font: sd.font, uppercase: sd.uppercase, max_chars: sd.max_chars, lines: sd.lines,
       color: sd.color, highlight: sd.highlight, position: sd.position, size_pct: +$("#m-size").value, y_pct: +$("#m-y").value };
     const studioD = { frame: S.mSel.frame, layout: $("#m-layout").value };
+    const ex = modelosExtras();
+    Object.assign(subtitles, ex.subtitles); Object.assign(studioD, ex.studio);
     try {
-      const r = await api("PUT", "/api/defaults", { subtitles, studio: studioD, apply_all: $("#m-apply-all").checked });
+      const r = await api("PUT", "/api/defaults", { subtitles, studio: studioD, audio: ex.audio, apply_all: $("#m-apply-all").checked });
       toast(r.applied ? `Padrão salvo e aplicado em ${r.applied} projeto(s)` : "Padrão salvo para os próximos projetos");
     } catch (e) { toast(e.message, true); }
   });
@@ -1265,6 +1272,7 @@ function renderStudio() {
   refreshFrameThumb();
   renderStudioProgress();
   renderClipGrid();
+  renderExtras();
 }
 
 function renderStudioProgress() {
@@ -1880,7 +1888,7 @@ const AI_MODEL_LIST = {
 // custo aproximado por hora de vídeo (texto da transcrição + respostas), pelos preços oficiais da Anthropic
 const AI_COST = { "claude-haiku-4-5": 0.10, "claude-sonnet-5-5": 0.20, "claude-opus-5-5": 0.40 };
 const AI_WHERE = {
-  anthropic: ["console.anthropic.com", "https://console.anthropic.com/settings/keys"],
+  anthropic: ["platform.claude.com", "https://platform.claude.com/settings/keys"],
   openai_compat: ["platform.openai.com", "https://platform.openai.com/api-keys"],
 };
 
@@ -1925,7 +1933,9 @@ function collectSettings(form = $("#settings-form")) {
 
 async function openSettings() {
   const cfg = await api("GET", "/api/settings");
+  S.cfg = cfg;
   fillForm($("#settings-form"), cfg);
+  fillSecurity(cfg);
   const st = S.status || {};
   $("#sys-info").textContent = `Detectado: renderização ${st.encoder && st.encoder !== "libx264" ? "com GPU (" + st.encoder + ")" : "pelo processador"} · transcrição local ${st.local_transcription ? (st.gpu_transcription ? "com GPU NVIDIA" : "pelo processador") : "não instalada"} · enquadramento por rosto ${S.meta && S.meta.face_detection ? "ativo" : "indisponível"}.`;
   refreshShow();
@@ -2030,12 +2040,318 @@ function setupEditor() {
   });
 }
 
+
+/* =====================================================================
+   v0.9 — senha do PC, ligação PC ↔ online, destaques, áudio e celular
+   ===================================================================== */
+
+const isOnline = () => !!(S.status || {}).online_mode;
+
+function applyMode() {
+  document.body.classList.toggle("online", isOnline());
+}
+
+/* ---------- baixar um arquivo (no PC abre a janela Salvar; no navegador, download normal) ---------- */
+function baixar(href, name) {
+  const a = document.createElement("a");
+  a.href = href; a.setAttribute("download", name || ""); a.style.display = "none";
+  document.body.appendChild(a); a.click(); setTimeout(() => a.remove(), 500);
+}
+
+/* ---------- caixa de transferência (enviar, trazer, importar) ---------- */
+const XFER = {};
+function xferShow(title, msg = "", pct = 0) {
+  $("#xfer").classList.remove("hidden");
+  $("#xfer-title").textContent = title; $("#xfer-msg").textContent = msg;
+  $("#xfer-bar").style.width = Math.round(pct * 100) + "%";
+}
+function xferHide() { $("#xfer").classList.add("hidden"); }
+
+function acompanharJob(pid, kind, title, onDone) {
+  clearInterval(XFER.t);
+  xferShow(title, "Começando…", 0);
+  XFER.t = setInterval(async () => {
+    let list = [];
+    try { list = await api("GET", `/api/jobs/${pid}`); } catch (_) { return; }
+    const j = list.find((x) => x.kind === kind);
+    if (!j) return;
+    xferShow(title, j.msg || "", j.pct || 0);
+    if (j.status === "concluido") { clearInterval(XFER.t); setTimeout(xferHide, 2500); xferShow(title, "Pronto!", 1); if (onDone) onDone(j); }
+    if (j.status === "erro") { clearInterval(XFER.t); xferHide(); toast(j.error || "Não deu certo", true); }
+  }, 1500);
+}
+
+async function enviarOnline(p) {
+  if (!(S.cfg && S.cfg.online && S.cfg.online.url)) {
+    toast("Primeiro coloque o endereço e a senha do online em Configurações → Versão online.", true);
+    openSettings(); return;
+  }
+  if (!confirm(`Enviar "${p.name}" para o online?\n\nVai o projeto completo: vídeo, edição, cortes e exportados. No online ele abre como está, sem nova análise (não gasta API).`)) return;
+  try {
+    await api("POST", `/api/projects/${p.id}/enviar-online`);
+    acompanharJob(p.id, "enviar", "Enviando para o online", () => toast(`"${p.name}" já está no online. Abra ${S.cfg.online.url} para continuar de lá.`));
+  } catch (e) { toast(e.message, true); }
+}
+
+function baixarPacote(p) {
+  toast("Preparando o projeto completo…");
+  baixar(`/api/projects/${p.id}/pacote`, (p.name || "projeto").replace(/[\\/:*?"<>|]+/g, "_").slice(0, 60) + ".vox");
+}
+
+function importarVox(file) {
+  if (!/\.vox$/i.test(file.name) && file.type !== "application/zip") { toast("Escolha um arquivo .vox (projeto salvo pelo VOX Editor).", true); return; }
+  const xhr = new XMLHttpRequest();
+  xhr.open("POST", "/api/projects/importar-pacote");
+  xhr.setRequestHeader("X-Filename", encodeURIComponent(file.name));
+  const t0 = Date.now();
+  xferShow("Importando projeto", "Enviando…", 0);
+  xhr.upload.onprogress = (e) => {
+    if (!e.lengthComputable) return;
+    const pct = e.loaded / e.total, speed = e.loaded / Math.max((Date.now() - t0) / 1000, 0.1);
+    xferShow("Importando projeto", `${Math.round(pct * 100)}% · ${fmtSize(speed)}/s · faltam ${fmtDur((e.total - e.loaded) / speed)}`, pct * 0.95);
+    if (pct >= 1) xferShow("Importando projeto", "Abrindo o projeto…", 0.97);
+  };
+  xhr.onload = () => {
+    if (xhr.status >= 200 && xhr.status < 300) {
+      const p = JSON.parse(xhr.responseText);
+      xferShow("Importando projeto", "Pronto!", 1); setTimeout(xferHide, 2000);
+      toast(`"${p.name}" importado, do jeito que estava.`);
+      location.hash = "#/p/" + p.id + ((p.clips || []).length ? "/cortes" : "");
+    } else {
+      xferHide();
+      let msg = xhr.statusText; try { msg = JSON.parse(xhr.responseText).detail; } catch (_) {}
+      toast("Não consegui importar: " + msg, true);
+    }
+  };
+  xhr.onerror = () => { xferHide(); toast("Falha de conexão no envio", true); };
+  xhr.send(file);
+}
+
+async function abrirTrazerOnline() {
+  const box = $("#online-list");
+  box.innerHTML = `<p class="hint">Carregando os projetos do online…</p>`;
+  $("#onlinedlg").showModal();
+  let list;
+  try { list = await api("GET", "/api/online/projetos"); }
+  catch (e) { box.innerHTML = `<p class="err">${esc(e.message)}</p><p class="hint">Confira o endereço e a senha em Configurações → Versão online.</p>`; return; }
+  if (!list.length) { box.innerHTML = `<p class="hint">O online ainda não tem projetos.</p>`; return; }
+  box.innerHTML = list.map((p) => `
+    <div class="online-item">
+      <div><b>${esc(p.name)}</b><small>${fmt(p.duration || 0)} · ${p.clips || 0} corte(s) · ${p.renders || 0} exportado(s) · ${fmtSize(p.size || 0)}${p.status !== "pronto" ? " · " + esc(p.status) : ""}</small></div>
+      <button type="button" class="btn small primary" data-trazer="${p.id}" ${p.status !== "pronto" ? "disabled" : ""}>Trazer</button>
+    </div>`).join("");
+  $$("[data-trazer]", box).forEach((b) => b.addEventListener("click", async () => {
+    b.disabled = true;
+    try {
+      await api("POST", `/api/online/trazer/${b.dataset.trazer}`);
+      $("#onlinedlg").close();
+      acompanharJob("_online", "trazer", "Trazendo do online", (j) => {
+        toast("Projeto trazido do online.");
+        if (j.result && j.result.id) location.hash = "#/p/" + j.result.id; else goHome("projetos");
+      });
+    } catch (e) { b.disabled = false; toast(e.message, true); }
+  }));
+}
+
+/* ---------- Configurações: senha do PC e versão online ---------- */
+function fillSecurity(cfg) {
+  const set = !!(cfg.security && cfg.security.password_set);
+  $("#pw-status").textContent = set
+    ? "A senha está ligada: o programa pede a senha ao abrir."
+    : "Sem senha: qualquer pessoa que usar este computador abre o editor. Crie uma senha para proteger seus projetos e contas.";
+  $("#pw-cur-wrap").classList.toggle("hidden", !set);
+  $("#pw-remove").classList.toggle("hidden", !set);
+  ["#pw-cur", "#pw-new", "#pw-new2"].forEach((k) => ($(k).value = ""));
+  const on = cfg.online || {};
+  $("#on-url").value = on.url || "";
+  $("#on-pass").value = "";
+  $("#on-pass").placeholder = on.password_set ? "Guardada. Deixe vazio para manter" : "A senha que você criou na instalação da VPS";
+  $("#on-msg").textContent = "";
+}
+
+async function salvarSenha(remover) {
+  const cur = $("#pw-cur").value, nova = remover ? "" : $("#pw-new").value;
+  if (!remover) {
+    if (nova.length < 4) { toast("A senha precisa ter pelo menos 4 caracteres.", true); return; }
+    if (nova !== $("#pw-new2").value) { toast("As duas senhas novas não conferem.", true); return; }
+  } else if (!confirm("Tirar a senha? Qualquer pessoa neste computador vai poder abrir o editor.")) return;
+  try {
+    await api("POST", "/api/security/password", { current: cur, new: nova });
+    S.cfg = await api("GET", "/api/settings"); S.status = await api("GET", "/api/status");
+    fillSecurity(S.cfg);
+    toast(remover ? "Senha retirada." : "Senha salva. Da próxima vez que abrir, o programa vai pedir.");
+  } catch (e) { toast(e.message, true); }
+}
+
+async function salvarOnline() {
+  const url = $("#on-url").value.trim(), password = $("#on-pass").value;
+  S.cfg.online = await api("PUT", "/api/online/config", { url, password });
+  $("#on-pass").value = "";
+  $("#on-pass").placeholder = S.cfg.online.password_set ? "Guardada. Deixe vazio para manter" : "";
+}
+
+function setupV09Settings() {
+  $("#pw-save").addEventListener("click", () => salvarSenha(false));
+  $("#pw-remove").addEventListener("click", () => salvarSenha(true));
+  $("#on-test").addEventListener("click", async () => {
+    const msg = $("#on-msg");
+    msg.className = "hint"; msg.textContent = "Testando…";
+    try {
+      await salvarOnline();
+      const r = await api("POST", "/api/online/testar");
+      msg.className = "hint ok"; msg.textContent = `Conectado ao online (versão ${r.version}, ${r.projects} projeto(s)).`;
+    } catch (e) { msg.className = "err"; msg.textContent = e.message; }
+  });
+  $("#on-copy").addEventListener("click", async () => {
+    const msg = $("#on-msg");
+    if (!confirm("Copiar as configurações deste PC para o online?\n\nO que for igual é substituído pelo que está aqui (chaves de IA, marca, modelos, músicas, agenda). As contas conectadas no online não mudam.")) return;
+    msg.className = "hint"; msg.textContent = "Copiando…";
+    try {
+      await salvarOnline();
+      await api("POST", "/api/online/copiar-config");
+      msg.className = "hint ok"; msg.textContent = "Configurações copiadas para o online.";
+    } catch (e) { msg.className = "err"; msg.textContent = e.message; }
+  });
+}
+
+/* ---------- músicas de fundo ---------- */
+async function loadMusicas(force = false) {
+  if (S.musicas && !force) return S.musicas;
+  try { S.musicas = await api("GET", "/api/musicas"); } catch (_) { S.musicas = []; }
+  return S.musicas;
+}
+
+function fillMusicSelect(sel, current) {
+  const list = S.musicas || [];
+  sel.innerHTML = `<option value="">Sem música</option>` + list.map((m) =>
+    `<option value="${esc(m.nome)}">${esc(m.nome.replace(/\.[^.]+$/, ""))}${m.duracao ? " · " + fmt(m.duracao) : ""}</option>`).join("");
+  if (current && !list.some((m) => m.nome === current)) sel.insertAdjacentHTML("beforeend", `<option value="${esc(current)}">${esc(current)} (não encontrada)</option>`);
+  sel.value = current || "";
+}
+
+function enviarMusica(file, onDone) {
+  const xhr = new XMLHttpRequest();
+  xhr.open("POST", "/api/musicas");
+  xhr.setRequestHeader("X-Filename", encodeURIComponent(file.name));
+  xferShow("Enviando música", file.name, 0);
+  xhr.upload.onprogress = (e) => { if (e.lengthComputable) xferShow("Enviando música", file.name, e.loaded / e.total); };
+  xhr.onload = () => {
+    xferHide();
+    if (xhr.status >= 200 && xhr.status < 300) { S.musicas = JSON.parse(xhr.responseText); toast("Música adicionada."); onDone && onDone(file.name.replace(/[\\/:*?"<>|]+/g, "_")); }
+    else { let msg = xhr.statusText; try { msg = JSON.parse(xhr.responseText).detail; } catch (_) {} toast(msg, true); }
+  };
+  xhr.onerror = () => { xferHide(); toast("Falha de conexão no envio", true); };
+  xhr.send(file);
+}
+
+/* ---------- estúdio: destaques e áudio ---------- */
+async function renderExtras() {
+  if (!S.P || !S.P.settings) return;
+  const sub = S.P.settings.subtitles || {}, st = S.P.settings.studio || {}, au = S.P.settings.audio || {};
+  $("#s-kw").checked = sub.keywords !== false;
+  $("#s-kwcolor").value = sub.keyword_color || "#39E75F";
+  $("#s-emoji").checked = sub.emojis !== false;
+  $("#s-emph").checked = st.emphasis_zoom !== false;
+  $("#s-clean").checked = !!au.clean;
+  const vol = Math.round((au.music_volume ?? 0.12) * 100);
+  $("#s-musicvol").value = vol; $("#s-musicvol-out").textContent = vol + "%";
+  const ai = (S.cfg || {}).ai || {};
+  const comIA = ai.provider && ai.provider !== "none" && ai.api_key_set;
+  $("#s-kw-hint").textContent = comIA
+    ? "A IA escolhe as palavras e os emojis de cada corte (só uma vez por trecho; fica guardado)."
+    : "Sem IA: usa uma lista de palavras de fé e números. Com o Claude ligado, a escolha fica bem mais esperta.";
+  await loadMusicas();
+  fillMusicSelect($("#s-music"), au.music || "");
+  $("#s-musicvol-wrap").classList.toggle("hidden", !au.music);
+  $("#s-music-play").classList.toggle("hidden", !au.music);
+}
+
+function setupV09Studio() {
+  $("#s-kw").addEventListener("change", (e) => setSetting("subtitles", "keywords", e.target.checked, 50));
+  $("#s-kwcolor").addEventListener("change", (e) => setSetting("subtitles", "keyword_color", e.target.value, 50));
+  $("#s-emoji").addEventListener("change", (e) => setSetting("subtitles", "emojis", e.target.checked, 50));
+  $("#s-emph").addEventListener("change", (e) => setSetting("studio", "emphasis_zoom", e.target.checked, 50));
+  $("#s-clean").addEventListener("change", (e) => setSetting("audio", "clean", e.target.checked, 50));
+  $("#s-music").addEventListener("change", (e) => {
+    setSetting("audio", "music", e.target.value, 50);
+    $("#s-musicvol-wrap").classList.toggle("hidden", !e.target.value);
+    $("#s-music-play").classList.toggle("hidden", !e.target.value);
+    $("#s-music-audio").pause();
+  });
+  $("#s-musicvol").addEventListener("input", (e) => ($("#s-musicvol-out").textContent = e.target.value + "%"));
+  $("#s-musicvol").addEventListener("change", (e) => setSetting("audio", "music_volume", +e.target.value / 100, 50));
+  $("#s-music-file").addEventListener("change", (e) => {
+    const f = e.target.files[0]; e.target.value = "";
+    if (f) enviarMusica(f, (nome) => { fillMusicSelect($("#s-music"), nome); $("#s-music").dispatchEvent(new Event("change")); });
+  });
+  $("#s-music-play").addEventListener("click", () => {
+    const a = $("#s-music-audio"), nome = $("#s-music").value;
+    if (!nome) return;
+    if (!a.paused) { a.pause(); $("#s-music-play").textContent = "Ouvir"; return; }
+    a.src = `/api/musicas/${encodeURIComponent(nome)}`; a.volume = Math.min(1, (+$("#s-musicvol").value / 100) * 3);
+    a.play(); $("#s-music-play").textContent = "Parar";
+    a.onended = () => ($("#s-music-play").textContent = "Ouvir");
+  });
+}
+
+/* ---------- Modelos: destaques e áudio padrão ---------- */
+async function renderModelosExtras(d) {
+  const sub = d.subtitles || {}, st = d.studio || {}, au = d.audio || {};
+  $("#m-kw").checked = sub.keywords !== false;
+  $("#m-kwcolor").value = sub.keyword_color || "#39E75F";
+  $("#m-emoji").checked = sub.emojis !== false;
+  $("#m-emph").checked = st.emphasis_zoom !== false;
+  $("#m-clean").checked = !!au.clean;
+  const vol = Math.round((au.music_volume ?? 0.12) * 100);
+  $("#m-musicvol").value = vol; $("#m-musicvol-out").textContent = vol + "%";
+  await loadMusicas(true);
+  fillMusicSelect($("#m-music"), au.music || "");
+}
+
+function modelosExtras() {
+  return {
+    subtitles: { keywords: $("#m-kw").checked, keyword_color: $("#m-kwcolor").value, emojis: $("#m-emoji").checked },
+    studio: { emphasis_zoom: $("#m-emph").checked },
+    audio: { clean: $("#m-clean").checked, music: $("#m-music").value, music_volume: +$("#m-musicvol").value / 100 },
+  };
+}
+
+/* ---------- celular: menu de baixo e menu lateral como gaveta ---------- */
+function setupMobile() {
+  $("#bn-more").addEventListener("click", (e) => { e.stopPropagation(); document.body.classList.toggle("drawer-open"); });
+  document.addEventListener("click", (e) => {
+    if (!document.body.classList.contains("drawer-open")) return;
+    if (!e.target.closest(".side") || e.target.closest("a, button[data-open-settings]")) document.body.classList.remove("drawer-open");
+  });
+  window.addEventListener("hashchange", () => {
+    document.body.classList.remove("drawer-open");
+    const pg = (location.hash.match(/^#\/(projetos|exportados|publicacoes)/) || [])[1] || (location.hash.startsWith("#/p/") ? "" : "inicio");
+    $$(".bottom-nav a").forEach((a) => a.classList.toggle("active", a.dataset.page === pg));
+  });
+  $$(".bottom-nav a").forEach((a) => a.classList.toggle("active", a.dataset.page === "inicio" && (location.hash || "#/") === "#/"));
+}
+
+function setupV09() {
+  setupV09Settings(); setupV09Studio(); setupMobile();
+  if (matchMedia("(pointer: coarse)").matches) {  // celular: não existe "arrastar"
+    const st = $("#dropzone .drop-copy strong"), sp = $("#dropzone .drop-copy span");
+    if (st) st.textContent = "Toque para escolher um vídeo";
+    if (sp) sp.textContent = "Da galeria ou dos arquivos. Pregação, aula, live ou podcast.";
+  }
+  $("#xfer-close").addEventListener("click", xferHide);
+  $("#vox-input").addEventListener("change", (e) => { const f = e.target.files[0]; e.target.value = ""; if (f) importarVox(f); });
+  $("#btn-from-online").addEventListener("click", abrirTrazerOnline);
+  $("#exp-pacote").addEventListener("click", () => { $("#menu-export").classList.add("hidden"); if (S.P) baixarPacote(S.P); });
+  $("#exp-online").addEventListener("click", () => { $("#menu-export").classList.add("hidden"); if (S.P) enviarOnline(S.P); });
+  $("#m-musicvol").addEventListener("input", (e) => ($("#m-musicvol-out").textContent = e.target.value + "%"));
+}
+
 $("#login-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   try { await api("POST", "/api/login", { password: $("#login-pass").value }); $("#login-err").textContent = ""; boot(); }
   catch (err) { $("#login-err").textContent = /Muitas tentativas/.test(err.message) ? err.message : "Senha incorreta"; }
 });
 
-setupDesktop(); setupUpload(); setupHome(); setupPublish(); setupRedes(); setupModelos(); setupEditor(); setupTranscript(); setupTimeline(); setupSettings(); setupStudio(); setupStyles(); setupFrames();
+setupDesktop(); setupUpload(); setupHome(); setupPublish(); setupRedes(); setupModelos(); setupEditor(); setupTranscript(); setupTimeline(); setupSettings(); setupStudio(); setupStyles(); setupFrames(); setupV09();
 requestAnimationFrame(tick);
 boot();
