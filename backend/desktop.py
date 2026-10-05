@@ -314,7 +314,10 @@ def run_window(url: str, owns_server: Server | None, title: str) -> bool:
             return
         win.load_url(url)
 
-    _limpar_cache_se_atualizou(store.DATA / "janela")
+    try:
+        _limpar_cache_se_atualizou(store.DATA / "janela")
+    except Exception:  # nunca impede o programa de abrir
+        traceback.print_exc()
     try:
         webview.start(boot, private_mode=False, storage_path=str(store.DATA / "janela"),
                       gui="edgechromium" if IS_WIN else None)
@@ -352,6 +355,29 @@ def _message(text: str, title: str) -> None:
         except Exception:
             pass
     print(text)
+
+
+
+def _limpar_cache_se_atualizou(pasta: Path) -> None:
+    """Depois de uma atualização, apaga o cache de páginas da janela (WebView2) para a tela nova aparecer.
+    Logins e preferências ficam (só some o cache de arquivos)."""
+    try:
+        import re
+        txt = (Path(__file__).resolve().parent / "app.py").read_text(encoding="utf-8")
+        versao = (re.search(r'^VERSION = "(.+)"', txt, re.M) or [None, ""])[1]
+        marca = pasta / "versao-da-tela.txt"
+        if marca.exists() and marca.read_text(encoding="utf-8").strip() == versao:
+            return
+        import shutil
+        for perfil in pasta.glob("**/EBWebView/*"):
+            for nome in ("Cache", "Code Cache", "GPUCache", "Service Worker"):
+                alvo = perfil / nome
+                if alvo.is_dir():
+                    shutil.rmtree(alvo, ignore_errors=True)
+        pasta.mkdir(parents=True, exist_ok=True)
+        marca.write_text(versao, encoding="utf-8")
+    except Exception:
+        traceback.print_exc()
 
 
 def main() -> None:
@@ -431,25 +457,3 @@ if __name__ == "__main__":
         create_shortcuts()
     else:
         main()
-
-
-def _limpar_cache_se_atualizou(pasta: Path) -> None:
-    """Depois de uma atualização, apaga o cache de páginas da janela (WebView2) para a tela nova aparecer.
-    Logins e preferências ficam (só some o cache de arquivos)."""
-    try:
-        import re
-        txt = (Path(__file__).resolve().parent / "app.py").read_text(encoding="utf-8")
-        versao = (re.search(r'^VERSION = "(.+)"', txt, re.M) or [None, ""])[1]
-        marca = pasta / "versao-da-tela.txt"
-        if marca.exists() and marca.read_text(encoding="utf-8").strip() == versao:
-            return
-        import shutil
-        for perfil in pasta.glob("**/EBWebView/*"):
-            for nome in ("Cache", "Code Cache", "GPUCache", "Service Worker"):
-                alvo = perfil / nome
-                if alvo.is_dir():
-                    shutil.rmtree(alvo, ignore_errors=True)
-        pasta.mkdir(parents=True, exist_ok=True)
-        marca.write_text(versao, encoding="utf-8")
-    except Exception:
-        traceback.print_exc()

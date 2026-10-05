@@ -21,7 +21,7 @@ from .core import destinos, importer, jobs, montagem, online, pacote, pipeline, 
 from .engine import edits, frames, platforms, reframe, socials, subtitles, transcribe
 from .engine import ffmpeg_tools as ff
 
-VERSION = "1.1.1"
+VERSION = "1.1.2"
 FRONT = store.ROOT / "frontend"
 PASSWORD = os.environ.get("APP_PASSWORD", "")
 SECRET = os.environ.get("APP_SECRET") or secrets.token_hex(16)
