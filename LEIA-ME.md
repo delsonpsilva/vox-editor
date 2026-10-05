@@ -1,4 +1,48 @@
-# VOX Editor — edição de vídeo com cortes inteligentes e montagem manual (versão 1.1)
+# VOX Editor — edição de vídeo com cortes inteligentes e montagem manual (versão 1.2)
+
+## Novidades da versão 1.2 — o super pacote da Montagem
+
+### Transições entre os pedaços
+- Em cada corte da linha do tempo (dois pedaços colados) aparece um botãozinho **+**. Toque nele (ou em Ajustes →
+  **Transição de entrada**) e escolha: Dissolver, Pelo preto, Pelo branco, Deslizar (esquerda, direita, cima, baixo),
+  Empurrar, Zoom entrando, Zoom saindo e Girar. A duração vai de 0,2 a 3 segundos.
+- **Usar em todos os cortes desta trilha:** aplica a mesma transição em todos os cortes de uma vez (ótimo para a
+  trilha principal que veio da edição automática).
+- A transição não muda o tempo do vídeo nem a sincronia do som: o pedaço anterior continua por baixo enquanto o novo entra.
+
+### Animação (quadros-chave)
+- Ajustes → **Animação**. Animações prontas: Aparecer, Crescer, Pop, Subir, Da esquerda, Da direita (entrar);
+  Zoom lento, Afastar lento, Passear (durante); Sumir, Diminuir, Descer, Sair à direita (sair).
+- Quadros-chave livres: **◆ Marcar aqui** (ou tecla **K**), leve o cursor para outro ponto e mude posição, tamanho,
+  giro ou opacidade (no painel ou arrastando na prévia). O pedaço anda de um jeito para o outro, com movimento suave,
+  constante, chegando devagar ou saindo devagar. Os losangos amarelos na linha do tempo levam o cursor até o quadro-chave.
+- Funciona em vídeos, fotos, cores e textos. Dividir e aparar mantêm o movimento.
+
+### Filtros e cor
+- Ajustes → **Filtros e cor**: 10 filtros prontos (Vivo, Cinema, Quente, Frio, Dourado, Vintage, Preto e branco,
+  Drama, Suave) e ajuste fino de brilho, contraste, saturação, temperatura, preto e branco, sépia, desfoque e vinheta.
+
+### Fundo verde (chroma key)
+- Ajustes → **Fundo verde**: tira o pano verde (ou azul) de quem grava na frente dele. Controle de quanto da cor tirar
+  e da borda suave.
+
+### Remover fundo com IA (sem pano verde)
+- Ajustes → **Remover fundo com IA** em qualquer vídeo ou foto. A IA recorta a pessoa e tira o resto. Roda no próprio
+  PC/servidor, sem pagar API. Só o trecho usado na linha do tempo é processado; quando termina, o pedaço é trocado
+  sozinho pela versão sem fundo. Coloque um vídeo, foto ou cor numa trilha abaixo para aparecer atrás.
+- Na primeira vez o modelo de IA é baixado sozinho. Qualidade em **Inteligência artificial**: Caprichada (168 MB,
+  recomendado, contorno muito melhor em pessoas) ou Rápida (4,5 MB).
+
+### Vídeos e fotos grátis (Pexels e Pixabay)
+- Montagem → aba **Grátis**: busque vídeos e fotos livres (inclusive para vídeo monetizado), veja a prévia passando o
+  mouse e toque para colocar no cursor. O crédito (opcional) fica pronto em Ajustes.
+- Cada banco pede uma chave grátis, colocada uma vez em **Inteligência artificial** (no menu). As chaves vão junto no
+  "Copiar configurações para o online".
+
+### O que se vê é o que sai
+- A prévia faz exatamente as mesmas contas da exportação (transições, animação, filtros, vinheta, fundo verde e
+  transparência), conferido quadro a quadro.
+
 
 ## Novidades da versão 1.1 — publicar sem configurar app e destinos próprios
 

@@ -24,6 +24,165 @@ const Montagem = (() => {
     { nome: "Texto simples", desc: "Sem enfeite", it: { text: "Texto", font: "Poppins", size: 0.07, y: 0.5 } },
   ];
 
+  /* ---------------- 1.2: filtros, transições e animação ----------------
+     Mesmas contas de backend/core/efeitos.py: o que aparece na prévia é o que sai no vídeo. */
+  const FX0 = { brilho: 0, contraste: 1, saturacao: 1, temperatura: 0, pb: 0, sepia: 0, desfoque: 0, vinheta: 0 };
+  const FILTROS = [
+    ["nenhum", "Original", {}], ["vivo", "Vivo", { saturacao: 1.35, contraste: 1.1 }],
+    ["cinema", "Cinema", { contraste: 1.15, saturacao: 0.85, temperatura: -0.15, vinheta: 0.35 }],
+    ["quente", "Quente", { temperatura: 0.4, saturacao: 1.1 }], ["frio", "Frio", { temperatura: -0.4, saturacao: 0.95 }],
+    ["dourado", "Dourado", { temperatura: 0.6, saturacao: 1.2, contraste: 1.05, brilho: 0.03 }],
+    ["vintage", "Vintage", { sepia: 0.4, contraste: 0.92, brilho: 0.04, vinheta: 0.4 }],
+    ["pb", "Preto e branco", { pb: 1, contraste: 1.15 }],
+    ["drama", "Drama", { contraste: 1.35, saturacao: 0.7, brilho: -0.04, vinheta: 0.5 }],
+    ["suave", "Suave", { contraste: 0.88, brilho: 0.06, saturacao: 0.9 }],
+  ];
+  const AJUSTES_COR = [["brilho", "Brilho", -0.8, 0.8, 0.01], ["contraste", "Contraste", 0.3, 2, 0.01],
+    ["saturacao", "Saturação", 0, 3, 0.01], ["temperatura", "Temperatura (frio ↔ quente)", -1, 1, 0.01],
+    ["pb", "Preto e branco", 0, 1, 0.01], ["sepia", "Sépia (foto antiga)", 0, 1, 0.01],
+    ["desfoque", "Desfoque", 0, 1, 0.01], ["vinheta", "Vinheta (bordas escuras)", 0, 1, 0.01]];
+  const TRANSICOES = [["dissolver", "Dissolver"], ["preto", "Pelo preto"], ["branco", "Pelo branco"],
+    ["deslizar_e", "Da esquerda"], ["deslizar_d", "Da direita"], ["deslizar_c", "De cima"], ["deslizar_b", "De baixo"],
+    ["empurrar_e", "Empurrar ←"], ["empurrar_d", "Empurrar →"], ["zoom_in", "Zoom entrando"], ["zoom_out", "Zoom saindo"],
+    ["giro", "Girar"]];
+  const SUAVES = [["suave", "Suave (acelera e freia)"], ["linear", "Constante"], ["entrada", "Chegando devagar"], ["saida", "Saindo devagar"]];
+  const KF_KEYS = ["x", "y", "scale", "rot", "opacity"];
+  const VINHETA_PARADAS = [[0, 0], [0.45, 0], [0.6, 0.12], [0.75, 0.38], [0.88, 0.7], [1, 1]];
+
+  function suaviza(e, p) {
+    p = Math.max(0, Math.min(1, p));
+    if (e === "linear") return p;
+    if (e === "entrada") return 1 - Math.pow(1 - p, 3);
+    if (e === "saida") return p * p * p;
+    return p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+  }
+  /** Valor de x, y, scale, rot ou opacity no tempo local lt (igual a efeitos.valor). */
+  function valAt(it, k, lt) {
+    const kf = it.kf;
+    if (!kf || !kf.length) return it[k];
+    if (lt <= kf[0].t) return kf[0][k];
+    for (let i = 0; i < kf.length - 1; i++) {
+      const a = kf[i], b = kf[i + 1];
+      if (lt < b.t) { const span = b.t - a.t; const p = span > 1e-6 ? (lt - a.t) / span : 1; return a[k] + (b[k] - a[k]) * suaviza(a.e || "suave", p); }
+    }
+    return kf[kf.length - 1][k];
+  }
+  const eo = (p) => 1 - Math.pow(1 - Math.max(0, Math.min(1, p)), 3);
+  function trEntrada(tipo, p, W, H) {
+    p = Math.max(0, Math.min(1, p)); const e = eo(p), o = { a: 1, dx: 0, dy: 0, k: 1, r: 0 };
+    if (tipo === "dissolver") o.a = p;
+    else if (tipo === "preto" || tipo === "branco") o.a = Math.max(0, Math.min(1, (p - 0.5) * 2));
+    else if (tipo === "deslizar_e" || tipo === "empurrar_d") o.dx = -W * (1 - e);
+    else if (tipo === "deslizar_d" || tipo === "empurrar_e") o.dx = W * (1 - e);
+    else if (tipo === "deslizar_c") o.dy = -H * (1 - e);
+    else if (tipo === "deslizar_b") o.dy = H * (1 - e);
+    else if (tipo === "zoom_in") { o.k = 0.6 + 0.4 * e; o.a = Math.min(1, p * 2); }
+    else if (tipo === "zoom_out") { o.k = 1.4 - 0.4 * e; o.a = Math.min(1, p * 2); }
+    else if (tipo === "giro") { o.k = 0.5 + 0.5 * e; o.r = -90 * (1 - e); o.a = Math.min(1, p * 2); }
+    return o;
+  }
+  function trSaida(tipo, q, W) {
+    q = Math.max(0, Math.min(1, q)); const o = { dx: 0, cor: null, ca: 0 };
+    if (tipo === "preto" || tipo === "branco") { o.cor = tipo === "preto" ? "#000000" : "#FFFFFF"; o.ca = Math.min(1, q * 2); }
+    else if (tipo === "empurrar_e") o.dx = -W * eo(q);
+    else if (tipo === "empurrar_d") o.dx = W * eo(q);
+    return o;
+  }
+  /** Transparência no tempo local (opacidade animada x entrada/saída suave x transição) — igual a montagem._alfa. */
+  function alfaK(it, lt) {
+    let a = clamp(valAt(it, "opacity", lt), 0, 1);
+    if (it.fadeIn > 0) a *= clamp(lt / it.fadeIn, 0, 1);
+    if (it.fadeOut > 0) a *= clamp((it.dur - lt) / it.fadeOut, 0, 1);
+    if (it.tr) a *= trEntrada(it.tr.tipo, lt / it.tr.dur, 1, 1).a;
+    return a;
+  }
+  /** Tempo extra em que cada pedaço continua por baixo da transição do pedaço seguinte (mesma trilha, colados). */
+  function extMap() {
+    const out = {};
+    if (!M.m) return out;
+    const tol = 0.6 / fps();
+    M.m.tracks.forEach((tr) => {
+      if (tr.kind !== "video") return;
+      const its = M.m.items.filter((i) => i.track === tr.id).sort((a, b) => a.start - b.start);
+      for (let i = 0; i < its.length - 1; i++) {
+        const a = its[i], b = its[i + 1];
+        if (b.tr && ["video", "image", "color"].includes(a.type) && Math.abs(a.start + a.dur - b.start) < tol)
+          out[a.id] = { ext: Math.min(b.tr.dur, b.dur), tro: b.tr.tipo };
+      }
+    });
+    return out;
+  }
+  function fxAtivo(fx) { return fx && Object.keys(FX0).some((k) => Math.abs((fx[k] ?? FX0[k]) - FX0[k]) > 1e-4); }
+  function mul3(a, b) { return [0, 1, 2].map((i) => [0, 1, 2].map((j) => a[i][0] * b[0][j] + a[i][1] * b[1][j] + a[i][2] * b[2][j])); }
+  function matrizCor(fx) {
+    const s = fx.saturacao ?? 1, g = 1 - (fx.pb || 0), p = 1 - (fx.sepia || 0), t = fx.temperatura || 0;
+    const sat = [[0.213 + 0.787 * s, 0.715 - 0.715 * s, 0.072 - 0.072 * s], [0.213 - 0.213 * s, 0.715 + 0.285 * s, 0.072 - 0.072 * s], [0.213 - 0.213 * s, 0.715 - 0.715 * s, 0.072 + 0.928 * s]];
+    const gray = [[0.2126 + 0.7874 * g, 0.7152 - 0.7152 * g, 0.0722 - 0.0722 * g], [0.2126 - 0.2126 * g, 0.7152 + 0.2848 * g, 0.0722 - 0.0722 * g], [0.2126 - 0.2126 * g, 0.7152 - 0.7152 * g, 0.0722 + 0.9278 * g]];
+    const sep = [[0.393 + 0.607 * p, 0.769 - 0.769 * p, 0.189 - 0.189 * p], [0.349 - 0.349 * p, 0.686 + 0.314 * p, 0.168 - 0.168 * p], [0.272 - 0.272 * p, 0.534 - 0.534 * p, 0.131 + 0.869 * p]];
+    const temp = [[1 + 0.15 * t, 0, 0], [0, 1 + 0.03 * t, 0], [0, 0, 1 - 0.15 * t]];
+    return mul3(temp, mul3(sep, mul3(gray, sat)));
+  }
+  /** Filtro do canvas para o fx do item: um filtro SVG (brilho/contraste + matriz de cor), mais o desfoque. */
+  const SVGF = { el: null, ids: new Map() };
+  function filtroCanvas(fx) {
+    if (!fxAtivo(fx)) return "none";
+    const key = JSON.stringify([fx.brilho, fx.contraste, fx.saturacao, fx.temperatura, fx.pb, fx.sepia].map((v) => +(v || 0).toFixed(4)));
+    let id = SVGF.ids.get(key);
+    if (!id) {
+      if (!SVGF.el) {
+        SVGF.el = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        SVGF.el.setAttribute("width", "0"); SVGF.el.setAttribute("height", "0");
+        SVGF.el.style.cssText = "position:absolute;width:0;height:0;overflow:hidden";
+        document.body.appendChild(SVGF.el);
+      }
+      id = "vxf" + SVGF.ids.size;
+      const k = 1 + (fx.brilho || 0), c = fx.contraste ?? 1, m = matrizCor(fx);
+      // brilho e contraste canal a canal (com corte em 0 e 1 em cada passo, igual ao lutrgb do FFmpeg)
+      const lin1 = `type="linear" slope="${k}" intercept="0"`, lin2 = `type="linear" slope="${c}" intercept="${0.5 - 0.5 * c}"`;
+      const vals = [0, 1, 2].map((i) => `${m[i][0]} ${m[i][1]} ${m[i][2]} 0 0`).join(" ") + " 0 0 0 1 0";
+      SVGF.el.insertAdjacentHTML("beforeend", `<filter id="${id}" color-interpolation-filters="sRGB" x="0" y="0" width="1" height="1">
+        <feComponentTransfer><feFuncR ${lin1}/><feFuncG ${lin1}/><feFuncB ${lin1}/></feComponentTransfer>
+        <feComponentTransfer><feFuncR ${lin2}/><feFuncG ${lin2}/><feFuncB ${lin2}/></feComponentTransfer>
+        <feColorMatrix type="matrix" values="${vals}"/></filter>`);
+      SVGF.ids.set(key, id);
+    }
+    const sg = (fx.desfoque || 0) * 0.02 * Math.min(M.m.w, M.m.h) * (M.view ? M.view.k : 1);
+    return `url(#${id})` + (sg > 0.3 ? ` blur(${sg.toFixed(2)}px)` : "");
+  }
+  /** Fundo verde na prévia: a mesma conta do chromakey do FFmpeg (distância da cor em U/V). */
+  const KEY = { cv: null };
+  // Igual ao FFmpeg: os quadros viram YUV na faixa de TV (BT.601) e a cor escolhida usa a faixa cheia (JPEG).
+  function uv(r, g, b) { return [-0.148 * r - 0.291 * g + 0.439 * b + 128, 0.439 * r - 0.368 * g - 0.071 * b + 128]; }
+  function uvCheio(r, g, b) { return [-0.16874 * r - 0.33126 * g + 0.5 * b + 128, 0.5 * r - 0.41869 * g - 0.08131 * b + 128]; }
+  function chromaDesenha(src, ch, w, h) {
+    const lado = 480, k = Math.min(1, lado / Math.max(w, h));
+    const cw = Math.max(2, Math.round(w * k)), chh = Math.max(2, Math.round(h * k));
+    if (!KEY.cv) KEY.cv = document.createElement("canvas");
+    const cv = KEY.cv; cv.width = cw; cv.height = chh;
+    const x = cv.getContext("2d", { willReadFrequently: true });
+    x.clearRect(0, 0, cw, chh); x.drawImage(src, 0, 0, cw, chh);
+    const im = x.getImageData(0, 0, cw, chh), d = im.data;
+    const hex = ch.cor || "#00FF00", [ku, kv] = uvCheio(parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16));
+    const sim = ch.tol ?? 0.3, bl = ch.suave ?? 0.08;
+    for (let i = 0; i < d.length; i += 4) {
+      const [u, v] = uv(d[i], d[i + 1], d[i + 2]);
+      const diff = Math.sqrt((u - ku) * (u - ku) + (v - kv) * (v - kv)) / (255 * Math.SQRT2);
+      let a = diff < sim ? 0 : (bl > 0.0001 ? Math.min(1, (diff - sim) / bl) : 1);
+      d[i + 3] = d[i + 3] * a;
+    }
+    x.putImageData(im, 0, 0);
+    return cv;
+  }
+  function vinhetaDesenha(ctx, w, h, forca) {
+    ctx.save();
+    ctx.globalCompositeOperation = "source-atop";
+    ctx.translate(w / 2, h / 2); ctx.scale(w / 2, h / 2);
+    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, Math.SQRT2);
+    VINHETA_PARADAS.forEach(([r, a]) => g.addColorStop(r, `rgba(0,0,0,${(a * forca).toFixed(3)})`));
+    ctx.fillStyle = g; ctx.fillRect(-1, -1, 2, 2);
+    ctx.restore();
+  }
+
   const M = { pid: null, P: null, m: null, sel: null, t: 0, playing: false, pps: 40, hist: [], fut: [], snap: true,
     saveT: null, saving: false, savedAt: 0, built: false, pool: new Map(), imgs: new Map(), raf: 0, clock: null,
     drag: null, editBefore: null, exportJob: null, proxyPoll: null, open: false, follow: true };
@@ -145,6 +304,14 @@ const Montagem = (() => {
       try { M.m = await api("GET", `/api/projects/${P.id}/montagem`); }
       catch (e) { toast(e.message, true); return; }
       M.pps = fitZoom();
+      M.bgJobs = {};
+      api("GET", `/api/jobs/${P.id}`).then((js) => {  // tirando o fundo desde antes de abrir: continua acompanhando
+        js.filter((j) => j.kind === "semfundo" && (j.status === "na fila" || j.status === "processando") && j.ref)
+          .forEach((j) => { M.bgJobs[j.ref] = { job: j.id, pct: j.pct, msg: j.msg }; });
+        if (Object.keys(M.bgJobs).length) vigiaFundo();
+      }).catch(() => {});
+      if (!M.fundoInfo) api("GET", "/api/fundo/status").then((r) => { M.fundoInfo = r; }).catch(() => {});
+      aplicaSubstituicoes();
       document.fonts && Promise.all(FONTES.map((f) => document.fonts.load(`32px "${f}"`))).then(draw).catch(() => {});
       checkProxies();
     }
@@ -178,6 +345,7 @@ const Montagem = (() => {
           <button class="seg-btn" data-tab="fundos">Fundos</button>
           <button class="seg-btn" data-tab="tarjas">Tarjas</button>
           <button class="seg-btn" data-tab="musicas">Músicas</button>
+          <button class="seg-btn" data-tab="gratis">Grátis</button>
         </div>
         <div class="mt-tab" data-tab="midias">
           <label class="btn primary mt-upbtn">${ico(I.up)} Enviar vídeo, foto ou música
@@ -196,7 +364,7 @@ const Montagem = (() => {
           <p class="hint">Cor sólida no fundo (por baixo de tudo) ou como faixa. Toque para colocar no cursor.</p>
           <div class="mt-swatches">${CORES_FUNDO.map((c) => `<button class="mt-sw" data-color="${c}" style="background:${c}" aria-label="Cor ${c}"></button>`).join("")}</div>
           <label class="field-inline">Outra cor <input type="color" class="mt-swcustom" value="#2B2D35"></label>
-          <p class="hint">Bancos de vídeos e fotos livres (Pexels e Pixabay) chegam na próxima fase.</p>
+          <p class="hint">Quer um vídeo ou uma foto de fundo? Veja a aba <b>Grátis</b> (Pexels e Pixabay).</p>
         </div>
         <div class="mt-tab hidden" data-tab="tarjas">
           <p class="hint">Tarjas com nome, cargo, versículo, redes sociais… Escolha as cores e o tempo, e toque no modelo para colocar no cursor.</p>
@@ -205,6 +373,13 @@ const Montagem = (() => {
           <div class="mt-tj-pals"></div>
           <div class="mt-f"><span>Fica na tela por</span><div class="seg small mt-tj-durs">${[5, 10, 15].map((d) => `<button class="seg-btn ${d === 5 ? "active" : ""}" data-tjdur="${d}">${d} s</button>`).join("")}</div></div>
           <div class="mt-tj-grid"><p class="hint">Carregando modelos…</p></div>
+        </div>
+        <div class="mt-tab hidden" data-tab="gratis">
+          <div class="seg full small mt-gtipo"><button class="seg-btn active" data-gtipo="video">Vídeos</button><button class="seg-btn" data-gtipo="foto">Fotos</button></div>
+          <form class="mt-gsearch"><input type="search" placeholder="Buscar (ex.: céu, igreja, natureza)" maxlength="80"><button class="btn small" type="submit">Buscar</button></form>
+          <div class="mt-gsug">${["Céu", "Nuvens", "Natureza", "Cruz", "Bíblia", "Igreja", "Oração", "Família", "Mar", "Montanha", "Luz", "Cidade", "Pôr do sol", "Chuva"].map((x) => `<button class="chip-btn" data-gsug="${x}">${x}</button>`).join("")}</div>
+          <p class="hint">Vídeos e fotos do Pexels e do Pixabay, livres para usar, inclusive em vídeo monetizado. Toque para colocar no cursor.</p>
+          <div class="mt-glist"></div>
         </div>
         <div class="mt-tab hidden" data-tab="musicas">
           <form class="mt-msearch"><input type="search" placeholder="Buscar música (ex.: piano, calmo, épico)" maxlength="80"><button class="btn small" type="submit">Buscar</button></form>
@@ -265,6 +440,7 @@ const Montagem = (() => {
         <button data-sheet-open="lib" data-tabgo="fundos">${ico(I.fill, 20)}<span>Fundos</span></button>
         <button data-sheet-open="lib" data-tabgo="tarjas">${ico(I.text, 20)}<span>Tarjas</span></button>
         <button data-sheet-open="lib" data-tabgo="musicas">${ico(I.music, 20)}<span>Músicas</span></button>
+        <button data-sheet-open="lib" data-tabgo="gratis">${ico(I.img, 20)}<span>Grátis</span></button>
         <button data-sheet-open="props">${ico(I.sliders, 20)}<span>Ajustes</span></button>
       </nav>
       <div class="mt-backdrop"></div>`;
@@ -280,6 +456,7 @@ const Montagem = (() => {
     $(".mt-swcustom", B).addEventListener("change", (e) => { addColor(e.target.value.toUpperCase()); closeSheets(); });
     wireTarjas(B);
     wireMusicas(B);
+    wireGratis(B);
     $(".mt-play", B).addEventListener("click", toggle);
     $$("[data-act]", B).forEach((b) => b.addEventListener("click", (e) => act(b.dataset.act, e)));
     $$("[data-newtrack]", B).forEach((a) => a.addEventListener("click", () => {
@@ -682,6 +859,84 @@ const Montagem = (() => {
     return fala ? 0.3 : 1;
   }
 
+  /* ---------------- bancos grátis (Pexels e Pixabay) ---------------- */
+  const GR = { tipo: "video", q: "", pagina: 1, itens: [], baixando: {} };
+  function orientacao() { return { "9:16": "portrait", "4:5": "portrait", "16:9": "landscape" }[M.m.formato] || ""; }
+  async function buscarGratis(mais) {
+    const lista = $(".mt-glist", box());
+    if (!mais) { GR.pagina = 1; GR.itens = []; lista.innerHTML = `<p class="hint">Buscando…</p>`; }
+    let r;
+    try { r = await api("GET", `/api/bancos/buscar?tipo=${GR.tipo}&q=${encodeURIComponent(GR.q)}&pagina=${GR.pagina}&orient=${orientacao()}`); }
+    catch (e) {
+      lista.innerHTML = `<div class="mt-gsem"><p>${esc(e.message)}</p>${/chave/i.test(e.message) ? `<p class="hint">As chaves são grátis e levam 2 minutos: <a href="https://www.pexels.com/api/" target="_blank" rel="noopener" data-ext>Pexels</a> e <a href="https://pixabay.com/api/docs/" target="_blank" rel="noopener" data-ext>Pixabay</a>. Depois cole em <b>Inteligência artificial (no menu)</b>.</p><a class="btn small primary" href="#/ia">Colocar as chaves</a>` : ""}</div>`;
+      return;
+    }
+    GR.itens = GR.itens.concat(r.itens);
+    lista.innerHTML = GR.itens.length ? `<div class="mt-ggrid">${GR.itens.map(cardGratis).join("")}</div>` + (r.mais ? `<button class="btn small ghost mt-gmais">Mais</button>` : "")
+      + (r.avisos && r.avisos.length ? `<p class="hint">${esc(r.avisos[0])}</p>` : "")
+      : `<p class="hint">Nada encontrado. Tente outra palavra (em inglês às vezes acha mais: sky, church, nature).</p>`;
+    const mm = $(".mt-gmais", lista); if (mm) mm.addEventListener("click", () => { GR.pagina++; buscarGratis(true); });
+  }
+  function cardGratis(x) {
+    const b = GR.baixando[x.id];
+    return `<button class="mt-gcard ${b ? "busy" : ""}" data-gid="${esc(x.id)}" title="${esc(x.nome || "")} — ${esc(x.autor || "")} (${x.fonte === "pexels" ? "Pexels" : "Pixabay"})">
+      <img src="${esc(x.thumb || "")}" alt="" loading="lazy" referrerpolicy="no-referrer">
+      ${x.dur ? `<span class="dur">${fmt(x.dur)}</span>` : ""}<span class="src">${x.fonte === "pexels" ? "Pexels" : "Pixabay"}</span>
+      ${b ? `<span class="prog"><i style="width:${Math.round((b.pct || 0) * 100)}%"></i></span>` : ""}</button>`;
+  }
+  async function usarGratis(x) {
+    if (GR.baixando[x.id]) return;
+    let r;
+    try { r = await api("POST", `/api/projects/${M.pid}/bancos/${encodeURIComponent(x.id)}`); } catch (e) { toast(e.message, true); return; }
+    GR.baixando[x.id] = { job: r.job, pct: 0, at: M.t };
+    pintaGratis(x.id);
+    toast(x.tipo === "video" ? "Baixando o vídeo… ele entra no cursor quando terminar." : "Baixando a foto…");
+    const tick = async () => {
+      let js; try { js = await api("GET", `/api/jobs/${M.pid}`); } catch (_) { setTimeout(tick, 2000); return; }
+      const j = js.find((k) => k.id === r.job), b = GR.baixando[x.id];
+      if (!j || !b) return;
+      b.pct = j.pct; pintaGratis(x.id);
+      if (j.status === "erro") { delete GR.baixando[x.id]; pintaGratis(x.id); toast(j.error, true); return; }
+      if (j.status !== "concluido") { setTimeout(tick, 900); return; }
+      delete GR.baixando[x.id]; pintaGratis(x.id);
+      const md = j.result;
+      if (!md) return;
+      if (!media(md.id)) M.m.media.push(md);
+      renderMedia(); addMedia(md.id, b.at);
+      toast("Pronto, já está na linha do tempo. O crédito (opcional) fica em Ajustes.");
+      checkProxies();
+    };
+    setTimeout(tick, 700);
+  }
+  function pintaGratis(id) {
+    const el = $(`.mt-gcard[data-gid="${CSS.escape(id)}"]`, box()); const x = GR.itens.find((k) => k.id === id);
+    if (el && x) el.outerHTML = cardGratis(x);
+  }
+  function wireGratis(B) {
+    const tabG = $('.mt-tab[data-tab="gratis"]', B);
+    const inp = $(".mt-gsearch input", B);
+    inp.addEventListener("keydown", (e) => e.stopPropagation());
+    $(".mt-gsearch", B).addEventListener("submit", (e) => { e.preventDefault(); GR.q = inp.value.trim(); buscarGratis(); });
+    $$("[data-gtipo]", B).forEach((b) => b.addEventListener("click", () => {
+      GR.tipo = b.dataset.gtipo; $$("[data-gtipo]", B).forEach((x) => x.classList.toggle("active", x === b)); buscarGratis();
+    }));
+    $$("[data-gsug]", B).forEach((b) => b.addEventListener("click", () => { inp.value = b.dataset.gsug; GR.q = b.dataset.gsug; buscarGratis(); }));
+    tabG.addEventListener("click", (e) => {
+      const c = e.target.closest(".mt-gcard"); if (!c) return;
+      const x = GR.itens.find((k) => k.id === c.dataset.gid); if (x) { usarGratis(x); closeSheets(); }
+    });
+    // prévia do vídeo ao passar o mouse (no computador)
+    tabG.addEventListener("mouseover", (e) => {
+      const c = e.target.closest(".mt-gcard"); if (!c || c.querySelector("video")) return;
+      const x = GR.itens.find((k) => k.id === c.dataset.gid); if (!x || x.tipo !== "video" || !x.previa) return;
+      const v = document.createElement("video"); v.muted = true; v.loop = true; v.playsInline = true; v.autoplay = true; v.src = x.previa;
+      c.appendChild(v);
+      c.addEventListener("mouseleave", () => v.remove(), { once: true });
+    });
+    let carregou = false;
+    $$('.mt-tabs [data-tab="gratis"], [data-tabgo="gratis"]', B).forEach((b) => b.addEventListener("click", () => { if (!carregou) { carregou = true; buscarGratis(); } }));
+  }
+
   /* ---------------- linha do tempo ---------------- */
 
   function renderTimeline() {
@@ -714,7 +969,7 @@ const Montagem = (() => {
             <button data-th="locked" aria-label="Travar trilha" title="Travar/destravar">${ico(t.locked ? I.lock : I.unlock, 14)}</button>
           </span>
         </div>
-        <div class="mt-lane" style="width:${laneW}px">${its.map(itemHTML).join("")}</div>
+        <div class="mt-lane" style="width:${laneW}px">${its.map(itemHTML).join("")}${t.kind === "video" ? juncoes(its) : ""}</div>
       </div>`;
     }).join("");
     $(".mt-rows", B).innerHTML = rows;
@@ -749,9 +1004,25 @@ const Montagem = (() => {
       const tt = it.type === "video" ? Math.round(it.in / 15) * 15 : 0;
       bg = `background-image:url('${urlMidia(md.id)}/thumb?t=${tt}')`;
     }
-    const extra = [it.speed !== 1 ? `${it.speed}×` : "", it.fadeIn ? "◢" : "", it.fadeOut ? "◣" : ""].filter(Boolean).join(" ");
+    const extra = [it.speed !== 1 ? `${it.speed}×` : "", it.fadeIn ? "◢" : "", it.fadeOut ? "◣" : "", it.fx ? "🎨" : "", it.chroma ? "▣" : "",
+      md && md.semfundo ? "✂" : "", it.kf && M.sel !== it.id ? "◆" : ""].filter(Boolean).join(" ");
+    const trw = it.tr ? Math.min(w, it.tr.dur * M.pps) : 0;
+    const kfs = M.sel === it.id && it.kf ? it.kf.map((k) => `<i class="mt-kfd" data-kft="${k.t}" style="left:${(k.t * M.pps).toFixed(1)}px" title="Quadro-chave em ${fmt(k.t, true)}"></i>`).join("") : "";
     return `<div class="mt-item t-${it.type} ${M.sel === it.id ? "sel" : ""}" data-id="${it.id}" style="left:${(it.start * M.pps).toFixed(2)}px;width:${w.toFixed(2)}px;${bg}">
-      <span class="h-l"></span><span class="lb">${w > 30 ? esc(label) : ""}${extra && w > 70 ? ` <i>${extra}</i>` : ""}</span><span class="h-r"></span></div>`;
+      ${trw ? `<span class="mt-trz" style="width:${trw.toFixed(1)}px" title="Transição: ${esc((TRANSICOES.find((x) => x[0] === it.tr.tipo) || [0, ""])[1])}"></span>` : ""}
+      <span class="h-l"></span><span class="lb">${w > 30 ? esc(label) : ""}${extra && w > 70 ? ` <i>${extra}</i>` : ""}</span>${kfs}<span class="h-r"></span></div>`;
+  }
+
+  /** Botãozinho em cada corte (dois pedaços colados) para escolher a transição. */
+  function juncoes(its) {
+    const tol = 0.6 / fps(), ord = its.slice().sort((a, b) => a.start - b.start);
+    let h = "";
+    for (let i = 1; i < ord.length; i++) {
+      const a = ord[i - 1], b = ord[i];
+      if (Math.abs(a.start + a.dur - b.start) > tol || !["video", "image", "color"].includes(b.type) || b.dur * M.pps < 14) continue;
+      h += `<button class="mt-junc ${b.tr ? "on" : ""}" data-junc="${b.id}" style="left:${(b.start * M.pps).toFixed(1)}px" title="${b.tr ? "Trocar a transição" : "Colocar transição"}" aria-label="Transição">${b.tr ? "⧉" : "+"}</button>`;
+    }
+    return h;
   }
 
   function placePlayhead() {
@@ -783,6 +1054,17 @@ const Montagem = (() => {
   }
 
   function rowsDown(e) {
+    const jb = e.target.closest(".mt-junc");
+    if (jb) {
+      e.preventDefault(); e.stopPropagation();
+      M.sel = jb.dataset.junc; SEC_ABERTA.add("tr"); SEC_ABERTA.delete("-tr");
+      renderTimeline(); renderProps(); draw();
+      if (window.innerWidth <= 900) openSheet("props");
+      requestAnimationFrame(() => { const sec = $('.mt-props details[data-sec="tr"]', box()); if (sec) sec.scrollIntoView({ block: "nearest", behavior: "smooth" }); });
+      return;
+    }
+    const kd = e.target.closest(".mt-kfd");
+    if (kd) { e.preventDefault(); e.stopPropagation(); const it = itemById(M.sel); if (it) { seek(q(it.start + +kd.dataset.kft)); renderProps(); } return; }
     const itEl = e.target.closest(".mt-item");
     if (!itEl) {  // espaço vazio: tira a seleção e leva o cursor
       if (e.target.closest(".mt-head")) return;
@@ -842,12 +1124,14 @@ const Montagem = (() => {
       const delta = ns - o.start;
       it.start = ns; it.dur = q(o.dur - delta);
       if (it.type === "video" || it.type === "audio") it.in = Math.max(0, +(o.in + delta * o.speed).toFixed(4));
+      if (o.kf) { it.kf = kfRecorta(o, delta, o.dur); if (!it.kf) delete it.kf; }
       d.el.style.left = it.start * M.pps + "px"; d.el.style.width = Math.max(3, it.dur * M.pps) + "px";
     } else {
       let ne = snapTime(o.start + o.dur + dx, it.id);
       const maxEnd = o.start + (maxSrc - o.in) / o.speed;
       ne = clamp(ne, o.start + 1 / fps(), maxEnd);
       it.dur = q(ne - o.start);
+      if (o.kf) { it.kf = kfRecorta(o, 0, it.dur); if (!it.kf) delete it.kf; }
       d.el.style.width = Math.max(3, it.dur * M.pps) + "px";
     }
     if (d.mode !== "move") seekQuiet(d.mode === "l" ? it.start : it.start + it.dur - 1 / fps());
@@ -906,9 +1190,11 @@ const Montagem = (() => {
     if (!alvos.length) return toast("Coloque o cursor em cima do pedaço que quer dividir.");
     const before = snapshot();
     alvos.forEach((it) => {
-      const cut = q(t);
+      const cut = q(t), orig = JSON.parse(JSON.stringify(it)), lc = cut - it.start;
       const right = { ...JSON.parse(JSON.stringify(it)), id: uid("i"), start: cut, dur: q(it.start + it.dur - cut), fadeIn: 0 };
+      delete right.tr;  // a transição fica no começo (pedaço da esquerda)
       if (it.type === "video" || it.type === "audio") right.in = +(it.in + (cut - it.start) * it.speed).toFixed(4);
+      if (orig.kf) { right.kf = kfRecorta(orig, lc, orig.dur); it.kf = kfRecorta(orig, 0, lc); if (!right.kf) delete right.kf; if (!it.kf) delete it.kf; }
       it.dur = q(cut - it.start); it.fadeOut = 0;
       M.m.items.push(right);
       M.sel = right.id;
@@ -979,6 +1265,144 @@ const Montagem = (() => {
 
   /* ---------------- painel de ajustes ---------------- */
 
+  /* ---------------- 1.2: seções do painel (animação, transição, cor, fundo verde, remover fundo) ---------------- */
+  const SEC_ABERTA = new Set(["anim", "tr"]);
+  function secao(id, titulo, corpo, fechada) {
+    const aberta = SEC_ABERTA.has(id) || (!fechada && !SEC_ABERTA.has("-" + id));
+    return `<details class="mt-sec" data-sec="${id}" ${aberta ? "open" : ""}><summary>${titulo}</summary><div class="mt-sec-body">${corpo}</div></details>`;
+  }
+  const pct = (v) => Math.round(v * 100) + "%";
+  function faixa(attr, k, label, min, max, step, val, fmtv) {
+    return `<label class="mt-f"><span>${label}<b data-out-${attr}="${k}">${fmtv ? fmtv(val) : val}</b></span>
+      <input type="range" data-${attr}="${k}" min="${min}" max="${max}" step="${step}" value="${val}"></label>`;
+  }
+  const ANIMS = [
+    ["entrada", "Entrar", [["in_fade", "Aparecer"], ["in_zoom", "Crescer"], ["in_pop", "Pop"], ["in_up", "Subir"], ["in_left", "Da esquerda"], ["in_right", "Da direita"]]],
+    ["durante", "Durante", [["kb_in", "Zoom lento"], ["kb_out", "Afastar lento"], ["pan_r", "Passear →"], ["pan_l", "Passear ←"]]],
+    ["saida", "Sair", [["out_fade", "Sumir"], ["out_zoom", "Diminuir"], ["out_down", "Descer"], ["out_right", "Sair à direita"]]],
+  ];
+  function secAnimacao(it) {
+    const lt = clamp(M.t - it.start, 0, it.dur), aqui = kfAqui(it, lt), n = (it.kf || []).length;
+    const dentro = M.t >= it.start - 1e-6 && M.t <= it.start + it.dur + 1e-6;
+    const ant = (it.kf || []).filter((k) => k.t <= lt + 0.5 / fps()).pop();
+    const corpo = `
+      <p class="hint">Animações prontas (toque para aplicar):</p>
+      ${ANIMS.map(([g, nome, lst]) => `<div class="mt-anims"><span class="hint">${nome}</span>${lst.map(([id, nm]) => `<button class="chip-btn" data-anim="${id}">${nm}</button>`).join("")}</div>`).join("")}
+      <div class="panel-title small">Quadros-chave ${n ? `<span class="hint">(${n})</span>` : ""}</div>
+      <p class="hint">${n ? "Leve o cursor para outro ponto e mude posição, tamanho, giro ou opacidade: o quadro-chave é marcado sozinho." : "Marque um quadro-chave, leve o cursor para outro ponto e mude posição, tamanho, giro ou opacidade. O pedaço anda de um jeito para o outro."}</p>
+      <div class="row mt-kfbar">
+        <button class="btn icon small" data-kf="prev" title="Quadro-chave anterior" aria-label="Quadro-chave anterior" ${n ? "" : "disabled"}>◀</button>
+        ${aqui ? `<button class="btn small" data-kf="del">◇ Tirar este</button>` : `<button class="btn small primary" data-kf="add" ${dentro ? "" : "disabled"}>◆ Marcar aqui</button>`}
+        <button class="btn icon small" data-kf="next" title="Próximo quadro-chave" aria-label="Próximo quadro-chave" ${n ? "" : "disabled"}>▶</button>
+        ${n ? `<button class="btn small ghost danger" data-kf="clear">Limpar</button>` : ""}
+      </div>
+      ${ant && n > 1 ? `<label class="mt-f"><span>Movimento até o próximo</span><select data-kfe>${SUAVES.map(([v, nm]) => `<option value="${v}" ${(ant.e || "suave") === v ? "selected" : ""}>${nm}</option>`).join("")}</select></label>` : ""}`;
+    return secao("anim", `Animação${n ? " ◆" : ""}`, corpo);
+  }
+  function secTransicao(it) {
+    const ant = M.m.items.find((o) => o !== it && o.track === it.track && Math.abs(o.start + o.dur - it.start) < 0.6 / fps());
+    const tr = it.tr;
+    const corpo = `
+      <p class="hint">${ant ? "Como este pedaço entra no lugar do anterior." : "Não há pedaço colado antes: ele entra sobre o que estiver por baixo."}</p>
+      <div class="mt-trgrid">
+        <button class="mt-trbtn ${!tr ? "on" : ""}" data-tr="">Nenhuma</button>
+        ${TRANSICOES.map(([id, nm]) => `<button class="mt-trbtn ${tr && tr.tipo === id ? "on" : ""}" data-tr="${id}"><i class="mt-tri tri-${id}"></i>${nm}</button>`).join("")}
+      </div>
+      ${tr ? faixa("trd", "dur", "Duração", 0.2, Math.max(0.3, Math.min(3, +(it.dur * 0.9).toFixed(2))), 0.05, tr.dur, (v) => String(v).replace(".", ",") + "s") : ""}
+      <button class="btn small" data-trtodos>Usar em todos os cortes desta trilha</button>`;
+    return secao("tr", `Transição de entrada${tr ? " ✓" : ""}`, corpo);
+  }
+  function secCor(it) {
+    const fx = { ...FX0, ...(it.fx || {}) };
+    const corpo = `
+      <div class="mt-filtros">${FILTROS.map(([id, nm, v]) => `<button class="mt-filtro ${(it.fx ? it.fx.preset : "nenhum") === id || (!it.fx && id === "nenhum") ? "on" : ""}" data-filtro="${id}"><span style="${filtroAmostra(v)}"></span>${nm}</button>`).join("")}</div>
+      ${AJUSTES_COR.map(([k, nm, lo, hi, st]) => faixa("fx", k, nm, lo, hi, st, fx[k], k === "contraste" || k === "saturacao" ? pct : (v) => (k === "brilho" || k === "temperatura" ? (v > 0 ? "+" : "") : "") + Math.round(v * 100) + (k === "brilho" || k === "temperatura" ? "" : "%"))).join("")}
+      ${it.fx ? `<button class="btn small" data-fxzero>Voltar ao original</button>` : ""}`;
+    return secao("cor", `Filtros e cor${it.fx ? " ✓" : ""}`, corpo, true);
+  }
+  function filtroAmostra(v) {
+    const fx = { ...FX0, ...v };
+    const f = [`brightness(${1 + fx.brilho})`, `contrast(${fx.contraste})`, `saturate(${fx.saturacao})`, `grayscale(${fx.pb})`, `sepia(${Math.min(1, fx.sepia + Math.max(0, fx.temperatura) * 0.35)})`];
+    if (fx.temperatura < 0) f.push(`hue-rotate(${Math.round(fx.temperatura * 25)}deg)`);
+    return `filter:${f.join(" ")}`;
+  }
+  function secChroma(it) {
+    const ch = { on: false, cor: "#00FF00", tol: 0.3, suave: 0.08, ...(it.chroma || {}) };
+    const corpo = `
+      <label class="checkline"><input type="checkbox" data-ch="on" ${ch.on ? "checked" : ""}> Tirar o fundo verde (ou azul)</label>
+      ${ch.on ? `<div class="row mt-colors">
+          <button class="btn small ${ch.cor === "#00FF00" ? "primary" : ""}" data-chcor="#00FF00">Verde</button>
+          <button class="btn small ${ch.cor === "#0000FF" ? "primary" : ""}" data-chcor="#0000FF">Azul</button>
+          <label>Outra <input type="color" data-ch="cor" value="${ch.cor}"></label>
+        </div>
+        ${faixa("ch", "tol", "Quanto da cor tirar", 0.01, 0.8, 0.01, ch.tol, pct)}
+        ${faixa("ch", "suave", "Borda suave", 0, 0.5, 0.01, ch.suave, pct)}
+        <p class="hint">Se sobrar verde em volta da pessoa, aumente "Quanto da cor tirar". Se a pessoa ficar furada, diminua.</p>` : `<p class="hint">Para quem grava na frente de um pano verde. Sem pano verde, use "Remover fundo com IA".</p>`}`;
+    return secao("chroma", `Fundo verde${ch.on ? " ✓" : ""}`, corpo, true);
+  }
+  function secSemFundo(it, md) {
+    const job = (M.bgJobs || {})[it.id];
+    let corpo;
+    if (md && md.semfundo) corpo = `<p class="hint">✓ Esta mídia já está sem fundo. Coloque um vídeo, foto ou cor numa trilha abaixo para aparecer atrás.</p>`;
+    else if (job) corpo = `<div class="mt-bgjob"><div class="bar"><i style="width:${Math.round((job.pct || 0) * 100)}%"></i></div><span class="hint">${esc(job.msg || "Na fila…")}</span></div>`;
+    else corpo = `<p class="hint">A IA recorta a pessoa (ou o objeto principal) e tira o resto, sem pano verde. Roda ${M.fundoInfo && !M.fundoInfo.baixado ? `aqui mesmo; na primeira vez baixa o modelo de IA (${M.fundoInfo.tamanho_mb} MB)` : "aqui mesmo, sem custo"}. ${it.type === "video" ? "Só o trecho deste pedaço é processado; pode levar alguns minutos." : ""}</p>
+      <button class="btn small primary" data-semfundo>✂ Remover fundo com IA</button>`;
+    return secao("semfundo", `Remover fundo com IA${md && md.semfundo ? " ✓" : ""}`, corpo, !job);
+  }
+
+  /* ---------------- quadros-chave ---------------- */
+  function kfAqui(it, lt) { const tol = 0.5 / fps(); return (it.kf || []).find((k) => Math.abs(k.t - lt) < tol) || null; }
+  function kfNovo(it, lt) {
+    const k = { t: +lt.toFixed(4), e: "suave" };
+    KF_KEYS.forEach((c) => (k[c] = +(+valAt(it, c, lt)).toFixed(5)));
+    const prev = (it.kf || []).filter((x) => x.t < lt).pop(); if (prev) k.e = prev.e || "suave";
+    it.kf = (it.kf || []).concat([k]).sort((a, b) => a.t - b.t);
+    return k;
+  }
+  /** Muda x, y, scale, rot ou opacity: com animação, grava no quadro-chave do cursor (cria se não houver). */
+  function setProp(it, k, v) {
+    if (!KF_KEYS.includes(k) || !it.kf || !it.kf.length || it.type === "tarja") { it[k] = v; return; }
+    const lt = clamp(M.t - it.start, 0, it.dur);
+    (kfAqui(it, lt) || kfNovo(it, lt))[k] = v;
+  }
+  /** Quadros-chave do trecho [a, b] do item, recontados a partir de a (para dividir e aparar sem mudar o movimento). */
+  function kfRecorta(o, a, b) {
+    if (!o.kf || !o.kf.length) return undefined;
+    const ponta = (t) => { const k = { t: +(t - a).toFixed(4) }; KF_KEYS.forEach((c) => (k[c] = +(+valAt(o, c, t)).toFixed(5))); const p = o.kf.filter((x) => x.t <= t + 1e-4).pop(); k.e = p ? p.e || "suave" : "suave"; return k; };
+    const out = [];
+    if (o.kf.some((k) => k.t <= a + 1e-4)) out.push(ponta(a));
+    o.kf.filter((k) => k.t > a + 1e-4 && k.t < b - 1e-4).forEach((k) => out.push({ ...k, t: +(k.t - a).toFixed(4) }));
+    if (o.kf.some((k) => k.t >= b - 1e-4)) out.push(ponta(b));
+    return out.length ? out : undefined;
+  }
+  function aplicaAnim(it, id) {
+    const dur = it.dur, d = Math.min(0.6, dur / 3);
+    const S = (t) => { const o = {}; KF_KEYS.forEach((c) => (o[c] = +(+valAt(it, c, t)).toFixed(5))); return o; };
+    const kf = (t, base, mud, e) => ({ t: +t.toFixed(4), ...base, ...mud, e });
+    let lista = it.kf ? it.kf.slice() : [];
+    const grupo = id.startsWith("in_") ? "entrada" : id.startsWith("out_") ? "saida" : "durante";
+    if (grupo === "entrada") {
+      const b = S(Math.min(dur, d + 0.001)); lista = lista.filter((k) => k.t > d + 1e-3);
+      const ini = { in_fade: { opacity: 0 }, in_zoom: { scale: b.scale * 0.3, opacity: 0 }, in_pop: { scale: b.scale * 0.5, opacity: 0 },
+        in_up: { y: b.y + 0.15, opacity: 0 }, in_left: { x: b.x - 1 }, in_right: { x: b.x + 1 } }[id];
+      const novos = [kf(0, b, ini, "entrada")];
+      if (id === "in_pop") novos.push(kf(d * 0.7, b, { scale: b.scale * 1.08 }, "suave"));
+      novos.push(kf(d, b, {}, lista.length ? "suave" : "linear"));
+      lista = novos.concat(lista);
+    } else if (grupo === "saida") {
+      const b = S(Math.max(0, dur - d - 0.001)); lista = lista.filter((k) => k.t < dur - d - 1e-3);
+      const fim = { out_fade: { opacity: 0 }, out_zoom: { scale: b.scale * 0.3, opacity: 0 }, out_down: { y: b.y + 0.15, opacity: 0 }, out_right: { x: b.x + 1 } }[id];
+      lista = lista.concat([kf(dur - d, b, {}, "saida"), kf(dur, b, fim, "linear")]);
+    } else {
+      const b = { x: it.x, y: it.y, scale: it.scale, rot: it.rot, opacity: it.opacity };
+      const par = { kb_in: [{}, { scale: b.scale * 1.15 }], kb_out: [{ scale: b.scale * 1.15 }, {}],
+        pan_r: [{ scale: b.scale * 1.12, x: b.x - 0.04 }, { scale: b.scale * 1.12, x: b.x + 0.04 }],
+        pan_l: [{ scale: b.scale * 1.12, x: b.x + 0.04 }, { scale: b.scale * 1.12, x: b.x - 0.04 }] }[id];
+      lista = [kf(0, b, par[0], "linear"), kf(dur, b, par[1], "linear")];
+    }
+    it.kf = lista.sort((a, b) => a.t - b.t);
+  }
+
   function renderProps() {
     const el = $(".mt-props", box()); if (!el || !M.m) return;
     const it = itemById(M.sel);
@@ -997,7 +1421,7 @@ const Montagem = (() => {
         <div class="panel-title">Atalhos</div>
         <ul class="mt-keys hint">
           <li><kbd>Espaço</kbd> tocar / pausar</li><li><kbd>S</kbd> dividir no cursor</li><li><kbd>Delete</kbd> apagar</li>
-          <li><kbd>Ctrl</kbd>+<kbd>Z</kbd> desfazer · <kbd>Ctrl</kbd>+<kbd>Y</kbd> refazer</li><li><kbd>Ctrl</kbd>+<kbd>D</kbd> duplicar</li>
+          <li><kbd>Ctrl</kbd>+<kbd>Z</kbd> desfazer · <kbd>Ctrl</kbd>+<kbd>Y</kbd> refazer</li><li><kbd>Ctrl</kbd>+<kbd>D</kbd> duplicar</li><li><kbd>K</kbd> marcar / tirar quadro-chave</li>
           <li><kbd>←</kbd><kbd>→</kbd> um quadro · com <kbd>Shift</kbd> 1 segundo</li><li><kbd>Ctrl</kbd>+roda do mouse: zoom</li>
           <li>Clique direito no nome da trilha vazia: remover</li>
         </ul>`;
@@ -1045,24 +1469,31 @@ const Montagem = (() => {
         html += `<label class="checkline"><input type="checkbox" data-k="duck" ${it.duck ? "checked" : ""}> Abaixar sozinha quando alguém fala</label>`;
         if (md.credito) html += `<div class="mt-credito"><span class="hint">Crédito obrigatório (cole na descrição do vídeo):</span><p>${esc(md.credito)}</p><button class="btn small" data-copiar-credito>Copiar crédito</button></div>`;
       }
+      if ((it.type === "video" || it.type === "image") && md && md.credito)
+        html += `<div class="mt-credito"><span class="hint">Do banco grátis ${esc(md.licenca || "")}. Crédito opcional (se quiser, cole na descrição):</span><p>${esc(md.credito)}</p><button class="btn small" data-copiar-credito>Copiar crédito</button></div>`;
       if (it.type === "color") {
         html += `<label class="mt-f row"><span>Cor</span><input type="color" data-k="color" value="${it.color}"></label>
           ${rng("w", "Largura", 0.05, 1, 0.01, it.w, "", (v) => Math.round(v * 100) + "%")}
           ${rng("h", "Altura", 0.02, 1, 0.01, it.h, "", (v) => Math.round(v * 100) + "%")}`;
       }
       if (it.type !== "audio") {
-        html += `<div class="panel-title">Posição e tamanho</div>
+        const ltc = clamp(M.t - it.start, 0, it.dur), V = (k) => +(+valAt(it, k, ltc)).toFixed(4);
+        const temKf = it.kf && it.kf.length;
+        html += `<div class="panel-title">Posição e tamanho${temKf ? ` <span class="mt-kftag" title="Os valores mostram o ponto do cursor">◆ animado</span>` : ""}</div>
           ${it.type === "video" || it.type === "image" ? `<div class="seg full small mt-fit"><button class="seg-btn ${it.fit !== "cover" ? "active" : ""}" data-fit="contain">Inteiro</button><button class="seg-btn ${it.fit === "cover" ? "active" : ""}" data-fit="cover">Preencher a tela</button></div>` : ""}
-          ${rng("x", "Horizontal", -0.5, 1.5, 0.005, it.x, "", (v) => Math.round(v * 100) + "%")}
-          ${rng("y", "Vertical", -0.5, 1.5, 0.005, it.y, "", (v) => Math.round(v * 100) + "%")}
-          ${rng("scale", "Tamanho", 0.05, 4, 0.01, it.scale, "", (v) => Math.round(v * 100) + "%")}
-          ${it.type !== "text" && it.type !== "tarja" ? rng("rot", "Giro", -180, 180, 1, it.rot, "°") : ""}
-          ${rng("opacity", "Opacidade", 0, 1, 0.01, it.opacity, "", (v) => Math.round(v * 100) + "%")}
+          ${it.type !== "tarja" ? rng("x", "Horizontal", -0.5, 1.5, 0.005, V("x"), "", (v) => Math.round(v * 100) + "%") : rng("x", "Horizontal", -0.5, 1.5, 0.005, it.x, "", (v) => Math.round(v * 100) + "%")}
+          ${it.type !== "tarja" ? rng("y", "Vertical", -0.5, 1.5, 0.005, V("y"), "", (v) => Math.round(v * 100) + "%") : rng("y", "Vertical", -0.5, 1.5, 0.005, it.y, "", (v) => Math.round(v * 100) + "%")}
+          ${rng("scale", "Tamanho", 0.05, 4, 0.01, it.type !== "tarja" ? V("scale") : it.scale, "", (v) => Math.round(v * 100) + "%")}
+          ${it.type !== "text" && it.type !== "tarja" ? rng("rot", "Giro", -180, 180, 1, V("rot"), "°") : ""}
+          ${rng("opacity", "Opacidade", 0, 1, 0.01, it.type !== "tarja" ? V("opacity") : it.opacity, "", (v) => Math.round(v * 100) + "%")}
           <button class="btn small" data-pact="center">${ico(I.center, 14)} Centralizar e tamanho original</button>`;
       }
-      if (it.type !== "tarja") html += `<div class="panel-title">Entrada e saída</div>
+      if (it.type !== "tarja") html += secao("fade", "Entrada e saída suave", `
         ${rng("fadeIn", "Entrada suave", 0, 3, 0.05, it.fadeIn, "s")}
-        ${rng("fadeOut", "Saída suave", 0, 3, 0.05, it.fadeOut, "s")}`;
+        ${rng("fadeOut", "Saída suave", 0, 3, 0.05, it.fadeOut, "s")}`, true);
+      if (it.type !== "audio" && it.type !== "tarja") html += secAnimacao(it);
+      if (["video", "image", "color"].includes(it.type) && (track(it.track) || {}).kind === "video") html += secTransicao(it);
+      if (it.type === "video" || it.type === "image") html += secCor(it) + secChroma(it) + secSemFundo(it, md);
       if (it.type === "video" || it.type === "audio") {
         html += `<div class="panel-title">Som e velocidade</div>
           ${md && (md.has_audio || it.type === "audio") ? rng("volume", "Volume", 0, 2, 0.01, it.volume, "", (v) => Math.round(v * 100) + "%") : `<p class="hint">Este vídeo não tem som.</p>`}
@@ -1089,6 +1520,10 @@ const Montagem = (() => {
 
   function wireProps(el, it) {
     $$("[data-close-sheet]", el).forEach((b) => b.addEventListener("click", closeSheets));
+    $$("details.mt-sec", el).forEach((d) => d.addEventListener("toggle", () => {
+      const id = d.dataset.sec;
+      if (d.open) { SEC_ABERTA.add(id); SEC_ABERTA.delete("-" + id); } else { SEC_ABERTA.delete(id); SEC_ABERTA.add("-" + id); }
+    }));
     $$("[data-pub]", el).forEach((b) => b.addEventListener("click", () => {
       const r = M.P.renders.find((x) => x.file === b.dataset.pub);
       if (typeof openPublish === "function") openPublish({ ...r, project: M.pid, project_name: M.P.name });
@@ -1109,6 +1544,7 @@ const Montagem = (() => {
       if (a === "center") { const before = snapshot(); Object.assign(it, { x: 0.5, y: 0.5, scale: 1, rot: 0 }); commit(before); }
     }));
     $$("[data-fit]", el).forEach((b) => b.addEventListener("click", () => { const before = snapshot(); it.fit = b.dataset.fit; commit(before); }));
+    wireSecoes(el, it);
     $$("[data-ppal]", el).forEach((b) => b.addEventListener("click", () => {
       const p = TJ.spec.paletas.find((x) => x.id === b.dataset.ppal); if (!p) return;
       const before = snapshot(); TJ_PAPEIS.forEach((c) => (it[c] = p[c])); TJ.pal = p.id; tjGuardar(); commit(before);
@@ -1128,7 +1564,7 @@ const Montagem = (() => {
         if (k === "speed") {  // mantém o mesmo trecho do original: a duração muda junto
           const span = it.dur * it.speed; it.speed = v; it.dur = q(span / v);
           const md = media(it.src); if (md) it.dur = Math.min(it.dur, q((md.duration - it.in) / v));
-        } else it[k] = v;
+        } else if (KF_KEYS.includes(k)) setProp(it, k, v); else it[k] = v;
         const out = $(`[data-out="${k}"]`, el);
         if (out) out.textContent = showVal(k, v);
         draw();
@@ -1136,7 +1572,7 @@ const Montagem = (() => {
       });
       inp.addEventListener("change", () => {
         const b = M.editBefore; M.editBefore = null;
-        if (k === "boxOn" || k === "speed" || k === "tpl" || k === "duck") { commit(b); return; }
+        if (k === "boxOn" || k === "speed" || k === "tpl" || k === "duck" || (KF_KEYS.includes(k) && it.kf && it.kf.length)) { commit(b); return; }
         if (b && b !== snapshot()) { M.hist.push(b); M.fut = []; }
         save(); renderTimeline();
         $("[data-act=undo]", box()).disabled = !M.hist.length;
@@ -1145,9 +1581,131 @@ const Montagem = (() => {
     });
   }
 
+  function wireSecoes(el, it) {
+    // faixas (filtros, fundo verde e duração da transição): desfazer como um passo só, no fim do arraste
+    const faixaViva = (attr, set) => $$(`[data-${attr}]`, el).forEach((inp) => {
+      if (inp.tagName === "BUTTON") return;
+      const k = inp.dataset[attr];
+      inp.addEventListener("input", () => {
+        if (!M.editBefore) M.editBefore = snapshot();
+        const v = inp.type === "checkbox" ? inp.checked : inp.type === "range" ? +inp.value : inp.value;
+        set(k, v);
+        const out = el.querySelector(`[data-out-${attr}="${k}"]`);
+        if (out && inp.type === "range") out.textContent = attr === "trd" ? String(v).replace(".", ",") + "s" : (k === "contraste" || k === "saturacao" || attr === "ch") ? pct(v) : (k === "brilho" || k === "temperatura" ? (v > 0 ? "+" : "") + Math.round(v * 100) : Math.round(v * 100) + "%");
+        draw();
+      });
+      inp.addEventListener("change", () => { const b = M.editBefore; M.editBefore = null; commit(b); });
+    });
+    faixaViva("fx", (k, v) => { it.fx = { ...FX0, ...(it.fx || {}), [k]: v }; delete it.fx.preset; if (!fxAtivo(it.fx)) delete it.fx; });
+    faixaViva("ch", (k, v) => { it.chroma = { on: false, cor: "#00FF00", tol: 0.3, suave: 0.08, ...(it.chroma || {}), [k]: k === "cor" ? String(v).toUpperCase() : v }; if (!it.chroma.on) delete it.chroma; });
+    faixaViva("trd", (k, v) => { if (it.tr) it.tr.dur = v; });
+    const clique = (sel, fn) => $$(sel, el).forEach((b) => b.addEventListener("click", () => { const before = snapshot(); if (fn(b) !== false) commit(before); }));
+    clique("[data-filtro]", (b) => { const f = FILTROS.find((x) => x[0] === b.dataset.filtro); if (!f || f[0] === "nenhum") { delete it.fx; return; } it.fx = { ...FX0, ...f[2], preset: f[0] }; });
+    clique("[data-fxzero]", () => { delete it.fx; });
+    clique("[data-chcor]", (b) => { it.chroma = { ...(it.chroma || { on: true, tol: 0.3, suave: 0.08 }), on: true, cor: b.dataset.chcor }; });
+    clique("[data-tr]", (b) => {
+      const tipo = b.dataset.tr;
+      if (!tipo) delete it.tr; else it.tr = { tipo, dur: it.tr ? it.tr.dur : Math.min(0.5, +(it.dur * 0.9).toFixed(2)) };
+    });
+    clique("[data-trtodos]", () => {
+      const tol = 0.6 / fps(), its = M.m.items.filter((o) => o.track === it.track).sort((a, b) => a.start - b.start);
+      let n = 0;
+      its.forEach((o, i) => {
+        if (i === 0 || !["video", "image", "color"].includes(o.type)) return;
+        const a = its[i - 1]; if (Math.abs(a.start + a.dur - o.start) > tol) return;
+        if (it.tr) o.tr = { tipo: it.tr.tipo, dur: Math.min(it.tr.dur, +(o.dur * 0.9).toFixed(2)) }; else delete o.tr;
+        n++;
+      });
+      toast(it.tr ? `Transição colocada em ${n} corte(s) desta trilha.` : `Transições tiradas de ${n} corte(s).`);
+      if (!n) return false;
+    });
+    clique("[data-anim]", (b) => { aplicaAnim(it, b.dataset.anim); toast("Animação aplicada. Toque no play para ver."); });
+    clique("[data-kf]", (b) => {
+      const a = b.dataset.kf, lt = clamp(M.t - it.start, 0, it.dur);
+      if (a === "add") kfNovo(it, lt);
+      if (a === "del") { it.kf = (it.kf || []).filter((k) => k !== kfAqui(it, lt)); if (!it.kf.length) delete it.kf; }
+      if (a === "clear") { if (!confirm("Tirar toda a animação deste pedaço?")) return false; const v = {}; KF_KEYS.forEach((c) => (v[c] = valAt(it, c, lt))); delete it.kf; Object.assign(it, v); }
+      if (a === "prev" || a === "next") {
+        const ks = (it.kf || []).map((k) => k.t), tol = 0.5 / fps();
+        const alvo = a === "prev" ? ks.filter((t) => t < lt - tol).pop() : ks.find((t) => t > lt + tol);
+        if (alvo != null) { seek(q(it.start + alvo)); renderProps(); }
+        return false;
+      }
+    });
+    const ke = $("[data-kfe]", el);
+    if (ke) ke.addEventListener("change", () => {
+      const before = snapshot(), lt = clamp(M.t - it.start, 0, it.dur);
+      const ant = (it.kf || []).filter((k) => k.t <= lt + 0.5 / fps()).pop(); if (ant) ant.e = ke.value; commit(before);
+    });
+    const sf = $("[data-semfundo]", el);
+    if (sf) sf.addEventListener("click", () => semFundo(it));
+  }
+
+  /* ---------------- remover fundo com IA ---------------- */
+  async function semFundo(it) {
+    if (!M.fundoInfo) { try { M.fundoInfo = await api("GET", "/api/fundo/status"); } catch (_) {} }
+    if (M.fundoInfo && !M.fundoInfo.disponivel) return toast("Falta o componente de IA neste computador. Feche o programa e rode o ATUALIZAR.bat.", true);
+    clearTimeout(M.saveT);
+    try {
+      const r = await api("POST", `/api/projects/${M.pid}/montagem/sem-fundo`, { item: it.id, montagem: M.m });
+      M.bgJobs = M.bgJobs || {};
+      M.bgJobs[it.id] = { job: r.job, pct: 0, msg: "Na fila…" };
+      setSaveState("Salvo");
+      toast("Tirando o fundo. Pode continuar editando; quando terminar, o pedaço é trocado sozinho.");
+      renderProps(); vigiaFundo();
+    } catch (e) { toast(e.message, true); }
+  }
+  function vigiaFundo() {
+    if (M.bgPoll) return;
+    M.bgPoll = setInterval(async () => {
+      const pend = Object.entries(M.bgJobs || {});
+      if (!pend.length || !M.pid) { clearInterval(M.bgPoll); M.bgPoll = null; return; }
+      let js; try { js = await api("GET", `/api/jobs/${M.pid}`); } catch (_) { return; }
+      let mudou = false;
+      for (const [iid, b] of pend) {
+        const j = js.find((x) => x.id === b.job);
+        if (!j) { delete M.bgJobs[iid]; mudou = true; continue; }
+        b.pct = j.pct; b.msg = j.status === "na fila" ? "Na fila (esperando outra tarefa terminar)…" : j.msg;
+        if (j.status === "erro") { delete M.bgJobs[iid]; toast("Não deu para tirar o fundo: " + j.error, true); mudou = true; }
+        if (j.status === "concluido") { delete M.bgJobs[iid]; mudou = true; await recarregaMidias(); toast("Fundo removido! Coloque algo numa trilha abaixo para aparecer atrás."); }
+      }
+      const it = itemById(M.sel);
+      if (it && (M.bgJobs || {})[it.id] && !mudou) {  // só a barrinha, sem redesenhar o painel todo
+        const bj = M.bgJobs[it.id], el = $(".mt-bgjob", box());
+        if (el) { $("i", el).style.width = Math.round(bj.pct * 100) + "%"; $(".hint", el).textContent = bj.msg; }
+      } else if (mudou) renderProps();
+    }, 1500);
+  }
+  async function recarregaMidias() {
+    try { const r = await api("GET", `/api/projects/${M.pid}/montagem`); M.m.media = r.media; } catch (_) { return; }
+    aplicaSubstituicoes(); renderMedia();
+  }
+  /** Mídia nova "sem fundo" toma o lugar da original no pedaço que pediu (mesmo trecho, mesmo tempo). */
+  function aplicaSubstituicoes() {
+    const lista = (M.m.media || []).filter((x) => x.substitui);
+    if (!lista.length) return;
+    const before = snapshot();
+    let trocou = false;
+    lista.forEach((md) => {
+      const s = md.substitui, it = itemById(s.item);
+      if (it && it.src === s.src) {
+        it.src = md.id;
+        if (it.type === "video") it.in = Math.max(0, +(it.in - (s.in || 0)).toFixed(4));
+        trocou = true;
+      }
+      delete md.substitui;
+      api("POST", `/api/projects/${M.pid}/midias/${md.id}/aplicado`).catch(() => {});
+    });
+    if (trocou) { clearPool(); commit(before); }
+  }
+
   /* ---------------- reprodução ---------------- */
 
-  function seek(t) { M.t = Math.max(0, t); if (M.playing) M.clock = { t: M.t, now: performance.now() }; placePlayhead(); updateTime(); sync(); draw(); }
+  function seek(t) {
+    M.t = Math.max(0, t); if (M.playing) M.clock = { t: M.t, now: performance.now() }; placePlayhead(); updateTime(); sync(); draw();
+    const it = !M.playing && itemById(M.sel);
+    if (it && it.type !== "audio" && it.type !== "tarja" && !M.propsRaf) M.propsRaf = requestAnimationFrame(() => { M.propsRaf = 0; renderProps(); });
+  }
   function seekQuiet(t) { M.t = Math.max(0, t); placePlayhead(); sync(); draw(); }
   function updateTime() {
     const el = $(".mt-time", box()); if (el) el.textContent = `${fmt(M.t, true)} / ${fmt(total())}`;
@@ -1236,7 +1794,8 @@ const Montagem = (() => {
     if (!M.m) return;
     const t = M.t;
     const av = M.m.items.filter((i) => (i.type === "video" || i.type === "audio") && (i.src && media(i.src)));
-    const active = av.filter((i) => i.start <= t && t < i.start + i.dur);
+    const ext = extMap();
+    const active = av.filter((i) => i.start <= t && t < visivelAte(i, ext));  // continua por baixo da transição seguinte
     const need = new Set(active.map((i) => i.id));
     if (M.playing) {  // prepara o próximo pedaço de cada trilha
       M.m.tracks.forEach((tr) => {
@@ -1250,7 +1809,7 @@ const Montagem = (() => {
       const tr = track(it.track);
       if (!on) { if (!el.paused) el.pause(); return; }
       const target = it.in + (t - it.start) * it.speed;
-      const vol = tr.muted || (tr.hidden && it.type === "video") ? 0 : it.volume * fadeK(it, t) * emendaK(it, t) * duckK(it, t);
+      const vol = tr.muted || (tr.hidden && it.type === "video") || t >= it.start + it.dur ? 0 : it.volume * fadeK(it, t) * emendaK(it, t) * duckK(it, t);
       el.volume = clamp(vol, 0, 1); el.muted = vol <= 0.001;
       if (Math.abs(el.playbackRate - it.speed) > 0.001) el.playbackRate = it.speed;
       if (M.playing) {
@@ -1280,26 +1839,42 @@ const Montagem = (() => {
     M.view = { k: cv.width / W, css: cw / W };
   }
 
-  function sizeOf(it) {
-    const W = M.m.w, H = M.m.h;
-    if (it.type === "color") return [W * it.w * it.scale, H * it.h * it.scale];
+  function sizeOf(it, sc) {
+    const W = M.m.w, H = M.m.h, s = sc ?? it.scale;
+    if (it.type === "color") return [W * it.w * s, H * it.h * s];
     const md = media(it.src) || {};
     const aw = md.w || W, ah = md.h || H;
-    const k = (it.fit === "cover" ? Math.max : Math.min)(W / aw, H / ah) * it.scale;
+    const k = (it.fit === "cover" ? Math.max : Math.min)(W / aw, H / ah) * s;
     return [aw * k, ah * k];
   }
   function textLines(it) { return ((it.upper ? (it.text || "").toUpperCase() : it.text) || "").split("\n"); }
-  function textBox(ctx, it) {
-    const tam = it.size * Math.min(M.m.w, M.m.h) * it.scale, lh = tam * 1.18, lines = textLines(it);
+  function textBox(ctx, it, sc) {
+    const tam = it.size * Math.min(M.m.w, M.m.h) * (sc ?? it.scale), lh = tam * 1.18, lines = textLines(it);
     ctx.font = `${tam}px "${it.font}"`;
     const ws = lines.map((l) => ctx.measureText(l).width);
     return { tam, lh, lines, ws, w: Math.max(10, ...ws), h: lh * lines.length };
   }
 
+  /** Estado visual do item no tempo t: posição, escala, giro e transparência já com animação e transição. */
+  function estado(it, t, ext) {
+    const W = M.m.w, H = M.m.h, lt = t - it.start;
+    const e = ext[it.id];
+    const tin = it.tr && lt < it.tr.dur ? trEntrada(it.tr.tipo, lt / it.tr.dur, W, H) : null;
+    const tout = e && lt >= it.dur ? trSaida(e.tro, (lt - it.dur) / e.ext, W) : null;
+    return {
+      lt, cx: valAt(it, "x", lt) * W + (tin ? tin.dx : 0) + (tout ? tout.dx : 0),
+      cy: valAt(it, "y", lt) * H + (tin ? tin.dy : 0),
+      scale: valAt(it, "scale", lt) * (tin ? tin.k : 1), rot: valAt(it, "rot", lt) + (tin ? tin.r : 0),
+      a: alfaK(it, lt), tout,
+    };
+  }
+  const visivelAte = (it, ext) => it.start + it.dur + ((ext[it.id] || {}).ext || 0);
+
   function draw() {
     const cv = $(".mt-canvas", box()); if (!cv || !M.m || !M.view) return;
     const ctx = cv.getContext("2d");
     const W = M.m.w, H = M.m.h, t = M.t;
+    const ext = extMap();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, cv.width, cv.height);
     ctx.setTransform(M.view.k, 0, 0, M.view.k, 0, 0);
@@ -1308,50 +1883,51 @@ const Montagem = (() => {
     let selBox = null;
     order.forEach((tr) => {
       if (tr.hidden || tr.kind === "audio") return;
-      M.m.items.filter((i) => i.track === tr.id && i.start <= t && t < i.start + i.dur).forEach((it) => {
-        const a = it.opacity * fadeK(it, t);
+      M.m.items.filter((i) => i.track === tr.id && i.start <= t && t < visivelAte(i, ext)).sort((a, b) => a.start - b.start).forEach((it) => {
+        const st = estado(it, t, ext);
         ctx.save();
-        ctx.globalAlpha = clamp(a, 0, 1);
-        const cx = it.x * W, cy = it.y * H;
+        ctx.globalAlpha = clamp(st.a, 0, 1);
+        const cx = st.cx, cy = st.cy;
         if (it.type === "tarja") {
           ctx.globalAlpha = 1;
           const bb = drawTarja(ctx, it, t, W, H);
           if (it.id === M.sel && bb) selBox = { cx: (bb[0] + bb[2]) / 2, cy: (bb[1] + bb[3]) / 2, w: bb[2] - bb[0] + 12, h: bb[3] - bb[1] + 12, rot: 0, tarja: true };
         } else if (it.type === "text") {
-          const b = textBox(ctx, it);
+          const b = textBox(ctx, it, st.scale);
+          ctx.translate(cx, cy); if (Math.abs(st.rot) > 0.01) ctx.rotate((st.rot * Math.PI) / 180);
           ctx.textAlign = "center"; ctx.textBaseline = "top";
-          const y0 = cy - b.h / 2;
+          const y0 = -b.h / 2;
           b.lines.forEach((ln, i) => {
             if (!ln.trim()) return;
             const top = y0 + i * b.lh + (b.lh - b.tam) / 2;
             if (it.boxOn) {
               const pad = Math.max(2, b.tam * 0.22);
-              ctx.save(); ctx.globalAlpha = clamp(a * it.boxAlpha, 0, 1); ctx.fillStyle = it.box;
-              ctx.fillRect(cx - b.ws[i] / 2 - pad, top - pad, b.ws[i] + pad * 2, b.tam + pad * 2); ctx.restore();
+              ctx.save(); ctx.globalAlpha = clamp(st.a * it.boxAlpha, 0, 1); ctx.fillStyle = it.box;
+              ctx.fillRect(-b.ws[i] / 2 - pad, top - pad, b.ws[i] + pad * 2, b.tam + pad * 2); ctx.restore();
             }
-            if (it.strokeW > 0) { ctx.lineJoin = "round"; ctx.lineWidth = Math.max(1, it.strokeW * b.tam) * 2; ctx.strokeStyle = it.stroke; ctx.strokeText(ln, cx, top); }
-            ctx.fillStyle = it.color; ctx.fillText(ln, cx, top);
+            if (it.strokeW > 0) { ctx.lineJoin = "round"; ctx.lineWidth = Math.max(1, it.strokeW * b.tam) * 2; ctx.strokeStyle = it.stroke; ctx.strokeText(ln, 0, top); }
+            ctx.fillStyle = it.color; ctx.fillText(ln, 0, top);
           });
-          if (it.id === M.sel) selBox = { cx, cy, w: b.w + 16, h: b.h + 8, rot: 0 };
+          if (it.id === M.sel) selBox = { cx, cy, w: b.w + 16, h: b.h + 8, rot: st.rot };
         } else {
-          const [w, h] = sizeOf(it);
-          ctx.translate(cx, cy); ctx.rotate((it.rot * Math.PI) / 180);
+          const [w, h] = sizeOf(it, st.scale);
+          ctx.translate(cx, cy); ctx.rotate((st.rot * Math.PI) / 180);
           if (it.type === "color") { ctx.fillStyle = it.color; ctx.fillRect(-w / 2, -h / 2, w, h); }
           else {
             const src = it.type === "image" ? img(it.src) : elOf(it);
-            if (src && (it.type === "image" ? src.complete && src.naturalWidth : src.readyState >= 2)) {
-              if (it.fit === "cover" && it.scale <= 1.0001 && Math.abs(it.rot) < 0.01 && Math.abs(it.x - 0.5) < 1e-4 && Math.abs(it.y - 0.5) < 1e-4) {
-                ctx.drawImage(src, -w / 2, -h / 2, w, h);
-              } else ctx.drawImage(src, -w / 2, -h / 2, w, h);
-            } else {
+            if (src && (it.type === "image" ? src.complete && src.naturalWidth : src.readyState >= 2)) desenhaMidia(ctx, src, it, w, h);
+            else {
               ctx.fillStyle = "rgba(255,255,255,.06)"; ctx.fillRect(-w / 2, -h / 2, w, h);
               ctx.fillStyle = "rgba(255,255,255,.5)"; ctx.font = `${Math.round(H * 0.025)}px sans-serif`; ctx.textAlign = "center";
               ctx.fillText(media(it.src) && !media(it.src).preview ? "preparando prévia…" : "carregando…", 0, 0);
             }
           }
-          if (it.id === M.sel) selBox = { cx, cy, w, h, rot: it.rot };
+          if (it.id === M.sel) selBox = { cx, cy, w, h, rot: st.rot };
         }
         ctx.restore();
+        if (st.tout && st.tout.cor && st.tout.ca > 0.001) {  // passar pelo preto/branco: a tela inteira escurece/clareia
+          ctx.save(); ctx.globalAlpha = st.tout.ca; ctx.fillStyle = st.tout.cor; ctx.fillRect(0, 0, W, H); ctx.restore();
+        }
       });
     });
     if (selBox && !M.playing) {
@@ -1371,6 +1947,31 @@ const Montagem = (() => {
       if (M.guide.y) { ctx.beginPath(); ctx.moveTo(0, H / 2); ctx.lineTo(W, H / 2); ctx.stroke(); }
       ctx.restore();
     }
+  }
+  /** Desenha a mídia (já com o canvas no centro do item) com fundo verde, filtros de cor e vinheta. */
+  const ITEMCV = { cv: null };
+  function desenhaMidia(ctx, src, it, w, h) {
+    const fx = it.fx, ch = it.chroma && it.chroma.on ? it.chroma : null, vin = fx && fx.vinheta > 0.005;
+    let fonte = src;
+    if (ch) { try { fonte = chromaDesenha(src, ch, it.type === "image" ? src.naturalWidth : src.videoWidth, it.type === "image" ? src.naturalHeight : src.videoHeight); } catch (_) { fonte = src; } }
+    const filtro = filtroCanvas(fx);
+    if (!vin) {
+      if (filtro !== "none") ctx.filter = filtro;
+      ctx.drawImage(fonte, -w / 2, -h / 2, w, h);
+      ctx.filter = "none";
+      return;
+    }
+    // com vinheta: monta o item num canvas à parte (a vinheta escurece só o item, não o que está por baixo)
+    const k = M.view.k, iw = Math.max(2, Math.round(w * k)), ih = Math.max(2, Math.round(h * k));
+    if (!ITEMCV.cv) ITEMCV.cv = document.createElement("canvas");
+    const cv = ITEMCV.cv; cv.width = iw; cv.height = ih;
+    const x = cv.getContext("2d");
+    x.clearRect(0, 0, iw, ih);
+    if (filtro !== "none") x.filter = filtro;
+    x.drawImage(fonte, 0, 0, iw, ih);
+    x.filter = "none";
+    vinhetaDesenha(x, iw, ih, fx.vinheta);
+    ctx.drawImage(cv, -w / 2, -h / 2, w, h);
   }
   function elOf(it) { const list = M.pool.get(it.src) || []; return list.find((x) => x._item === it.id) || null; }
   function img(mid) {
@@ -1397,13 +1998,15 @@ const Montagem = (() => {
       const cands = M.m.tracks.filter((t) => !t.hidden && t.kind !== "audio" && !t.locked)
         .flatMap((tr) => M.m.items.filter((i) => i.track === tr.id && i.start <= M.t && M.t < i.start + i.dur));
       it = null;
+      const ext = extMap();
       for (const c of cands) {
         let b;
+        const st = estado(c, M.t, ext);
         if (c.type === "tarja") {
           const bb = drawTarja(null, c, M.t, M.m.w, M.m.h, true); if (!bb) continue;
           b = { cx: (bb[0] + bb[2]) / 2, cy: (bb[1] + bb[3]) / 2, w: bb[2] - bb[0] + 12, h: bb[3] - bb[1] + 12, rot: 0 };
-        } else if (c.type === "text") { const tb = textBox(ctx, c); b = { cx: c.x * M.m.w, cy: c.y * M.m.h, w: tb.w + 16, h: tb.h + 8, rot: 0 }; }
-        else { const [w, h] = sizeOf(c); b = { cx: c.x * M.m.w, cy: c.y * M.m.h, w, h, rot: c.rot }; }
+        } else if (c.type === "text") { const tb = textBox(ctx, c, st.scale); b = { cx: st.cx, cy: st.cy, w: tb.w + 16, h: tb.h + 8, rot: st.rot }; }
+        else { const [w, h] = sizeOf(c, st.scale); b = { cx: st.cx, cy: st.cy, w, h, rot: st.rot }; }
         if (hit(b).inside) { it = c; break; }
       }
       if (!it) { if (M.sel) { M.sel = null; renderTimeline(); renderProps(); draw(); } return; }
@@ -1412,7 +2015,8 @@ const Montagem = (() => {
     if (track(it.track).locked) return;
     e.preventDefault();
     cv.setPointerCapture(e.pointerId);
-    const before = snapshot(), o = { ...it };
+    const before = snapshot(), lt0 = clamp(M.t - it.start, 0, it.dur);
+    const o = { x: valAt(it, "x", lt0), y: valAt(it, "y", lt0), scale: valAt(it, "scale", lt0) };
     const c0 = [o.x * M.m.w, o.y * M.m.h];
     const d0 = Math.max(1, Math.hypot(px - c0[0], py - c0[1]));
     let moved = false;
@@ -1423,16 +2027,16 @@ const Montagem = (() => {
         let nx = o.x + (qx - px) / M.m.w, ny = o.y + (qy - py) / M.m.h;
         M.guide = { x: Math.abs(nx - 0.5) < 0.012, y: Math.abs(ny - 0.5) < 0.012 };
         if (M.guide.x) nx = 0.5; if (M.guide.y) ny = 0.5;
-        it.x = +nx.toFixed(4); it.y = +ny.toFixed(4);
+        setProp(it, "x", +nx.toFixed(4)); setProp(it, "y", +ny.toFixed(4));
       } else {
-        it.scale = +clamp(o.scale * (Math.hypot(qx - c0[0], qy - c0[1]) / d0), 0.05, 6).toFixed(3);
+        setProp(it, "scale", +clamp(o.scale * (Math.hypot(qx - c0[0], qy - c0[1]) / d0), 0.05, 6).toFixed(3));
       }
       draw();
     };
     const up = () => {
       cv.removeEventListener("pointermove", mv); cv.removeEventListener("pointerup", up); cv.removeEventListener("pointercancel", up);
       M.guide = null;
-      if (moved) commit(before); else draw();
+      if (moved) { if (it.kf) renderTimeline(); commit(before); } else draw();
     };
     cv.addEventListener("pointermove", mv); cv.addEventListener("pointerup", up); cv.addEventListener("pointercancel", up);
   }
@@ -1450,6 +2054,14 @@ const Montagem = (() => {
     if (ctrl && e.key.toLowerCase() === "d") { e.preventDefault(); duplicate(); return; }
     if (ctrl) return;
     if (e.key.toLowerCase() === "s") { e.preventDefault(); split(); }
+    if (e.key.toLowerCase() === "k") {
+      const it = itemById(M.sel);
+      if (it && it.type !== "audio" && it.type !== "tarja" && M.t >= it.start && M.t <= it.start + it.dur) {
+        e.preventDefault(); const before = snapshot(), lt = clamp(M.t - it.start, 0, it.dur), k = kfAqui(it, lt);
+        if (k) { it.kf = it.kf.filter((x) => x !== k); if (!it.kf.length) delete it.kf; } else kfNovo(it, lt);
+        commit(before);
+      }
+    }
     if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); remove(); }
     if (e.key === "ArrowLeft") { e.preventDefault(); seek(q(M.t - (e.shiftKey ? 1 : 1 / fps()))); }
     if (e.key === "ArrowRight") { e.preventDefault(); seek(q(M.t + (e.shiftKey ? 1 : 1 / fps()))); }

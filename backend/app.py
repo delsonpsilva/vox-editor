@@ -17,11 +17,11 @@ from fastapi import Body, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from .core import destinos, importer, jobs, montagem, online, pacote, pipeline, publish, store, trilhas
+from .core import bancos, destinos, importer, jobs, montagem, online, pacote, pipeline, publish, store, trilhas
 from .engine import edits, frames, platforms, reframe, socials, subtitles, transcribe
 from .engine import ffmpeg_tools as ff
 
-VERSION = "1.1.3"
+VERSION = "1.2.0"
 FRONT = store.ROOT / "frontend"
 PASSWORD = os.environ.get("APP_PASSWORD", "")
 SECRET = os.environ.get("APP_SECRET") or secrets.token_hex(16)
@@ -1551,6 +1551,71 @@ def montagem_exportar(pid: str, data: dict = Body(default={})):
         _404(lambda: montagem.salvar(pid, data["montagem"]))
     jobs.submit("montagem", pid, lambda pr: montagem.exportar(pid, data, pr), queue="render", label="Montagem")
     return view(store.load(pid))
+
+
+# ---------- 1.2: bancos grátis (Pexels e Pixabay) e remoção de fundo com IA ----------
+
+@app.get("/api/bancos/status")
+def bancos_status():
+    return bancos.status()
+
+
+@app.get("/api/bancos/buscar")
+def bancos_buscar(fonte: str = "todos", tipo: str = "video", q: str = "", pagina: int = 1, orient: str = ""):
+    try:
+        return bancos.buscar(fonte, tipo, q, pagina, orient)
+    except RuntimeError as e:
+        raise HTTPException(400, str(e))
+
+
+@app.post("/api/projects/{pid}/bancos/{bid}")
+def banco_no_projeto(pid: str, bid: str):
+    """Baixa o vídeo/foto do banco grátis para as mídias da montagem (em segundo plano, com progresso)."""
+    _404(lambda: store.load(pid))
+    try:
+        info = bancos.item(bid)
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e))
+
+    def tarefa(pr):
+        arq, it = bancos.baixar(bid, montagem.pasta_midias(pid), pr)
+        nome = (it.get("nome") or ("Vídeo" if it["tipo"] == "video" else "Foto")) + f" — {it['autor'] or it['fonte']}"
+        md = montagem.adicionar_midia(pid, arq, nome[:100] + it["ext"],
+                                      {"credito": it["credito"], "licenca": bancos.FONTES[it["fonte"]], "banco": bid})
+        _previas_pendentes(pid, montagem.carregar(pid))
+        return md
+
+    j = jobs.submit("banco", pid, tarefa, queue="download", label="Banco grátis")
+    j["ref"] = bid
+    return {"job": j["id"], "tipo": info["tipo"]}
+
+
+@app.get("/api/fundo/status")
+def fundo_status():
+    from .core import fundo_ia
+    q = fundo_ia.qualidade()
+    return {"disponivel": fundo_ia.disponivel(), "qualidade": q, "baixado": fundo_ia.modelo_baixado(q),
+            "tamanho_mb": round(fundo_ia.MODELOS[q][2] / 1e6)}
+
+
+@app.post("/api/projects/{pid}/montagem/sem-fundo")
+def montagem_sem_fundo(pid: str, data: dict = Body(...)):
+    _404(lambda: store.load(pid))
+    if data.get("montagem"):
+        _404(lambda: montagem.salvar(pid, data["montagem"]))
+    item_id = str(data.get("item") or "")
+    if any(j["kind"] == "semfundo" and j["status"] in ("na fila", "processando") and j.get("ref") == item_id
+           for j in jobs.for_project(pid)):
+        raise HTTPException(409, "Esse pedaço já está tirando o fundo.")
+    j = jobs.submit("semfundo", pid, lambda pr: montagem.sem_fundo(pid, item_id, pr), queue="analysis",
+                    label="Remover fundo (IA)")
+    j["ref"] = item_id
+    return {"job": j["id"]}
+
+
+@app.post("/api/projects/{pid}/midias/{mid}/aplicado")
+def montagem_substituicao_aplicada(pid: str, mid: str):
+    return _404(lambda: montagem.substituicao_aplicada(pid, mid))
 
 
 app.mount("/fontes", StaticFiles(directory=str(store.FONTS)), name="fontes")

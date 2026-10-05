@@ -330,6 +330,25 @@
       </label>
     
           </section>
+          <section class="pane">
+            <h2>Vídeos e fotos grátis (Montagem → Grátis)</h2>
+            <p class="hint">O Pexels e o Pixabay têm milhões de vídeos e fotos livres para usar, inclusive em vídeo monetizado. Cada um pede uma chave grátis (sem cartão): crie a conta, copie a chave e cole aqui. Pode usar só um dos dois.</p>
+            <div class="grid2">
+              <label>Chave do Pexels <input name="pexels.api_key" type="password" autocomplete="off" data-key></label>
+              <label>Chave do Pixabay <input name="pixabay.api_key" type="password" autocomplete="off" data-key></label>
+            </div>
+            <p class="hint">Onde pegar: <a href="https://www.pexels.com/api/" target="_blank" rel="noopener" data-ext>pexels.com/api</a> (botão "Your API Key") · <a href="https://pixabay.com/api/docs/" target="_blank" rel="noopener" data-ext>pixabay.com/api/docs</a> (a chave aparece na página, depois de entrar na conta).</p>
+          </section>
+          <section class="pane">
+            <h2>Remover fundo com IA</h2>
+            <p class="hint">Tira o fundo de pessoas e objetos em vídeos e fotos, sem pano verde. Roda aqui mesmo, sem custo de API. Na primeira vez o modelo de IA é baixado sozinho.</p>
+            <label>Qualidade
+              <select name="fundo.qualidade">
+                <option value="caprichada">Caprichada — contorno bem melhor em pessoas (modelo de 168 MB, recomendado)</option>
+                <option value="rapida">Rápida — para testar ou PC fraco (modelo de 4,5 MB)</option>
+              </select>
+            </label>
+          </section>
           <div class="row end ia-save"><span id="ia-saved" class="hint"></span><button type="button" class="btn primary" id="ia-save">Salvar</button></div>
         </form>
       </section>

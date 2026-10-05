@@ -32,6 +32,9 @@ DEFAULT_CONFIG = {
               "social_mode": "destino", "social_every": 12, "social_side": "direita"},
     "security": {},   # senha do programa do PC (só o "hash"); nunca vai para o navegador
     "online": {"url": "", "password": ""},  # endereço e senha da versão online, para enviar projetos do PC
+    "pexels": {"api_key": ""},    # bancos de vídeos e fotos grátis (Montagem -> Grátis)
+    "pixabay": {"api_key": ""},
+    "fundo": {"qualidade": "caprichada"},  # remoção de fundo com IA: rapida | caprichada
 }
 BRAND_DIR = DATA / "marca"
 BRAND_DIR.mkdir(parents=True, exist_ok=True)
@@ -79,7 +82,7 @@ def public_config(cfg: dict) -> dict:
         for k in ("password", "key", "token"):
             if isinstance(d, dict) and k in d:
                 d[k + "_set"] = bool(d.pop(k))
-    for sec in ("transcription", "ai"):
+    for sec in ("transcription", "ai", "pexels", "pixabay"):
         key = out[sec].get("api_key") or ""
         out[sec]["api_key"] = ""
         out[sec]["api_key_set"] = bool(key)

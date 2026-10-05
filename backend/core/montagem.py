@@ -15,6 +15,7 @@ import uuid
 from pathlib import Path
 from typing import Callable, Optional
 
+from . import efeitos as fxm
 from . import store
 from ..engine import edits
 from ..engine import ffmpeg_tools as ff
@@ -226,6 +227,22 @@ def limpar(m: dict, atual: dict) -> dict:
             novo["speed"] = 1.0
         if k == "audio":
             novo["duck"] = bool(it.get("duck"))
+        # 1.2: filtros de cor, fundo verde, transição de entrada e animação por quadros-chave
+        if k in ("video", "image"):
+            fx = fxm.fx_limpo(it.get("fx"))
+            if fx:
+                novo["fx"] = fx
+            ch = fxm.chroma_limpo(it.get("chroma"))
+            if ch:
+                novo["chroma"] = ch
+        if k in ("video", "image", "color") and tids[it["track"]]["kind"] == "video":
+            tr = fxm.tr_limpa(it.get("tr"), novo["dur"])
+            if tr:
+                novo["tr"] = tr
+        if k in ("video", "image", "color", "text"):
+            kf = fxm.kf_limpo(it.get("kf"), novo)
+            if kf:
+                novo["kf"] = kf
         items.append(novo)
     return {"v": VERSAO, "formato": formato, "w": w, "h": h, "fps": fps, "bg": _cor(m.get("bg"), "#000000"),
             "suave": m.get("suave") if m.get("suave") in SUAVE_MONTAGEM else "suave",
@@ -267,10 +284,13 @@ def adicionar_midia(pid: str, origem: Path, nome: str, extra: dict | None = None
             "w": info.get("width", 0), "h": info.get("height", 0), "has_audio": bool(info.get("has_audio")),
             "fps": info.get("fps", 30), "size": origem.stat().st_size, "added": time.time()}
     if extra:  # ex.: crédito e licença de uma trilha da biblioteca livre
-        item.update({k: v for k, v in extra.items() if k in ("credito", "licenca", "trilha")})
+        item.update({k: v for k, v in extra.items() if k in ("credito", "licenca", "trilha", "banco", "alpha",
+                                                              "substitui", "semfundo")})
     if kind == "image" and Path(nome).suffix.lower() == ".gif":
         item["kind"] = "image"
-    if kind == "video" and not ff.browser_friendly(info, str(origem)):
+    if kind == "video" and item.get("alpha"):
+        item["preview"] = item["file"]  # WebM com transparência: o navegador mostra direto (a cópia leve perderia o fundo)
+    elif kind == "video" and not ff.browser_friendly(info, str(origem)):
         item["preview"] = None  # a prévia leve é feita em segundo plano (vídeos do iPhone, .mkv, 4K...)
         item["needs_proxy"] = True
     else:
@@ -322,6 +342,52 @@ def remover_midia(pid: str, mid: str) -> dict:
                 (folder / rel).unlink(missing_ok=True)
         m["media"] = [x for x in m["media"] if x["id"] != mid]
         m["items"] = [x for x in m["items"] if x.get("src") != mid]
+        store._write_json(arquivo(pid), m)
+        return m
+
+
+def sem_fundo(pid: str, item_id: str, progress: Optional[Callable[[float, str], None]] = None) -> dict:
+    """Tira o fundo (IA) da mídia de um pedaço da linha do tempo. Só processa o trecho usado (vídeo).
+    A mídia nova fica marcada com "substitui": a tela troca o pedaço por ela assim que vê (montagem.js)."""
+    from . import fundo_ia
+    if not fundo_ia.disponivel():
+        raise RuntimeError("A remoção de fundo precisa do componente de IA (onnxruntime). No PC, rode o ATUALIZAR.bat.")
+    m = carregar(pid)
+    it = next((x for x in m["items"] if x["id"] == item_id), None)
+    if not it or it["type"] not in ("video", "image"):
+        raise FileNotFoundError("Pedaço não encontrado. Salve a montagem e tente de novo.")
+    md = next((x for x in m["media"] if x["id"] == it["src"]), None)
+    if not md:
+        raise FileNotFoundError("Mídia não encontrada")
+    folder = store.pdir(pid)
+    origem = folder / md["file"]
+    base = re.sub(r"\.[^.]+$", "", md.get("name") or "midia")[:80]
+    if it["type"] == "image":
+        destino = pasta_midias(pid) / f"semfundo_{uuid.uuid4().hex[:8]}.png"
+        fundo_ia.foto(origem, destino, progress)
+        nova_m = adicionar_midia(pid, destino, f"{base} (sem fundo).png",
+                                 {"semfundo": True, "substitui": {"item": item_id, "src": md["id"], "in": 0.0}})
+    else:
+        info = ff.probe(str(origem))
+        ini = max(0.0, it["in"] - 0.3)
+        fim = min(float(info.get("duration") or md.get("duration") or 0), it["in"] + it["dur"] * it["speed"] + 0.3)
+        if fim - ini > fundo_ia.MAX_SEG:
+            raise RuntimeError("Esse pedaço é muito longo para tirar o fundo de uma vez (máximo 10 minutos). "
+                               "Divida o pedaço e tente por partes.")
+        destino = pasta_midias(pid) / f"semfundo_{uuid.uuid4().hex[:8]}.webm"
+        fundo_ia.video(origem, ini, fim - ini, destino, info, progress)
+        nova_m = adicionar_midia(pid, destino, f"{base} (sem fundo).webm",
+                                 {"semfundo": True, "alpha": True,
+                                  "substitui": {"item": item_id, "src": md["id"], "in": round(ini, 4)}})
+    return {"media": nova_m, "item": item_id}
+
+
+def substituicao_aplicada(pid: str, mid: str) -> dict:
+    with store.lock(pid):
+        m = carregar(pid)
+        for x in m["media"]:
+            if x["id"] == mid:
+                x.pop("substitui", None)
         store._write_json(arquivo(pid), m)
         return m
 
@@ -397,6 +463,10 @@ def _mesclavel(a: dict, b: dict, fps: float) -> bool:
     """Dois trechos seguidos do mesmo vídeo, com o mesmo enquadramento: viram uma só entrada no FFmpeg."""
     if a["src"] != b["src"] or a["type"] != "video":
         return False
+    if a.get("kf") or b.get("kf") or a.get("tr") or b.get("tr") or a.get("_ext") or b.get("_ext"):
+        return False
+    if a.get("fx") != b.get("fx") or a.get("chroma") != b.get("chroma"):
+        return False
     for k in ("x", "y", "scale", "rot", "opacity", "fit", "volume"):
         if abs(float(a[k]) - float(b[k])) > 1e-6 if k != "fit" else a[k] != b[k]:
             return False
@@ -415,6 +485,87 @@ def _grupos(items: list[dict], fps: float) -> list[list[dict]]:
         else:
             out.append([it])
     return out
+
+
+def _alfa(it: dict, lt: float) -> float:
+    """Transparência do item no tempo local lt: opacidade (com quadros-chave) x entrada/saída suave x transição.
+    Mesma conta da prévia (alfaK no montagem.js)."""
+    a = max(0.0, min(1.0, fxm.valor(it, "opacity", lt)))
+    dur = it["dur"]
+    if it.get("fadeIn", 0) > 0:
+        a *= max(0.0, min(1.0, lt / it["fadeIn"]))
+    if it.get("fadeOut", 0) > 0:
+        a *= max(0.0, min(1.0, (dur - lt) / it["fadeOut"]))
+    tr = it.get("tr")
+    if tr:
+        a *= fxm.tr_entrada(tr["tipo"], lt / tr["dur"], 1, 1)["a"]
+    return a
+
+
+def _texto_png(it: dict, W: int, H: int, escala: float, destino: Path) -> tuple[int, int]:
+    """Desenha o texto (mesmas fontes e contas da prévia) num PNG transparente, recortado em volta do centro.
+    O FFmpeg não mistura bem a transparência ao escrever num fundo vazio, então o texto é desenhado duas vezes
+    (fundo preto e fundo branco) e a transparência sai da diferença entre as duas — fica exato."""
+    import cv2
+    import numpy as np
+    fonte = (store.FONTS / FONTES.get(it.get("font"), "Poppins-ExtraBold.ttf")).as_posix()
+    fonte = fonte.replace(":", "\\:").replace("'", "\\'")
+    linhas = _linhas(it)
+    tam = it["size"] * min(W, H) * escala
+    lh = tam * 1.18
+    y0 = H / 2 - lh * len(linhas) / 2
+    pasta = destino.parent
+    filtros = []
+    for li, ln in enumerate(linhas):
+        if not ln.strip():
+            continue
+        extra = ""
+        if it.get("strokeW", 0) > 0:
+            extra += f":borderw={max(1, int(round(it['strokeW'] * tam)))}:bordercolor={it['stroke']}"
+        if it.get("boxOn"):
+            extra += (f":box=1:boxcolor={it['box']}@{it.get('boxAlpha', 0.6):.2f}"
+                      f":boxborderw={max(2, int(tam * 0.22))}")
+        tf = destino.with_suffix(f".l{li}.txt")
+        tf.write_text(ln, encoding="utf-8")
+        yl = y0 + li * lh + (lh - tam) / 2
+        filtros.append(f"drawtext=fontfile='{fonte}':textfile='{tf.name}':expansion=none:fontsize={tam:.2f}:"
+                       f"fontcolor={it['color']}:x={W / 2:.2f}-text_w/2:y={yl:.2f}{extra}")
+    if not filtros:
+        filtros = ["null"]
+    imgs = []
+    for fundo in ("black", "white"):
+        out = destino.with_suffix(f".{fundo}.png")
+        ff.run([ff.ffmpeg(), "-y", "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i",
+                f"color=c={fundo}:s={W}x{H}:d=1,format=rgb24", "-vf", ",".join(filtros), "-frames:v", "1",
+                out.name], cwd=str(pasta))
+        imgs.append(cv2.imread(str(out), cv2.IMREAD_COLOR).astype("float32"))
+        out.unlink(missing_ok=True)
+    for f in pasta.glob(destino.stem + ".l*.txt"):
+        f.unlink(missing_ok=True)
+    preto, branco = imgs
+    a = np.clip(1 - (branco - preto).mean(axis=2) / 255.0, 0, 1)
+    cor = np.where(a[..., None] > 1e-3, preto / np.maximum(a[..., None], 1e-3), 0)
+    rgba = np.dstack([np.clip(cor, 0, 255), a * 255]).astype("uint8")
+    ys, xs = np.nonzero(rgba[..., 3] > 0)
+    if len(xs) == 0:
+        rgba, hx, hy = np.zeros((2, 2, 4), "uint8"), 1, 1
+    else:  # recorte simétrico em volta do centro do quadro (o centro do texto continua sendo o centro do PNG)
+        hx = int(max(W / 2 - xs.min(), xs.max() + 1 - W / 2)) + 2
+        hy = int(max(H / 2 - ys.min(), ys.max() + 1 - H / 2)) + 2
+        hx, hy = min(hx, W // 2), min(hy, H // 2)
+        rgba = rgba[H // 2 - hy:H // 2 + hy, W // 2 - hx:W // 2 + hx]
+    cv2.imwrite(str(destino), rgba)
+    return rgba.shape[1], rgba.shape[0]
+
+
+def _comandos(caminho: Path, alvo: str, valores: list[tuple[float, float]]) -> None:
+    """Arquivo do sendcmd: muda um parâmetro de filtro quadro a quadro (só quando o valor muda)."""
+    linhas, ultimo = [], None
+    for t, v in valores:
+        if ultimo is None or abs(v - ultimo) > 0.002:
+            linhas.append(f"{t:.4f} [enter] {alvo} {v:.4f};")
+            ultimo = v
+    caminho.write_text("\n".join(linhas) + "\n", encoding="utf-8")
 
 
 def exportar(pid: str, opts: dict, progress: Optional[Callable[[float, str], None]] = None) -> dict:
@@ -452,16 +603,41 @@ def exportar(pid: str, opts: dict, progress: Optional[Callable[[float, str], Non
         n_in += 1
         return n_in - 1
 
-    def sobrepor(label: str, x_c: float, y_c: float, s0: float, s1: float):
+    def novo(prefixo: str = "k") -> str:
+        return f"[{prefixo}{len(graph)}_{n_in}]"
+
+    def sobrepor(label: str, x_c, y_c, s0: float, s1: float):
+        """x_c / y_c: número (fração da tela, o centro do item) ou expressão pronta em pixels."""
         nonlocal cur
         nxt = f"[b{len(graph)}]"
-        graph.append(f"{cur}{label}overlay=x={x_c * W:.2f}-w/2:y={y_c * H:.2f}-h/2:eof_action=pass:"
+        xs = f"{x_c * W:.2f}" if isinstance(x_c, (int, float)) else x_c
+        ys = f"{y_c * H:.2f}" if isinstance(y_c, (int, float)) else y_c
+        graph.append(f"{cur}{label}overlay=x='{xs}-w/2':y='{ys}-h/2':eof_action=pass:"
                      f"enable='between(t,{s0:.4f},{s1:.4f})'{nxt}")
         cur = nxt
 
-    def efeitos(it: dict, w: int, h: int, dur: float) -> str:
-        """Tamanho, giro, transparência e esmaecimento (no tempo local do item)."""
-        f = [f"scale={w}:{h}:flags=lanczos", "format=rgba"]
+    def cor_filtros(it: dict, w: int, h: int) -> list[str]:
+        """Fundo verde e filtros de cor (no tamanho final do item, antes de girar)."""
+        return fxm.chroma_ffmpeg(it.get("chroma")) + fxm.filtros_ffmpeg(it.get("fx"), W, H)
+
+    def vinheta(lab: str, it: dict, w: int, h: int) -> str:
+        forca = (it.get("fx") or {}).get("vinheta", 0)
+        if forca <= 0.005:
+            return lab
+        import cv2
+        arq = folder / f"tmp_{tag}.v{len(graph)}.png"
+        cv2.imwrite(str(arq), fxm.vinheta_mascara(w, h, forca))
+        idx = entrada(["-loop", "1", "-framerate", str(fps), "-i", arq.name])
+        a, b, al, c, out = (f"[vg{len(graph)}{s}]" for s in ("a", "b", "l", "c", "o"))
+        graph.append(f"{lab}split{a}{b}")
+        graph.append(f"{b}alphaextract{al}")
+        graph.append(f"{a}[{idx}:v]overlay=format=rgb:shortest=1{c}")
+        graph.append(f"{c}{al}alphamerge,format=rgba{out}")
+        return out
+
+    def efeitos_fim(it: dict, dur: float) -> list[str]:
+        """Giro, transparência e esmaecimento (no tempo local do item) — caminho sem animação."""
+        f = []
         if abs(it["rot"]) > 0.01:
             r = it["rot"] * math.pi / 180
             f.append(f"rotate={r:.6f}:ow='rotw({r:.6f})':oh='roth({r:.6f})':c=none")
@@ -472,7 +648,18 @@ def exportar(pid: str, opts: dict, progress: Optional[Callable[[float, str], Non
         if it["fadeOut"] > 0:
             fo = min(it["fadeOut"], dur)
             f.append(f"fade=t=out:st={max(0.0, dur - fo):.3f}:d={fo:.3f}:alpha=1")
-        return ",".join(f)
+        return f
+
+    def cadeia(inicio: str, it: dict, w: int, h: int, dur: float, s0: float) -> str:
+        """inicio: '[n:v]filtros...' (sem a escala). Devolve o rótulo pronto para sobrepor."""
+        pre = [f"scale={w}:{h}:flags=lanczos", "format=rgba"] + cor_filtros(it, w, h)
+        lab = novo()
+        graph.append(inicio + "," + ",".join(pre) + lab)
+        lab = vinheta(lab, it, w, h)
+        fim = efeitos_fim(it, dur) + [f"setpts=PTS-STARTPTS+{s0:.4f}/TB"]
+        out = novo()
+        graph.append(lab + ",".join(fim) + out)
+        return out
 
     def audio_de(idx: int, it: dict, dur: float, s0: float, trims: list[tuple[float, float]] | None = None,
                  destino: list | None = None, fonte_abs: tuple[str, float] | None = None):
@@ -537,14 +724,138 @@ def exportar(pid: str, opts: dict, progress: Optional[Callable[[float, str], Non
         graph.append(base + ",".join(chain) + lab)
         (audios if destino is None else destino).append(lab)
 
+    def entrada_video(midia: dict, extra: list[str]) -> int:
+        """Vídeo sem fundo (WebM com transparência) precisa do decodificador VP9 que lê a transparência."""
+        dec = ["-c:v", "libvpx-vp9"] if midia.get("alpha") else []
+        return entrada(extra[:-2] + dec + extra[-2:])
+
+    # ---- animação, transições e texto animado (1.2)
+    def camada_animada(it: dict, midia: dict | None, mudo: bool):
+        nonlocal n_txt
+        s0, dur = it["start"], it["dur"]
+        ext, tro = it.get("_ext", 0.0), it.get("_tro")
+        vis = dur + ext
+        s1 = s0 + vis
+        tr = it.get("tr")
+        k_tr_max = 1.4 if tr and tr["tipo"] == "zoom_out" else 1.0
+        anima_geo = fxm.kf_anima(it, "scale") or fxm.kf_anima(it, "rot") or \
+            bool(tr and tr["tipo"] in ("zoom_in", "zoom_out", "giro"))
+        smax = max(0.02, fxm.kf_max(it, "scale")) * k_tr_max if anima_geo else fxm.valor(it, "scale", 0)
+        # tamanho de base (escala 1) e fonte das imagens
+        if it["type"] == "text":
+            n_txt += 1
+            png = folder / f"tmp_{tag}.txt{n_txt}.png"
+            pw, ph = _texto_png(it, W, H, smax, png)
+            idx = entrada(["-loop", "1", "-framerate", str(fps), "-t", f"{vis:.4f}", "-i", png.name])
+            inicio = f"[{idx}:v]fps={fps},trim=0:{vis:.4f},setpts=PTS-STARTPTS"
+            w, h = _par(pw), _par(ph)
+        else:
+            if it["type"] == "color":
+                w0, h0 = W * it.get("w", 1), H * it.get("h", 1)
+            else:
+                aw, ah = (midia or {}).get("w") or W, (midia or {}).get("h") or H
+                k = (max if it.get("fit") == "cover" else min)(W / aw, H / ah)
+                w0, h0 = aw * k, ah * k
+            w, h = _par(w0 * smax), _par(h0 * smax)
+            if it["type"] == "color":
+                inicio = f"color=c={it['color']}:s={w}x{h}:r={fps}:d={vis:.4f}"
+            elif it["type"] == "image":
+                idx = entrada(["-loop", "1", "-framerate", str(fps), "-t", f"{vis:.4f}", "-i",
+                               str(folder / midia["file"])])
+                inicio = f"[{idx}:v]fps={fps},trim=0:{vis:.4f},setpts=PTS-STARTPTS"
+            else:
+                a = it["in"]
+                span_v = vis * it["speed"]
+                seek = max(0.0, a - 0.5 / fps)
+                src = str(folder / midia["file"])
+                idx = entrada_video(midia, (["-ss", f"{seek:.5f}"] if seek > 0 else []) +
+                                    ["-t", f"{span_v + 0.5:.4f}", "-i", src])
+                vf = ["setpts=PTS-STARTPTS", f"trim=start={a - seek:.5f}:duration={span_v:.5f}", "setpts=PTS-STARTPTS"]
+                if it["speed"] != 1:
+                    vf.append(f"setpts=PTS/{it['speed']:.5f}")
+                vf.append(f"fps={fps}")
+                sobra = (midia.get("duration") or 0) - a
+                if ext > 0 and sobra < span_v + 1.0 / fps:  # o vídeo acaba antes do fim da transição: segura o último quadro
+                    vf.append(f"tpad=stop_mode=clone:stop_duration={ext + 0.5:.3f}")
+                    vf.append(f"trim=duration={vis:.5f}")
+                inicio = f"[{idx}:v]" + ",".join(vf)
+                if midia.get("has_audio") and not mudo:
+                    span_a = dur * it["speed"]
+                    if it["speed"] == 1 and not it["fadeIn"] and not it["fadeOut"]:
+                        audio_de(idx, it, dur, s0, [(a - seek, a - seek + span_a)])
+                    else:
+                        idx2 = entrada(["-ss", f"{a:.5f}", "-t", f"{span_a:.4f}", "-i", src])
+                        audio_de(idx2, it, dur, s0)
+        pre = [f"scale={w}:{h}:flags=lanczos", "format=rgba"]
+        if it["type"] != "text":
+            pre += cor_filtros(it, w, h)
+        lab = novo()
+        graph.append(inicio + "," + ",".join(pre) + lab)
+        if it["type"] != "text":
+            lab = vinheta(lab, it, w, h)
+        # transparência quadro a quadro (opacidade animada, entrada/saída suave e transição)
+        n_q = int(math.ceil(vis * fps)) + 1
+        cmd = folder / f"tmp_{tag}.c{len(graph)}.cmd"
+        nome_mix = f"colorchannelmixer@al{len(graph)}"
+        _comandos(cmd, f"{nome_mix} aa", [(q / fps, _alfa(it, q / fps)) for q in range(n_q)])
+        fim = [f"sendcmd=f={cmd.name}", f"{nome_mix}=aa={_alfa(it, 0):.4f}"]
+        T = f"(in/{fps})"
+        if anima_geo or abs(fxm.valor(it, "rot", 0)) > 0.01 or fxm.kf_anima(it, "rot"):
+            gira = fxm.kf_anima(it, "rot") or abs(fxm.valor(it, "rot", 0)) > 0.01 or (tr and tr["tipo"] == "giro")
+            Dw, Dh = (_par(math.ceil(math.hypot(w, h))),) * 2 if gira else (w, h)
+            if (Dw, Dh) != (w, h):
+                fim.append(f"pad={Dw}:{Dh}:(ow-iw)/2:(oh-ih)/2:color=black@0")
+            ex_tr = fxm.tr_expr_entrada(tr["tipo"], tr["dur"], T, W, H) if tr else {"k": "1", "r": "0"}
+            kx = f"(({fxm.kf_expr(it, 'scale', T)})*{ex_tr['k']}/{smax:.5f})"
+            th = f"((({fxm.kf_expr(it, 'rot', T)})+{ex_tr['r']})*PI/180)"
+            cx, cy = Dw / 2, Dh / 2
+            cantos = []
+            for i, (px, py) in enumerate(((0, 0), (Dw, 0), (0, Dh), (Dw, Dh))):
+                dx, dy = px - cx, py - cy
+                cantos.append(f"x{i}='{cx}+{kx}*({dx}*cos({th})-({dy})*sin({th}))'")
+                cantos.append(f"y{i}='{cy}+{kx}*({dx}*sin({th})+({dy})*cos({th}))'")
+            fim += ["format=yuva444p", "perspective=" + ":".join(cantos) + ":sense=destination:eval=frame"]
+        fim.append(f"setpts=PTS-STARTPTS+{s0:.4f}/TB")
+        out = novo()
+        graph.append(lab + ",".join(fim) + out)
+        # posição: quadros-chave + deslocamento da transição de entrada e de saída (empurrar)
+        Tm = f"(t-{s0:.4f})"
+        xe = f"(({fxm.kf_expr(it, 'x', Tm)})*{W})"
+        ye = f"(({fxm.kf_expr(it, 'y', Tm)})*{H})"
+        if tr:
+            ex = fxm.tr_expr_entrada(tr["tipo"], tr["dur"], Tm, W, H)
+            xe += f"+{ex['dx']}"
+            ye += f"+{ex['dy']}"
+        if ext > 0 and tro:
+            xe += "+" + fxm.tr_expr_saida(tro, ext, f"(t-{s0 + dur:.4f})", W)
+        sobrepor(out, xe, ye, s0, s1)
+        # passar pelo preto/branco: a tela escurece (ou clareia) por cima deste item durante o tempo extra
+        if ext > 0 and tro in ("preto", "branco"):
+            cmd2 = folder / f"tmp_{tag}.d{len(graph)}.cmd"
+            nm = f"colorchannelmixer@dp{len(graph)}"
+            _comandos(cmd2, f"{nm} aa", [(q / fps, fxm.tr_saida(tro, q / fps / ext, W)["ca"])
+                                          for q in range(int(math.ceil(ext * fps)) + 1)])
+            lab2 = novo("d")
+            graph.append(f"color=c={'black' if tro == 'preto' else 'white'}:s={W}x{H}:r={fps}:d={ext:.4f},format=rgba,"
+                         f"sendcmd=f={cmd2.name},{nm}=aa=0,setpts=PTS-STARTPTS+{s0 + dur:.4f}/TB{lab2}")
+            sobrepor(lab2, 0.5, 0.5, s0 + dur, s1)
+
     # camadas de baixo para cima: a última trilha da lista é a do fundo
-    visuais = [it for it in m["items"] if it["type"] in ("video", "image", "text", "color", "tarja")
+    visuais = [dict(it) for it in m["items"] if it["type"] in ("video", "image", "text", "color", "tarja")
                and not tmap[it["track"]].get("hidden")]
-    visuais.sort(key=lambda it: (-ordem[it["track"]], it["start"]))
+    # transição: o item de antes continua por baixo durante a transição do seguinte (mesma trilha, colados)
     por_trilha: dict[str, list[dict]] = {}
-    for it in visuais:
+    for it in sorted(visuais, key=lambda x: x["start"]):
         por_trilha.setdefault(it["track"], []).append(it)
+    for lst in por_trilha.values():
+        for a, b in zip(lst, lst[1:]):
+            if b.get("tr") and a["type"] in ("video", "image", "color") and \
+                    abs(a["start"] + a["dur"] - b["start"]) < 0.6 / fps:
+                a["_ext"], a["_tro"] = min(b["tr"]["dur"], b["dur"]), b["tr"]["tipo"]
     trilhas_baixo_cima = sorted(por_trilha, key=lambda t: -ordem[t])
+
+    def animado(it: dict) -> bool:
+        return bool(it.get("kf") or it.get("tr") or it.get("_ext"))
 
     p(0.03, "Montando as camadas…")
     for tid in trilhas_baixo_cima:
@@ -554,11 +865,15 @@ def exportar(pid: str, opts: dict, progress: Optional[Callable[[float, str], Non
             s0 = it["start"]
             s1 = grupo[-1]["start"] + grupo[-1]["dur"]
             dur = s1 - s0
+            if it["type"] != "tarja" and animado(it):
+                midia = midias.get(it["src"]) if it.get("src") else None
+                if it["type"] in ("video", "image") and not midia:
+                    continue
+                camada_animada(it, midia, bool(mudo))
+                continue
             if it["type"] == "color":
                 w, h = _tamanho(it, None, W, H)
-                lab = f"[k{len(graph)}]"
-                graph.append(f"color=c={it['color']}:s={w}x{h}:r={fps}:d={dur:.4f}," + efeitos(it, w, h, dur)
-                             + f",setpts=PTS-STARTPTS+{s0:.4f}/TB{lab}")
+                lab = cadeia(f"color=c={it['color']}:s={w}x{h}:r={fps}:d={dur:.4f},null", it, w, h, dur, s0)
                 sobrepor(lab, it["x"], it["y"], s0, s1)
                 continue
             if it["type"] == "tarja":
@@ -609,9 +924,7 @@ def exportar(pid: str, opts: dict, progress: Optional[Callable[[float, str], Non
             w, h = _tamanho(it, midia, W, H)
             if it["type"] == "image":
                 idx = entrada(["-loop", "1", "-framerate", str(fps), "-t", f"{dur:.4f}", "-i", src])
-                lab = f"[k{len(graph)}]"
-                graph.append(f"[{idx}:v]fps={fps},trim=0:{dur:.4f}," + efeitos(it, w, h, dur) +
-                             f",setpts=PTS-STARTPTS+{s0:.4f}/TB{lab}")
+                lab = cadeia(f"[{idx}:v]fps={fps},trim=0:{dur:.4f}", it, w, h, dur, s0)
                 sobrepor(lab, it["x"], it["y"], s0, s1)
                 continue
             # vídeo: uma entrada por grupo de trechos seguidos (busca rápida no arquivo)
@@ -619,14 +932,13 @@ def exportar(pid: str, opts: dict, progress: Optional[Callable[[float, str], Non
                 a = it["in"]
                 span = it["dur"] * it["speed"]
                 seek = max(0.0, a - 0.5 / fps)
-                idx = entrada((["-ss", f"{seek:.5f}"] if seek > 0 else []) + ["-t", f"{span + 0.5:.4f}", "-i", src])
+                idx = entrada_video(midia, (["-ss", f"{seek:.5f}"] if seek > 0 else []) +
+                                    ["-t", f"{span + 0.5:.4f}", "-i", src])
                 vf = ["setpts=PTS-STARTPTS", f"trim=start={a - seek:.5f}:duration={span:.5f}", "setpts=PTS-STARTPTS"]
                 if it["speed"] != 1:
                     vf.append(f"setpts=PTS/{it['speed']:.5f}")
                 vf.append(f"fps={fps}")
-                lab = f"[k{len(graph)}]"
-                graph.append(f"[{idx}:v]" + ",".join(vf) + "," + efeitos(it, w, h, it["dur"]) +
-                             f",setpts=PTS-STARTPTS+{s0:.4f}/TB{lab}")
+                lab = cadeia(f"[{idx}:v]" + ",".join(vf), it, w, h, it["dur"], s0)
                 sobrepor(lab, it["x"], it["y"], s0, s1)
                 if midia.get("has_audio") and not mudo:
                     # o áudio usa a mesma entrada: tempo local já começa em "seek"
@@ -642,13 +954,12 @@ def exportar(pid: str, opts: dict, progress: Optional[Callable[[float, str], Non
             k0 = max(0, int((g_in - 1.0) * fps))
             offset = k0 / fps
             seek = max(0.0, offset - 0.5 / fps) if k0 > 0 else 0.0
-            idx = entrada((["-ss", f"{seek:.5f}"] if seek > 0 else []) +
-                          ["-t", f"{g_out - offset + 1.0:.3f}", "-i", src])
+            idx = entrada_video(midia, (["-ss", f"{seek:.5f}"] if seek > 0 else []) +
+                                ["-t", f"{g_out - offset + 1.0:.3f}", "-i", src])
             termos = ff.soma_expr([f"gte(t,{x['in'] - offset - eps:.4f})*lt(t,{x['in'] + x['dur'] - offset - eps:.4f})"
                                    for x in grupo])
-            lab = f"[k{len(graph)}]"
-            graph.append(f"[{idx}:v]setpts=PTS-STARTPTS,fps={fps},select='{termos}',setpts=N/({fps})/TB," +
-                         efeitos(it, w, h, dur) + f",setpts=PTS-STARTPTS+{s0:.4f}/TB{lab}")
+            lab = cadeia(f"[{idx}:v]setpts=PTS-STARTPTS,fps={fps},select='{termos}',setpts=N/({fps})/TB",
+                         it, w, h, dur, s0)
             sobrepor(lab, it["x"], it["y"], s0, s1)
             if midia.get("has_audio") and not mudo:
                 base_t = seek if seek > 0 else 0.0

@@ -1,29 +1,33 @@
-VOX Editor 1.1.3 — Exportação corrigida, cortes suaves, tarjas, músicas livres e contas pelo online
-===================================================================================================
+VOX Editor 1.2.0 — Super pacote: transições, animação, filtros, fundo verde, remover fundo com IA e vídeos grátis
+=============================================================================================================
 (Este pacote já inclui tudo das versões anteriores. Pode extrair por cima.)
 
 NO PC (Windows)
 1. Feche o VOX Editor, se estiver aberto.
 2. Extraia este .zip DENTRO da pasta do VOX Editor (a mesma onde ficam INICIAR.bat e PUBLICAR.bat).
    Quando o Windows perguntar, escolha "Substituir os arquivos no destino".
-3. Abra o programa. No canto de baixo, à esquerda, deve aparecer "versão 1.1.3".
+3. Dois cliques no ATUALIZAR.bat  (IMPORTANTE nesta versão: instala o componente de IA da remoção de fundo).
+4. Abra o programa. No canto de baixo, à esquerda, deve aparecer "versão 1.2.0".
    Se a tela não mudar: feche o programa e dê dois cliques no LIMPAR-CACHE-DA-TELA.bat.
-4. Dois cliques no PUBLICAR.bat.
+5. Dois cliques no PUBLICAR.bat.
 
 NA VPS
-5. sudo vox-atualizar
+6. sudo vox-atualizar
+   (desta vez demora um pouco mais: o servidor instala o componente de IA)
 
-O QUE MUDOU
-- Exportar a montagem voltou a funcionar (o FFmpeg novo não aceitava um comando antigo; e projetos com
-  muitos cortes, como uma pregação inteira, também travavam). Textos com "%" também travavam: corrigido.
-- Emendas da fala suaves: no corte, um lado se mistura com o outro em vez do "pá" seco.
-  Montagem -> Ajustes (sem nada selecionado) -> "Emendas da fala". Na edição automática fica em Configurações.
-- Tarjas (lower thirds): Montagem -> aba "Tarjas". 12 modelos x 10 cores, com nome e cargo, 5/10/15 segundos.
-- Músicas livres: Montagem -> aba "Músicas". Busca por estilo (Inspirador, Oração, Piano, Épico...),
-  ouve antes, "Usar" coloca na trilha de áudio baixinha e abaixando sozinha quando alguém fala.
-  Quando a música pede crédito, o texto pronto aparece em Ajustes para colar na descrição.
-- Redes sociais no PC: se o PC estiver ligado ao online (Configurações -> Versão online), as contas
-  ficam salvas no servidor. Conectar abre o login no navegador; Publicar manda o vídeo para a fila do online.
-  (Para isso o online precisa dos apps oficiais cadastrados uma vez com:  sudo vox-apps)
+DEPOIS (uma vez só)
+7. Menu "Inteligência artificial": cole as chaves grátis do Pexels e do Pixabay (os links estão na própria página)
+   e clique em Salvar. Depois, em Configurações -> Versão online -> "Copiar configurações para o online".
+
+O QUE MUDOU (tudo fica na Montagem)
+- Transições: botão "+" em cada corte da linha do tempo. 12 tipos, de 0,2 a 3 segundos, e
+  "Usar em todos os cortes desta trilha".
+- Animação: animações prontas (entrar, durante, sair) e quadros-chave livres (tecla K) para posição,
+  tamanho, giro e opacidade. Vale para vídeo, foto, cor e texto.
+- Filtros e cor: 10 filtros prontos + brilho, contraste, saturação, temperatura, P&B, sépia, desfoque e vinheta.
+- Fundo verde (chroma key) para quem grava com pano verde.
+- Remover fundo com IA: recorta a pessoa sem pano verde, de graça, no próprio PC/servidor.
+  Na primeira vez baixa o modelo (168 MB). Vídeos levam alguns minutos (só o trecho usado é processado).
+- Aba "Grátis": vídeos e fotos livres do Pexels e do Pixabay direto na biblioteca.
 
 Seus projetos, vídeos e configurações (pasta "dados") não são tocados.
