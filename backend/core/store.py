@@ -75,6 +75,10 @@ def public_config(cfg: dict) -> dict:
     for app, c in (out.get("publish") or {}).items():
         if isinstance(c, dict) and "client_secret" in c:
             c["secret_set"] = bool(c.pop("client_secret"))
+    for d in (out.get("publish") or {}).get("destinos") or []:  # destinos próprios: senhas e chaves ficam no servidor
+        for k in ("password", "key", "token"):
+            if isinstance(d, dict) and k in d:
+                d[k + "_set"] = bool(d.pop(k))
     for sec in ("transcription", "ai"):
         key = out[sec].get("api_key") or ""
         out[sec]["api_key"] = ""

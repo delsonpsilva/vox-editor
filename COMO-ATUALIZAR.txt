@@ -1,22 +1,24 @@
-VOX Editor 1.0 — Montagem (editor manual com camadas)
-=====================================================
+VOX Editor 1.1 — Montagem + publicar sem configurar app + destinos próprios
+===========================================================================
+(Este pacote já inclui tudo da 1.0. Pode extrair por cima.)
 
 NO PC (Windows)
 1. Feche o VOX Editor, se estiver aberto.
 2. Extraia este .zip DENTRO da pasta do VOX Editor (a mesma onde ficam INICIAR.bat e PUBLICAR.bat).
    Quando o Windows perguntar, escolha "Substituir os arquivos no destino".
-3. Abra o programa pelo atalho de sempre. Não precisa rodar o ATUALIZAR.bat: nada novo para instalar.
-4. Teste:
-   - Tela inicial -> "Montar do zero" -> Vertical 9:16 (projeto em branco), ou
-   - Abra um projeto já analisado -> aba "Montagem" no topo.
+3. Abra o programa. No canto de baixo, à esquerda, deve aparecer "versão 1.1.0".
+4. Dois cliques no PUBLICAR.bat.
 
-NA VERSÃO ONLINE (editor.voxapps.app) — depois de testar no PC
-5. No PC: dois cliques no PUBLICAR.bat.
-6. Na VPS: sudo vox-atualizar
+NA VPS
+5. sudo vox-atualizar
+6. Só desta primeira vez, instale o comando novo dos apps oficiais:
+     sudo install -m 755 /srv/voxeditor/app/scripts/vox-apps.sh /usr/local/bin/vox-apps
+   (nas próximas atualizações o vox-atualizar faz isso sozinho)
+7. Quando tiver os apps das redes criados:  sudo vox-apps
+   Ele pergunta o ID e a chave de cada rede no próprio terminal e grava sozinho.
 
-Arquivos que mudam:
-  backend/app.py, backend/core/store.py, frontend/app.js, frontend/index.html, frontend/style.css, LEIA-ME.md
-Arquivos novos:
-  backend/core/montagem.py, frontend/montagem.js, tests/teste_v10_montagem.py
+ONDE VER AS NOVIDADES
+- Montagem: Início -> "Montar do zero", ou dentro de um projeto -> aba "Montagem".
+- Destinos próprios: Redes sociais -> "Destinos próprios" (web TV, FTP, webhook, pasta).
 
 Seus projetos, vídeos e configurações (pasta "dados") não são tocados.

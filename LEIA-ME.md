@@ -1,4 +1,27 @@
-# VOX Editor — edição de vídeo com cortes inteligentes e montagem manual (versão 1.0)
+# VOX Editor — edição de vídeo com cortes inteligentes e montagem manual (versão 1.1)
+
+## Novidades da versão 1.1 — publicar sem configurar app e destinos próprios
+
+### Apps oficiais do VOX: o usuário só clica em Conectar
+- O dono do sistema cadastra **uma vez** os apps do VOX em cada rede (YouTube, Facebook/Instagram, TikTok) com o
+  comando **`sudo vox-apps`** na VPS. O comando pergunta os dados no próprio terminal e grava sozinho
+  (`sudo vox-apps --ver` mostra o que está cadastrado).
+- Depois disso, em Redes sociais, cada rede cadastrada mostra **"Pronto: clique em Conectar"**: a pessoa entra com a
+  própria conta e o acesso fica **salvo no servidor e renovado sozinho** (não precisa logar de novo).
+- Quem quiser continua podendo usar o próprio app (botão **App próprio**); ele tem prioridade sobre o do VOX.
+- Contas conectadas lembram por qual app entraram, para renovar o acesso sempre pelo mesmo app.
+
+### Destinos próprios (fora das redes sociais)
+Em Redes sociais → **Destinos próprios**. Cada destino aparece no botão **Publicar**, junto das redes, e pode ser
+agendado na mesma fila. Botão **Testar** confere a ligação antes de usar.
+- **Transmissão ao vivo (RTMP):** o vídeo é transmitido ao vivo para a sua web TV ou servidor de streaming
+  (MediaCP, Wowza, Owncast, YouTube Live…).
+- **Enviar arquivo (FTP/FTPS):** o MP4 vai para uma pasta do seu site/servidor (ex.: a pasta da playlist da web TV).
+- **Avisar meu site (webhook):** o VOX manda um POST em JSON com título, legenda e um link para baixar o vídeo
+  (válido por 7 dias, só para aquele arquivo).
+- **Copiar para uma pasta:** copia o vídeo para uma pasta do computador/servidor.
+- Senhas e chaves dos destinos ficam só no servidor; o navegador nunca recebe.
+
 
 ## Novidades da versão 1.0 — Montagem: o editor manual com camadas
 

@@ -19,6 +19,7 @@ import httpx
 from . import store
 
 ACCOUNTS = store.DATA / "contas.json"
+SISTEMA = store.DATA / "apps-sistema.json"   # apps oficiais do VOX (cadastrados uma vez com: sudo vox-apps)
 QUEUE = store.DATA / "publicacoes.json"
 _lock = threading.RLock()
 _states: dict[str, tuple[str, float]] = {}
@@ -91,15 +92,47 @@ def cfg() -> dict:
     return c
 
 
+# ----------------------------- apps das redes -----------------------------
+
+def _sistema() -> dict:
+    """Apps oficiais do VOX: arquivo apps-sistema.json (comando vox-apps) ou variáveis VOX_APP_<REDE>_ID/SECRET.
+    Nunca vão para o navegador."""
+    s = _read(SISTEMA, {}) if SISTEMA.exists() else {}
+    for app in ("youtube", "meta", "tiktok"):
+        cid = os.environ.get(f"VOX_APP_{app.upper()}_ID")
+        sec = os.environ.get(f"VOX_APP_{app.upper()}_SECRET")
+        if cid and sec:
+            s[app] = {"client_id": cid, "client_secret": sec}
+    return s
+
+
+def app_cred(app: str, via: str | None = None) -> dict:
+    """Credenciais do app da rede. Quem preencheu o próprio app usa o dele; senão, usa o app oficial do VOX.
+    Uma conta conectada guarda por qual app entrou ("via"), para renovar o acesso sempre pelo mesmo app."""
+    proprio = cfg().get(app) or {}
+    sist = _sistema().get(app) or {}
+    tem = lambda c: bool(c.get("client_id") and c.get("client_secret"))  # noqa: E731
+    if via == "sistema" and tem(sist):
+        return {**sist, "via": "sistema"}
+    if via == "proprio" and tem(proprio):
+        return {**proprio, "via": "proprio"}
+    if tem(proprio):
+        return {**proprio, "via": "proprio"}
+    if tem(sist):
+        return {**sist, "via": "sistema"}
+    return {}
+
+
 def public_status() -> dict:
     """O que o painel pode ver: quem está conectado (sem chaves)."""
     acc, c = accounts(), cfg()
     out = {}
     for net, info in NETWORKS.items():
         a = acc.get(info["app"]) or {}
-        app_cfg = c.get(info["app"]) or {}
-        ready = bool(app_cfg.get("client_id") and app_cfg.get("client_secret"))
-        entry = {"name": info["name"], "app": info["app"], "app_ready": ready, "connected": False, "account": ""}
+        cred = app_cred(info["app"])
+        ready = bool(cred)
+        entry = {"name": info["name"], "app": info["app"], "app_ready": ready, "connected": False, "account": "",
+                 "system_app": cred.get("via") == "sistema"}
         if net == "youtube" and a.get("refresh_token"):
             entry.update(connected=True, account=a.get("channel", ""))
         if net == "tiktok" and a.get("refresh_token"):
@@ -132,10 +165,10 @@ def check_state(st: str) -> str | None:
 
 
 def auth_url(app: str, redirect: str) -> str:
-    c = cfg().get(app) or {}
+    c = app_cred(app)
     cid = c.get("client_id")
     if not cid or not c.get("client_secret"):
-        raise RuntimeError("Preencha o ID e a chave secreta do app desta rede antes de conectar.")
+        raise RuntimeError("Esta rede ainda não tem app configurado. Peça ao administrador para rodar: sudo vox-apps")
     st = new_state(app)
     from urllib.parse import urlencode
     if app == "youtube":
@@ -156,15 +189,15 @@ def auth_url(app: str, redirect: str) -> str:
 
 
 def finish_login(app: str, code: str, redirect: str) -> None:
-    c = cfg().get(app) or {}
-    cid, sec = c.get("client_id"), c.get("client_secret")
+    c = app_cred(app)
+    cid, sec, via = c.get("client_id"), c.get("client_secret"), c.get("via")
     if app == "youtube":
         r = httpx.post("https://oauth2.googleapis.com/token", data={
             "code": code, "client_id": cid, "client_secret": sec, "redirect_uri": redirect,
             "grant_type": "authorization_code"}, timeout=30)
         js = _ok(r, "Google")
         acc = {"refresh_token": js.get("refresh_token"), "access_token": js["access_token"],
-               "expires": time.time() + js.get("expires_in", 3600) - 60}
+               "expires": time.time() + js.get("expires_in", 3600) - 60, "via": via}
         ch = httpx.get("https://www.googleapis.com/youtube/v3/channels", params={"part": "snippet", "mine": "true"},
                        headers={"Authorization": f"Bearer {acc['access_token']}"}, timeout=30)
         items = (ch.json() or {}).get("items") or [] if ch.status_code == 200 else []
@@ -189,14 +222,14 @@ def finish_login(app: str, code: str, redirect: str) -> None:
         if not pages:
             raise RuntimeError("Nenhuma página do Facebook encontrada nesta conta. O Instagram precisa estar ligado a uma página.")
         best = next((p for p in pages if p.get("ig_id")), pages[0])
-        save_account("meta", {"user_token": long_tok, "pages": pages, "page_id": best["id"]})
+        save_account("meta", {"user_token": long_tok, "pages": pages, "page_id": best["id"], "via": via})
     elif app == "tiktok":
         r = httpx.post("https://open.tiktokapis.com/v2/oauth/token/", data={
             "client_key": cid, "client_secret": sec, "code": code, "grant_type": "authorization_code",
             "redirect_uri": redirect}, headers={"Content-Type": "application/x-www-form-urlencoded"}, timeout=30)
         js = _ok(r, "TikTok")
         acc = {"access_token": js["access_token"], "refresh_token": js["refresh_token"],
-               "expires": time.time() + js.get("expires_in", 86400) - 120, "open_id": js.get("open_id")}
+               "expires": time.time() + js.get("expires_in", 86400) - 120, "open_id": js.get("open_id"), "via": via}
         u = httpx.get("https://open.tiktokapis.com/v2/user/info/", params={"fields": "display_name"},
                       headers={"Authorization": f"Bearer {acc['access_token']}"}, timeout=30)
         acc["user"] = ((u.json().get("data") or {}).get("user") or {}).get("display_name", "TikTok") if u.status_code == 200 else "TikTok"
@@ -228,7 +261,7 @@ def _google_token() -> str:
     acc = accounts().get("youtube") or {}
     if acc.get("access_token") and acc.get("expires", 0) > time.time():
         return acc["access_token"]
-    c = cfg().get("youtube") or {}
+    c = app_cred("youtube", acc.get("via"))
     r = httpx.post("https://oauth2.googleapis.com/token", data={
         "client_id": c.get("client_id"), "client_secret": c.get("client_secret"),
         "refresh_token": acc.get("refresh_token"), "grant_type": "refresh_token"}, timeout=30)
@@ -242,7 +275,7 @@ def _tiktok_token() -> str:
     acc = accounts().get("tiktok") or {}
     if acc.get("access_token") and acc.get("expires", 0) > time.time():
         return acc["access_token"]
-    c = cfg().get("tiktok") or {}
+    c = app_cred("tiktok", acc.get("via"))
     r = httpx.post("https://open.tiktokapis.com/v2/oauth/token/", data={
         "client_key": c.get("client_id"), "client_secret": c.get("client_secret"),
         "grant_type": "refresh_token", "refresh_token": acc.get("refresh_token")},
@@ -438,7 +471,11 @@ def _run(it: dict) -> None:
 
     def log(p, m):
         update_item(it["id"], pct=round(p, 2), msg=m)
-    url = POSTERS[it["net"]](path, it, log)
+    if it["net"].startswith("dest:"):  # destino próprio: web TV, site, servidor, pasta
+        from . import destinos
+        url = destinos.enviar(it["net"][5:], path, it, log)
+    else:
+        url = POSTERS[it["net"]](path, it, log)
     update_item(it["id"], status="publicado", url=url, posted=time.time(), pct=1.0, msg=it.get("_note") or "Publicado")
 
 

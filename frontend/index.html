@@ -205,8 +205,14 @@
         <div id="net-msg"></div>
         <section class="pane">
           <h2>Contas para postar</h2>
-          <p class="hint">A conexão é feita pelo login oficial de cada rede. O programa nunca vê nem guarda a sua senha.</p>
+          <p class="hint">A conexão é feita pelo login oficial de cada rede. O programa nunca vê nem guarda a sua senha.
+            Depois de conectar, o acesso fica salvo no servidor e é renovado sozinho: não precisa entrar de novo.</p>
           <div id="net-cards" class="net-cards"></div>
+        </section>
+        <section class="pane">
+          <h2>Destinos próprios</h2>
+          <p class="hint">Publique fora das redes sociais: na sua web TV, no seu site ou num servidor de streaming. Eles aparecem no botão Publicar junto das redes e podem ser agendados.</p>
+          <div id="dest-list" class="net-cards"></div>
         </section>
         <section class="pane">
           <h2>Selos nos vídeos</h2>
@@ -716,6 +722,17 @@
     <label id="app-id-lbl">ID do app<input type="text" id="app-id" autocomplete="off"></label>
     <label>Chave secreta<input type="password" id="app-secret" autocomplete="off"></label>
     <footer class="row end"><button class="btn ghost" value="cancel">Cancelar</button><button class="btn primary" id="app-save" value="default">Salvar</button></footer>
+  </form>
+</dialog>
+
+<dialog id="destdlg">
+  <form method="dialog" class="settings" id="dest-form">
+    <header class="row between"><h2 id="dest-title"></h2><button class="btn icon ghost" value="cancel" aria-label="Fechar">✕</button></header>
+    <p id="dest-help" class="hint app-help"></p>
+    <label>Nome (como aparece no botão Publicar)<input type="text" id="dest-name" maxlength="60" placeholder="Ex.: Minha Web TV"></label>
+    <div id="dest-fields" class="dest-fields"></div>
+    <p id="dest-err" class="err"></p>
+    <footer class="row end"><button class="btn ghost" value="cancel">Cancelar</button><button class="btn primary" id="dest-save" value="default">Salvar</button></footer>
   </form>
 </dialog>
 

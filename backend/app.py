@@ -17,11 +17,11 @@ from fastapi import Body, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from .core import importer, jobs, montagem, online, pacote, pipeline, publish, store
+from .core import destinos, importer, jobs, montagem, online, pacote, pipeline, publish, store
 from .engine import edits, frames, platforms, reframe, socials, subtitles, transcribe
 from .engine import ffmpeg_tools as ff
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 FRONT = store.ROOT / "frontend"
 PASSWORD = os.environ.get("APP_PASSWORD", "")
 SECRET = os.environ.get("APP_SECRET") or secrets.token_hex(16)
@@ -66,7 +66,8 @@ def _local(request: Request) -> bool:
 @app.middleware("http")
 async def auth(request: Request, call_next):
     path = request.url.path
-    if path.startswith("/api/") and path not in _LIVRES and not _RE_OAUTH.match(path) and _senha_base():
+    if path.startswith("/api/") and path not in _LIVRES and not _RE_OAUTH.match(path) \
+            and not path.startswith("/api/publico/") and _senha_base():  # /api/publico: link assinado do webhook
         interno = request.headers.get("x-vox-interno", "")
         ok = (interno and _local(request) and hmac.compare_digest(interno, INTERNO)) \
             or hmac.compare_digest(request.cookies.get("editor_auth", ""), _token())
@@ -962,8 +963,16 @@ def publish_status():
     apps = {}
     for app_name in ("youtube", "meta", "tiktok"):
         a = c.get(app_name) or {}
-        apps[app_name] = {"client_id": a.get("client_id", ""), "secret_set": bool(a.get("client_secret"))}
-    return {"networks": publish.public_status(), "apps": apps, "slots": c["slots"]}
+        apps[app_name] = {"client_id": a.get("client_id", ""), "secret_set": bool(a.get("client_secret")),
+                          "system": bool((publish._sistema().get(app_name) or {}).get("client_id"))}
+    nets = publish.public_status()
+    dests = destinos.publicos()
+    targets = dict(nets)
+    for d in dests:  # no diálogo de publicar, os destinos próprios aparecem junto das redes
+        targets["dest:" + d["id"]] = {"name": d["name"], "connected": True, "account": destinos.descricao(d),
+                                      "dest": d["kind"]}
+    return {"networks": nets, "apps": apps, "slots": c["slots"], "destinos": dests, "targets": targets,
+            "tipos_destino": destinos.TIPOS}
 
 
 @app.put("/api/publish/config")
@@ -1041,6 +1050,40 @@ def oauth_callback(app_name: str, request: Request, code: str = "", state: str =
     return _oauth_done(request, True, "", app_name)
 
 
+@app.post("/api/publish/destinos")
+def destino_salvar(data: dict = Body(...)):
+    try:
+        destinos.salvar(data)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return publish_status()
+
+
+@app.delete("/api/publish/destinos/{did}")
+def destino_remover(did: str):
+    destinos.remover(did)
+    return publish_status()
+
+
+@app.post("/api/publish/destinos/{did}/testar")
+def destino_testar(did: str):
+    try:
+        return {"ok": True, "msg": destinos.testar(did)}
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e))
+    except Exception as e:
+        raise HTTPException(400, "Não deu certo: " + publish.friendly_error(e)[:300])
+
+
+@app.get("/api/publico/{token}")
+def link_publico(token: str):
+    try:
+        f = destinos.abrir_link(token)
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e))
+    return FileResponse(f, filename=f.name)
+
+
 @app.post("/api/publish/page")
 def publish_page(data: dict = Body(...)):
     publish.select_page(str(data.get("page_id", "")))
@@ -1067,11 +1110,12 @@ def publish_add(data: dict = Body(...)):
     pid, file = str(data.get("project", "")), str(data.get("file", ""))
     if "/" in file or "\\" in file or not (store.pdir(pid) / "renders" / file).exists():
         raise HTTPException(404, "Vídeo exportado não encontrado")
-    nets = [n for n in data.get("nets", []) if n in publish.NETWORKS]
+    ids_dest = {"dest:" + d["id"] for d in destinos.publicos()}
+    nets = [n for n in data.get("nets", []) if n in publish.NETWORKS or n in ids_dest]
     if not nets:
-        raise HTTPException(400, "Escolha pelo menos uma rede")
+        raise HTTPException(400, "Escolha pelo menos uma rede ou destino")
     status = publish.public_status()
-    off = [publish.NETWORKS[n]["name"] for n in nets if not status[n]["connected"]]
+    off = [publish.NETWORKS[n]["name"] for n in nets if n in publish.NETWORKS and not status[n]["connected"]]
     if off:
         raise HTTPException(400, "Conecte antes: " + ", ".join(off))
     mode = data.get("when", "slot")

@@ -793,3 +793,9 @@ kbd{font-family:var(--mono);font-size:11px;background:var(--card2);border:1px so
   .mt-item .h-l,.mt-item .h-r{width:14px}
 }
 @media (max-width:420px){.mt-media{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* destinos próprios */
+.nc.add-dest{border-style:dashed}
+.nc.add-dest .row{gap:6px}
+.dest-fields{display:flex;flex-direction:column;gap:10px}
+.chk-line{display:flex !important;flex-direction:row !important;align-items:center;gap:8px}

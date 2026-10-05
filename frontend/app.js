@@ -256,7 +256,8 @@ async function renderLibrary() {
 
 /* ---------- publicações ---------- */
 
-const NET_COLORS = { youtube: "#FF3040", instagram: "#E1306C", facebook: "#3B8CFF", tiktok: "#25F4EE" };
+const NET_COLORS = new Proxy({ youtube: "#FF3040", instagram: "#E1306C", facebook: "#3B8CFF", tiktok: "#25F4EE" },
+  { get: (o, k) => o[k] || "#A78BFA" });  // destinos próprios (web TV, site…) em lilás
 const DAYS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
 
 async function refreshQueueCount() {
@@ -279,7 +280,7 @@ async function renderQueue() {
       const d = new Date(it.when * 1000);
       const day = d.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" });
       if (day !== lastDay) { html += `<div class="q-day">${esc(day.charAt(0).toUpperCase() + day.slice(1))}</div>`; lastDay = day; }
-      const net = (st.networks || {})[it.net] || { name: it.net };
+      const net = (st.targets || st.networks || {})[it.net] || { name: it.net.startsWith("dest:") ? "Destino removido" : it.net };
       html += `<div class="qi" data-id="${it.id}">
         <img src="/api/projects/${it.project}/renders/${encodeURIComponent(it.file)}/thumb" alt="" onerror="this.style.visibility='hidden'">
         <div>
@@ -346,13 +347,14 @@ async function openPublish(r) {
   $("#pub-meta").textContent = `${r.project_name || ""} · ${fmt(r.duration)}`;
   let suggest = { ig_reels: "instagram", ig_stories: "instagram", yt_shorts: "youtube", tiktok: "tiktok", fb_reels: "facebook" }[r.platform];
   if (suggest && !(st.networks[suggest] || {}).connected) suggest = null;
-  $("#pub-nets").innerHTML = Object.entries(st.networks).map(([k, n]) => `
-    <label class="${n.connected ? "" : "off"}"><input type="checkbox" value="${k}" ${n.connected ? "" : "disabled"} ${n.connected && (k === suggest || !suggest) ? "checked" : ""}>
+  const alvos = st.targets || st.networks;
+  $("#pub-nets").innerHTML = Object.entries(alvos).map(([k, n]) => `
+    <label class="${n.connected ? "" : "off"}"><input type="checkbox" value="${k}" ${n.connected ? "" : "disabled"} ${n.connected && (k === suggest || (!suggest && !k.startsWith("dest:"))) ? "checked" : ""}>
       <span><i class="net-dot" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${NET_COLORS[k]};margin-right:5px"></i>${esc(n.name)}
       <small>${n.connected ? esc(n.account) : "não conectado"}</small></span></label>`).join("");
   $("#pub-title").value = (r.title || r.label || "").slice(0, 100);
   $("#pub-caption").value = r.post || "";
-  $("#pub-err").textContent = Object.values(st.networks).some((n) => n.connected) ? "" : "Nenhuma rede conectada ainda. Conecte em Redes sociais.";
+  $("#pub-err").textContent = Object.values(alvos).some((n) => n.connected) ? "" : "Nenhuma rede ou destino conectado ainda. Conecte em Redes sociais.";
   $$("input[name=pub-when]").forEach((x) => (x.checked = x.value === "slot"));
   $("#pub-at").classList.add("hidden");
   const d = new Date(Date.now() + 3600e3); d.setMinutes(0, 0, 0);
@@ -370,7 +372,7 @@ function setupPublish() {
   $("#pub-ok").addEventListener("click", async (e) => {
     e.preventDefault();
     const r = S.pubTarget, nets = $$("#pub-nets input:checked").map((x) => x.value);
-    if (!nets.length) { $("#pub-err").textContent = "Escolha pelo menos uma rede conectada."; return; }
+    if (!nets.length) { $("#pub-err").textContent = "Escolha pelo menos uma rede ou destino."; return; }
     const when = $("input[name=pub-when]:checked").value;
     const body = { project: r.project, file: r.file, nets, when, caption: $("#pub-caption").value, title: $("#pub-title").value,
       privacy: $("#pub-privacy").value, label: r.label || "" };
@@ -413,16 +415,16 @@ async function renderRedes() {
   let st;
   try { st = await api("GET", "/api/publish/status"); } catch (e) { toast(e.message, true); return; }
   S.pubStatus = st;
-  const notes = { youtube: "Privado até a aprovação do seu projeto no Google.", instagram: "Reels pela conta profissional ligada à página.",
+  const notes = { youtube: "Privado até a aprovação do projeto no Google.", instagram: "Reels pela conta profissional ligada à página.",
     facebook: "Reels na página do Facebook escolhida.", tiktok: "Privado até a aprovação do app pelo TikTok." };
   $("#net-cards").innerHTML = Object.entries(st.networks).map(([k, n]) => `
     <div class="nc" data-net="${k}" data-app="${n.app}">
       <div class="hd"><i style="background:${NET_COLORS[k]}"></i><b>${esc(n.name)}</b></div>
-      <div class="acc ${n.connected ? "ok" : ""}">${n.connected ? "Conectado: " + esc(n.account) : n.warn ? esc(n.warn) : n.app_ready ? "Pronto para conectar" : "Falta configurar o app desta rede"}</div>
+      <div class="acc ${n.connected ? "ok" : ""}">${n.connected ? "Conectado: " + esc(n.account) : n.warn ? esc(n.warn) : n.system_app ? "Pronto: clique em Conectar e entre com a sua conta" : n.app_ready ? "Pronto para conectar" : "Falta configurar o app desta rede"}</div>
       ${n.pages && n.pages.length > 1 ? `<label class="field">Página<select data-page>${n.pages.map((pg) => `<option value="${pg.id}" ${pg.id === n.page_id ? "selected" : ""}>${esc(pg.name)}${pg.ig ? " (@" + esc(pg.ig) + ")" : ""}</option>`).join("")}</select></label>` : ""}
       <div class="note">${notes[k]}</div>
       <div class="row">
-        <button class="btn small" data-app-cfg>Configurar app</button>
+        <button class="btn small ${n.system_app ? "ghost" : ""}" data-app-cfg>${n.system_app ? "App próprio" : "Configurar app"}</button>
         ${n.connected ? `<button class="btn small ghost" data-disc>Desconectar</button>` : `<a class="btn small primary ${n.app_ready ? "" : "disabled"}" href="${n.app_ready ? `/api/oauth/${n.app}/start` : "#/redes"}" data-conn>Conectar</a>`}
       </div>
     </div>`).join("") + `<div class="nc"><div class="hd"><i style="background:#25D366"></i><b>Status do WhatsApp</b></div>
@@ -434,6 +436,7 @@ async function renderRedes() {
     const cn = $("[data-conn]", c); if (cn && !st.networks[c.dataset.net].app_ready) cn.addEventListener("click", (e) => { e.preventDefault(); openAppCfg(app); });
     const pg = $("[data-page]", c); if (pg) pg.addEventListener("change", async (e) => { await api("POST", "/api/publish/page", { page_id: e.target.value }); renderRedes(); });
   });
+  renderDestinos(st);
   // selos nos vídeos
   const b = brand();
   $("#br-soc-mode").value = b.social_mode || "destino"; $("#br-soc-every").value = String(b.social_every || 12);
@@ -452,7 +455,81 @@ function openAppCfg(app) {
   $("#appdlg").showModal();
 }
 
+/* ---------- destinos próprios (web TV, site, servidor) ---------- */
+
+const DEST_CAMPOS = {
+  rtmp: [["url", "Endereço do servidor (RTMP)", "rtmp://servidor.com/live"], ["key", "Chave da transmissão (stream key)", "", "password"]],
+  ftp: [["host", "Servidor FTP", "ftp.meusite.com.br"], ["port", "Porta", "21"], ["user", "Usuário", ""], ["password", "Senha", "", "password"],
+    ["folder", "Pasta no servidor", "videos/webtv"], ["tls", "Conexão segura (FTPS)", "", "checkbox"], ["public_url", "Endereço público da pasta (opcional)", "https://meusite.com.br/videos"]],
+  webhook: [["url", "Endereço que recebe o aviso", "https://meusite.com.br/api/novo-video"], ["token", "Chave de acesso (opcional)", "", "password"]],
+  pasta: [["path", "Caminho completo da pasta", "/srv/webtv/videos  ou  D:\\WebTV\\videos"]],
+};
+const DEST_AJUDA = {
+  rtmp: "O vídeo é transmitido <b>ao vivo</b> para o servidor, do começo ao fim, como se fosse uma live: serve para web TV, MediaCP, Wowza, Owncast, YouTube Live e Facebook Live. Pegue o endereço e a chave no painel do seu servidor de streaming.",
+  ftp: "O arquivo MP4 é enviado para uma pasta do seu site ou servidor (por exemplo, a pasta que a playlist da web TV lê). Se a pasta tiver endereço na internet, preencha o endereço público para o link aparecer em Publicações.",
+  webhook: "O VOX avisa o seu site com um POST em JSON: título, legenda e um <b>link para baixar o vídeo</b> (válido por 7 dias). O seu site decide o que fazer: publicar na página, colocar na playlist, etc.",
+  pasta: "O vídeo é copiado para uma pasta do mesmo computador ou servidor onde o VOX está rodando (no online, uma pasta da VPS).",
+};
+const DEST_DESC = (d) => d.kind === "rtmp" ? (d.url || "").replace(/^rtmps?:\/\//, "").split("/")[0] : d.kind === "ftp" ? `${d.host}/${(d.folder || "").replace(/^\/+/, "")}` : d.kind === "webhook" ? (d.url || "").replace(/^https?:\/\//, "").split("/")[0] : d.path || "";
+
+function renderDestinos(st) {
+  const box = $("#dest-list"); if (!box) return;
+  const ds = st.destinos || [];
+  box.innerHTML = ds.map((d) => `
+    <div class="nc" data-did="${d.id}">
+      <div class="hd"><i style="background:#A78BFA"></i><b>${esc(d.name)}</b></div>
+      <div class="acc ok">${esc(d.tipo_nome)}</div>
+      <div class="note">${esc(DEST_DESC(d))}</div>
+      <div class="row"><button class="btn small" data-dtest>Testar</button><button class="btn small" data-dedit>Editar</button><button class="btn small ghost" data-ddel>Remover</button></div>
+    </div>`).join("") + `
+    <div class="nc add-dest">
+      <div class="hd"><i style="background:var(--line2)"></i><b>Adicionar destino</b></div>
+      <div class="note">Sua web TV, seu site ou um servidor de streaming. Depois ele aparece no botão Publicar, junto das redes.</div>
+      <div class="row">${Object.entries(st.tipos_destino || {}).map(([k, v]) => `<button class="btn small" data-dnew="${k}">${esc(v)}</button>`).join("")}</div>
+    </div>`;
+  $$("[data-dnew]", box).forEach((b) => b.addEventListener("click", () => openDestino({ kind: b.dataset.dnew })));
+  $$(".nc[data-did]", box).forEach((c) => {
+    const d = ds.find((x) => x.id === c.dataset.did);
+    $("[data-dedit]", c).addEventListener("click", () => openDestino(d));
+    $("[data-ddel]", c).addEventListener("click", async () => {
+      if (!(await ask("Remover destino?", `"${d.name}" sai da lista. Publicações agendadas para ele vão dar erro.`, null, "Remover"))) return;
+      await api("DELETE", `/api/publish/destinos/${d.id}`); renderRedes();
+    });
+    $("[data-dtest]", c).addEventListener("click", async (e) => {
+      const b = e.currentTarget; b.disabled = true; b.textContent = "Testando…";
+      try { const r = await api("POST", `/api/publish/destinos/${d.id}/testar`); toast(r.msg); }
+      catch (err) { toast(err.message, true); }
+      b.disabled = false; b.textContent = "Testar";
+    });
+  });
+}
+
+function openDestino(d) {
+  const dlg = $("#destdlg"), st = S.pubStatus || {};
+  dlg.dataset.id = d.id || ""; dlg.dataset.kind = d.kind;
+  $("#dest-title").textContent = (d.id ? "Editar: " : "Novo destino: ") + ((st.tipos_destino || {})[d.kind] || d.kind);
+  $("#dest-help").innerHTML = DEST_AJUDA[d.kind] || "";
+  $("#dest-name").value = d.name || "";
+  $("#dest-fields").innerHTML = DEST_CAMPOS[d.kind].map(([k, lbl, ph, type]) => type === "checkbox"
+    ? `<label class="chk-line"><input type="checkbox" data-df="${k}" ${d[k] ? "checked" : ""}> ${esc(lbl)}</label>`
+    : `<label>${esc(lbl)}<input type="${type || "text"}" data-df="${k}" autocomplete="off" placeholder="${esc(type === "password" && d[k + "_set"] ? "Já salva — deixe vazio para manter" : ph)}" value="${type === "password" ? "" : esc(d[k] ?? "")}"></label>`).join("");
+  $("#dest-err").textContent = "";
+  dlg.showModal();
+}
+
+function setupDestinos() {
+  $("#dest-save").addEventListener("click", async (e) => {
+    e.preventDefault();
+    const dlg = $("#destdlg");
+    const body = { id: dlg.dataset.id || undefined, kind: dlg.dataset.kind, name: $("#dest-name").value };
+    $$("#dest-fields [data-df]").forEach((i) => (body[i.dataset.df] = i.type === "checkbox" ? i.checked : i.value));
+    try { S.pubStatus = await api("POST", "/api/publish/destinos", body); dlg.close(); toast("Destino salvo. Use Testar para conferir."); renderRedes(); }
+    catch (err) { $("#dest-err").textContent = err.message; }
+  });
+}
+
 function setupRedes() {
+  setupDestinos();
   $("#app-save").addEventListener("click", async (e) => {
     e.preventDefault();
     const app = $("#appdlg").dataset.app;

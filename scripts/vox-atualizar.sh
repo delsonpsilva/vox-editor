@@ -58,6 +58,10 @@ backup() {
 autoatualizar() {  # se este próprio comando mudou na versão nova, troca (arquivo novo, sem mexer no que está rodando)
   install -m 755 "$APP_DIR/scripts/vox-atualizar.sh" /usr/local/bin/vox-atualizar.novo \
     && mv -f /usr/local/bin/vox-atualizar.novo /usr/local/bin/vox-atualizar
+  if [ -f "$APP_DIR/scripts/vox-apps.sh" ]; then  # comando para cadastrar os apps oficiais do VOX (1.0+)
+    install -m 755 "$APP_DIR/scripts/vox-apps.sh" /usr/local/bin/vox-apps.novo \
+      && mv -f /usr/local/bin/vox-apps.novo /usr/local/bin/vox-apps
+  fi
 }
 
 # ------------------------------------------------------------------ voltar
