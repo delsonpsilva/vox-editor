@@ -1,4 +1,15 @@
-# VOX Editor — edição de vídeo com cortes inteligentes e montagem manual (versão 1.3)
+# VOX Editor — edição de vídeo com cortes inteligentes e montagem manual (versão 1.4)
+
+## Novidades da versão 1.4 — cara nova
+
+- **Barra do topo** em todas as telas do menu: **busca rápida (Ctrl+K)** para achar projetos, telas e ações;
+  botão **Novo** (enviar vídeo, link, montagem 9:16 / 16:9 / 1:1, abrir .vox, trazer do online); e **Atividade**,
+  com o andamento de análises, exportações, downloads, remoção de fundo e as próximas postagens.
+- **Menu lateral** em grupos (Criar, Publicar, Estilo, Sistema), que recolhe só nos ícones (Ctrl+B).
+- **Tela inicial** redesenhada: console com as abas Enviar vídeo, Importar por link e Montar do zero; painel de
+  números; "Em andamento"; Próximas publicações e Atalhos ao lado dos projetos.
+- No celular, barra do topo compacta com busca e botão +.
+
 
 ## Novidades da versão 1.3 — páginas públicas para aprovar os apps das redes
 

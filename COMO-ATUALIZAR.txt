@@ -1,39 +1,36 @@
-VOX Editor 1.3.0 — Páginas públicas: Termos de uso, Privacidade e Exclusão de dados
-==================================================================================
-(Este pacote já inclui tudo das versões anteriores. Pode extrair por cima.)
+VOX Editor 1.4.0 — Cara nova: barra do topo, busca rápida, botão Novo, atividade e tela inicial redesenhada
+==========================================================================================================
+(Este pacote já inclui tudo das versões anteriores, inclusive a 1.3.0. Pode extrair por cima.)
 
 NO PC (Windows)
 1. Feche o VOX Editor, se estiver aberto.
-2. Extraia este .zip DENTRO da pasta C:\editor-ia (a mesma onde ficam INICIAR.bat e PUBLICAR.bat).
+2. Extraia este .zip DENTRO da pasta C:\editor-ia (onde ficam INICIAR.bat e PUBLICAR.bat).
    Quando o Windows perguntar, escolha "Substituir os arquivos no destino".
-   (Nesta versão NÃO precisa rodar o ATUALIZAR.bat: não há componente novo.)
-3. Abra o programa. No canto de baixo, à esquerda, deve aparecer "versão 1.3.0".
+   (Não precisa rodar o ATUALIZAR.bat: não há componente novo.)
+3. Abra o programa. No canto de baixo, à esquerda, deve aparecer "versão 1.4.0".
    Se a tela não mudar: feche o programa e dê dois cliques no LIMPAR-CACHE-DA-TELA.bat.
 4. Dois cliques no PUBLICAR.bat.
 
 NA VPS
 5. sudo vox-atualizar
-
-DEPOIS (uma vez só)
-6. Abra https://editor.voxapps.app -> Configurações -> "Páginas públicas (termos e privacidade)".
-   Preencha: Responsável, E-mail de contato e Cidade/UF (CPF/CNPJ é opcional). Clique em Salvar.
-7. Confira as páginas (abrem sem senha):
-     https://editor.voxapps.app/termos
-     https://editor.voxapps.app/privacidade
-     https://editor.voxapps.app/exclusao-de-dados
-8. Cole esses links nos apps das redes:
-   - Google Cloud (YouTube): Tela de consentimento OAuth -> Página inicial, Política de privacidade e Termos de serviço.
-   - Meta: Configurações do app -> Básico -> URL da Política de privacidade, URL dos Termos de serviço
-     e "URL de instruções de exclusão de dados" (use a /exclusao-de-dados).
-   - TikTok: no app -> Terms of Service URL e Privacy Policy URL.
-   O comando "sudo vox-apps" agora também mostra esses três links.
+   (Se ainda não fez: Configurações -> Páginas públicas, preencha e salve. Veja a parte da 1.3.0 no LEIA-ME.)
 
 O QUE MUDOU
-- Páginas públicas /termos, /privacidade e /exclusao-de-dados, em português, de acordo com a LGPD e com as regras
-  do YouTube (Uso Limitado das APIs do Google), da Meta e do TikTok. Funcionam no celular e no modo escuro.
-- Também respondem em /termos-de-uso, /politica-de-privacidade, /terms, /privacy e /data-deletion.
-- Os dados do responsável ficam em Configurações e vão junto no "Copiar configurações para o online".
-- A tela de login do online mostra os links de Termos e Privacidade (o Google pede isso na página inicial).
-- O restante do editor continua protegido pela senha.
+- Barra no topo, em todas as telas do menu:
+  - Busca rápida (Ctrl+K): ache qualquer projeto pelo nome, abra qualquer tela ou faça uma ação
+    (enviar vídeo, montar do zero, configurações, liberar espaço...) só digitando. Setas + Enter.
+  - Botão Novo: enviar vídeo, importar por link, montagem 9:16 / 16:9 / 1:1, abrir .vox e trazer do online.
+  - Atividade: mostra na hora o que está andando (análise, exportação, download, remover fundo, publicação),
+    o que terminou há pouco e as próximas postagens. Um número azul aparece quando há trabalho rodando.
+- Menu lateral organizado em grupos (Criar, Publicar, Estilo, Sistema) e que recolhe só nos ícones
+  (botão no rodapé do menu ou Ctrl+B). O programa lembra a sua escolha.
+- Tela inicial nova:
+  - Saudação e um console com três abas: Enviar vídeo (linha do tempo com trilha de vídeo e de áudio),
+    Importar por link e Montar do zero (escolha o formato pelo desenho da tela).
+    Colar um link em qualquer lugar da tela inicial já abre a aba do link.
+  - Painel de números: vídeo enviado, silêncio cortado pela IA, cortes, exportados e postagens na fila.
+  - "Em andamento" com barra de progresso de cada trabalho.
+  - Ao lado dos projetos: Próximas publicações e Atalhos (Modelos, Marca, Redes sociais, IA).
+- No celular: barra do topo compacta com busca e botão +; o menu de baixo continua igual.
 
 Seus projetos, vídeos e configurações (pasta "dados") não são tocados.

@@ -74,6 +74,7 @@ async function goHome(page = "inicio") {
   show("home");
   S.prevPage = S.page; S.page = page;
   $$(".side-nav a[data-page]").forEach((a) => a.classList.toggle("active", a.dataset.page === page));
+  if (window.V14) V14.title(page);
   $$(".pages .page").forEach((el) => el.classList.toggle("hidden", el.id !== "pg-" + page));
   const st = S.status || {};
   const enc = st.encoder && st.encoder !== "libx264" ? "GPU (" + st.encoder.replace("h264_", "").toUpperCase() + ")" : "processador";
@@ -84,6 +85,7 @@ async function goHome(page = "inicio") {
   $("#nav-count-p").textContent = list.length || "";
   loadDashboard();
   if (page === "inicio") renderProjectCards($("#recent-list"), [...list].sort((a, b) => b.updated - a.updated).slice(0, 6), true);
+  if (window.V14) V14.onHome(page, list);
   if (page === "projetos") renderProjectsPage();
   if (page === "exportados") renderLibrary();
   if (page === "marca") renderBrandPage();
@@ -108,6 +110,8 @@ async function loadDashboard() {
     const used = d.storage, free = d.free || 0;
     $("#st-used").textContent = fmtSize(used);
     $("#st-bar").style.width = Math.min(100, (used / Math.max(1, used + free)) * 100 * 8).toFixed(1) + "%";
+    if (window.V14) V14.readout(d);
+    $("#dash-summary").classList.toggle("hidden", !!d.projects);
     $("#dash-summary").innerHTML = d.projects
       ? `Você já enviou <b>${fmtHours(d.seconds_in)}</b> de vídeo em <b>${d.projects}</b> projeto${d.projects > 1 ? "s" : ""}. A IA tirou <b>${fmtHours(d.removed)}</b> de silêncio e hesitação, criou <b>${d.clips}</b> corte${d.clips === 1 ? "" : "s"} e você exportou <b>${d.renders}</b> vídeo${d.renders === 1 ? "" : "s"}.`
       : "Envie o primeiro vídeo para começar. A análise roda sozinha: transcrição, silêncios, respirações e sugestões de cortes.";

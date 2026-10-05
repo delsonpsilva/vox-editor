@@ -36,6 +36,7 @@ def submit(kind: str, project_id: str, fn: Callable[[Callable[[float, str], None
         except Exception as exc:  # o erro aparece no painel, com detalhe no terminal
             traceback.print_exc()
             job["status"], job["error"], job["msg"] = "erro", str(exc), "Erro"
+        job["fim"] = time.time()
 
     {"render": _render, "download": _download}.get(queue, _analysis).submit(run)
     return job
@@ -45,3 +46,14 @@ def for_project(pid: str) -> list[dict]:
     with _lock:
         jobs = [j for j in JOBS.values() if j["project"] == pid]
     return sorted(jobs, key=lambda j: -j["created"])[:20]
+
+
+def atividade(janela: float = 600.0) -> list[dict]:
+    """Trabalhos de todos os projetos: os que estão andando e os que terminaram há pouco (barra de atividade do topo)."""
+    agora = time.time()
+    with _lock:
+        lista = [dict(j) for j in JOBS.values()
+                 if j["status"] in ("na fila", "processando") or agora - j.get("fim", j["created"]) < janela]
+    for j in lista:
+        j.pop("result", None)
+    return sorted(lista, key=lambda j: (j["status"] not in ("processando", "na fila"), -j["created"]))[:30]

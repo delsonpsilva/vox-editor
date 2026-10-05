@@ -21,7 +21,7 @@ from .core import bancos, destinos, importer, jobs, legal, montagem, online, pac
 from .engine import edits, frames, platforms, reframe, socials, subtitles, transcribe
 from .engine import ffmpeg_tools as ff
 
-VERSION = "1.3.0"
+VERSION = "1.4.0"
 FRONT = store.ROOT / "frontend"
 PASSWORD = os.environ.get("APP_PASSWORD", "")
 SECRET = os.environ.get("APP_SECRET") or secrets.token_hex(16)
@@ -326,6 +326,31 @@ def dashboard():
         free = 0
     return {"projects": len(ps), "seconds_in": round(total_in), "removed": round(removed), "clips": clips,
             "renders": renders, "storage": store.folder_size(store.PROJECTS), "free": free}
+
+
+@app.get("/api/atividade")
+def atividade():
+    """Tudo o que está acontecendo agora, para a barra do topo: análises, exportações, downloads e as próximas postagens."""
+    nomes = {p["id"]: p for p in store.list_projects()}
+    trabalhos = []
+    for j in jobs.atividade():
+        p = nomes.get(j["project"]) or {}
+        trabalhos.append({"id": j["id"], "kind": j["kind"], "label": j.get("label") or "", "status": j["status"],
+                          "pct": j["pct"], "msg": j["msg"], "error": j.get("error"), "project": j["project"],
+                          "project_name": p.get("name", ""), "project_kind": p.get("kind", ""), "created": j["created"]})
+    analisando = [{"id": p["id"], "name": p["name"], "status": p["status"], "progress": p.get("progress") or {}}
+                  for p in nomes.values() if p["status"] in ("enviando", "baixando", "processando", "na fila")]
+    proximas = []
+    try:
+        for it in sorted((x for x in publish.queue() if x.get("status") in ("agendado", "publicando")),
+                         key=lambda x: x.get("when", 0))[:6]:
+            p = nomes.get(it.get("project")) or {}
+            proximas.append({"id": it["id"], "net": it["net"], "when": it.get("when", 0), "status": it["status"],
+                             "title": it.get("title") or it.get("label") or it.get("file"), "project": it.get("project"),
+                             "file": it.get("file"), "project_name": p.get("name", ""), "pct": it.get("pct", 0)})
+    except Exception:
+        pass
+    return {"trabalhos": trabalhos, "analisando": analisando, "proximas": proximas}
 
 
 @app.post("/api/maintenance/clean")

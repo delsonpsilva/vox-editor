@@ -33,24 +33,20 @@
         <span class="side-name app-name">Editor IA</span>
       </a>
       <nav class="side-nav" aria-label="Menu principal">
-        <a href="#/" data-page="inicio">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>Início</a>
-        <a href="#/projetos" data-page="projetos">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 9h18M8 4v5M16 4v5"/></svg>Projetos <span class="count" id="nav-count-p"></span></a>
-        <a href="#/exportados" data-page="exportados">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg>Exportados <span class="count" id="nav-count-r"></span></a>
-        <a href="#/publicacoes" data-page="publicacoes">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><path d="M10 15l2 2 4-4"/></svg>Publicações <span class="count" id="nav-count-q"></span></a>
-        <a href="#/modelos" data-page="modelos">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M6 7h12M9 16h6"/></svg>Modelos</a>
-        <a href="#/redes" data-page="redes">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>Redes sociais</a>
-        <a href="#/marca" data-page="marca">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.9 6.3 6.9.7-5.2 4.6 1.5 6.8L12 17l-6.1 3.4 1.5-6.8L2.2 9l6.9-.7z"/></svg>Marca</a>
-        <a href="#/ia" data-page="ia">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>Inteligência artificial <span class="count ok hidden" id="nav-ia-on">ligada</span></a>
-        <button type="button" data-open-settings>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Configurações</button>
+        <span class="nav-group">Criar</span>
+        <a href="#/" data-page="inicio" data-tip="Início"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg><span class="lbl">Início</span></a>
+        <a href="#/projetos" data-page="projetos" data-tip="Projetos"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 9h18M8 4v5M16 4v5"/></svg><span class="lbl">Projetos</span> <span class="count" id="nav-count-p"></span></a>
+        <a href="#/exportados" data-page="exportados" data-tip="Exportados"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg><span class="lbl">Exportados</span> <span class="count" id="nav-count-r"></span></a>
+        <span class="nav-group">Publicar</span>
+        <a href="#/publicacoes" data-page="publicacoes" data-tip="Publicações"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><path d="M10 15l2 2 4-4"/></svg><span class="lbl">Publicações</span> <span class="count" id="nav-count-q"></span></a>
+        <a href="#/redes" data-page="redes" data-tip="Redes sociais"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg><span class="lbl">Redes sociais</span></a>
+        <span class="nav-group">Estilo</span>
+        <a href="#/modelos" data-page="modelos" data-tip="Modelos"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M6 7h12M9 16h6"/></svg><span class="lbl">Modelos</span></a>
+        <a href="#/marca" data-page="marca" data-tip="Marca"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.9 6.3 6.9.7-5.2 4.6 1.5 6.8L12 17l-6.1 3.4 1.5-6.8L2.2 9l6.9-.7z"/></svg><span class="lbl">Marca</span></a>
+        <span class="nav-group">Sistema</span>
+        <a href="#/ia" data-page="ia" data-tip="Inteligência artificial"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg><span class="lbl">Inteligência artificial</span> <span class="count ok hidden" id="nav-ia-on">ligada</span></a>
+        <button type="button" data-open-settings data-tip="Configurações">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span class="lbl">Configurações</span></button>
       </nav>
       <div class="side-foot">
         <div class="storage">
@@ -59,49 +55,134 @@
           <button class="linkbtn" id="btn-clean">Liberar espaço</button>
         </div>
         <span class="hint" id="sys-badge"></span>
+        <button type="button" class="side-collapse" id="side-collapse" aria-label="Recolher o menu" title="Recolher o menu (Ctrl+B)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/><path d="M15 10l-2 2 2 2"/></svg>
+          <span class="lbl">Recolher menu</span></button>
       </div>
     </aside>
+
+    <div class="main-col">
+      <header class="appbar" id="appbar">
+        <div class="tb-left">
+          <a class="tb-brand" href="#/" aria-label="Início"><span class="logo app-logo"></span></a>
+          <nav class="tb-crumbs" aria-label="Você está em"><span class="app-name tb-app">Editor IA</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg><b id="tb-page">Início</b></nav>
+        </div>
+        <button type="button" class="tb-search" id="tb-search" aria-label="Buscar (Ctrl+K)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+          <span>Buscar projeto, tela ou ação</span><kbd>Ctrl K</kbd>
+        </button>
+        <div class="tb-actions">
+          <div class="tb-wrap">
+            <button type="button" class="btn primary tb-new" id="tb-new" aria-haspopup="menu" aria-expanded="false">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg><span>Novo</span></button>
+            <div class="menu tb-menu hidden" id="tb-new-menu" role="menu">
+              <button type="button" data-new="arquivo" role="menuitem"><b>Enviar vídeo</b><span>Do computador ou do celular</span></button>
+              <button type="button" data-new="link" role="menuitem"><b>Importar por link</b><span>YouTube e outros sites</span></button>
+              <hr>
+              <button type="button" data-new="9:16" role="menuitem"><b>Montagem vertical 9:16</b><span>Reels, Shorts e TikTok</span></button>
+              <button type="button" data-new="16:9" role="menuitem"><b>Montagem horizontal 16:9</b><span>YouTube e TV</span></button>
+              <button type="button" data-new="1:1" role="menuitem"><b>Montagem quadrada 1:1</b><span>Feed</span></button>
+              <hr>
+              <button type="button" data-new="vox" role="menuitem"><b>Abrir projeto (.vox)</b><span>Salvo em outra instalação</span></button>
+              <button type="button" data-new="online" class="pc-only" role="menuitem"><b>Trazer do online</b><span>Projetos do editor online</span></button>
+            </div>
+          </div>
+          <div class="tb-wrap">
+            <button type="button" class="tb-icon" id="tb-act" aria-haspopup="dialog" aria-expanded="false" aria-label="Atividade" title="Atividade">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 8L9 4l-3 8H2"/></svg>
+              <span class="tb-badge hidden" id="tb-act-n"></span>
+            </button>
+            <div class="pop hidden" id="tb-act-pop" role="dialog" aria-label="Atividade"></div>
+          </div>
+          <button type="button" class="tb-icon tb-gear" data-open-settings aria-label="Configurações" title="Configurações"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+        </div>
+      </header>
 
     <main class="pages">
       <!-- Início -->
       <section class="page" id="pg-inicio">
-        <header class="page-head">
-          <div>
-            <h1 class="app-name">Editor IA</h1>
+        <div class="hero">
+          <div class="hero-head">
+            <h1 id="hero-hi">Olá</h1>
             <p class="app-tagline">Do vídeo longo ao Reels pronto, com legenda.</p>
           </div>
-        </header>
-        <label id="dropzone" class="drop-timeline" for="file-input">
-          <input id="file-input" type="file" accept="video/*,audio/*,.mkv,.mov,.mxf" hidden>
-          <span class="ruler" aria-hidden="true"></span>
-          <span class="track" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
-          <span class="playhead" aria-hidden="true"></span>
-          <span class="drop-copy">
-            <strong>Arraste um vídeo para esta faixa</strong>
-            <span>ou clique para escolher. Pregação, aula, live ou podcast — de minutos a várias horas.</span>
-          </span>
-          <span id="upload-progress" class="upload-progress hidden"><span class="bar"><i></i></span><span></span></span>
-        </label>
-        <form id="link-form" class="linkbar" onsubmit="return false">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>
-          <input id="link-url" type="url" placeholder="Ou cole o link do YouTube (ou de outro site) e o programa traz o vídeo" aria-label="Link do vídeo">
-          <button class="btn primary" id="link-go" type="submit">Importar</button>
-        </form>
-        <p class="hint link-note">Use em vídeos seus ou que você tem permissão para editar.</p>
-        <div class="blank-start">
-          <div><strong>Montar do zero</strong><span class="hint">Projeto em branco com camadas de vídeo, fotos, textos e música — sem análise automática.</span></div>
-          <div class="row">
-            <button class="btn" data-blank="9:16">Vertical 9:16</button>
-            <button class="btn" data-blank="16:9">Horizontal 16:9</button>
-            <button class="btn" data-blank="1:1">Quadrado 1:1</button>
+          <div class="console">
+            <div class="console-tabs" role="tablist" aria-label="Como começar">
+              <button type="button" role="tab" data-ctab="arquivo" aria-selected="true">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M7 8l5-5 5 5"/><path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg>Enviar vídeo</button>
+              <button type="button" role="tab" data-ctab="link" aria-selected="false">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>Importar por link</button>
+              <button type="button" role="tab" data-ctab="zero" aria-selected="false">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18"/></svg>Montar do zero</button>
+            </div>
+            <div class="console-panel" data-cpanel="arquivo">
+              <label id="dropzone" class="drop-timeline" for="file-input">
+                <input id="file-input" type="file" accept="video/*,audio/*,.mkv,.mov,.mxf" hidden>
+                <span class="ruler" aria-hidden="true"><em>00:00</em><em>15:00</em><em>30:00</em><em>45:00</em><em>1:00:00</em><em>1:15:00</em></span>
+                <span class="track" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+                <span class="track t2" aria-hidden="true"><i></i><i></i><i></i></span>
+                <span class="playhead" aria-hidden="true"></span>
+                <span class="drop-copy">
+                  <strong>Arraste um vídeo para cá</strong>
+                  <span>ou clique para escolher. Pregação, aula, live ou podcast, de minutos a várias horas.</span>
+                </span>
+                <span id="upload-progress" class="upload-progress hidden"><span class="bar"><i></i></span><span></span></span>
+              </label>
+            </div>
+            <div class="console-panel hidden" data-cpanel="link">
+              <div class="link-panel">
+                <p class="lp-title">Cole o endereço do vídeo</p>
+                <form id="link-form" class="linkbar" onsubmit="return false">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>
+                  <input id="link-url" type="url" placeholder="https://www.youtube.com/watch?v=…" aria-label="Link do vídeo">
+                  <button class="btn primary" id="link-go" type="submit">Importar</button>
+                </form>
+                <p class="hint link-note">O programa baixa o vídeo sozinho, em até 1080p, sem usar API. Use em vídeos seus ou que você tem permissão para editar.</p>
+              </div>
+            </div>
+            <div class="console-panel hidden" data-cpanel="zero">
+              <div class="blank-start">
+                <button type="button" class="fmt" data-blank="9:16"><span class="fmt-shape v"></span><b>Vertical 9:16</b><span>Reels, Shorts e TikTok</span></button>
+                <button type="button" class="fmt" data-blank="16:9"><span class="fmt-shape h"></span><b>Horizontal 16:9</b><span>YouTube e TV</span></button>
+                <button type="button" class="fmt" data-blank="1:1"><span class="fmt-shape q"></span><b>Quadrado 1:1</b><span>Feed do Instagram e Facebook</span></button>
+              </div>
+              <p class="hint zero-note">Projeto em branco com camadas de vídeo, fotos, textos e música, sem análise automática.</p>
+            </div>
           </div>
         </div>
+
+        <div class="readout" id="readout" aria-label="Seus números"></div>
         <p class="summary" id="dash-summary"></p>
-        <div class="section-head">
-          <h2>Continuar de onde parou</h2>
-          <a href="#/projetos" class="linkbtn">Ver todos os projetos</a>
+
+        <section class="running hidden" id="home-running" aria-label="Em andamento">
+          <div class="section-head"><h2>Em andamento</h2></div>
+          <div id="running-list" class="running-list"></div>
+        </section>
+
+        <div class="home-cols">
+          <div class="home-main">
+            <div class="section-head">
+              <h2>Continuar de onde parou</h2>
+              <a href="#/projetos" class="linkbtn">Ver todos os projetos</a>
+            </div>
+            <div id="recent-list" class="proj-grid"></div>
+          </div>
+          <aside class="home-side">
+            <section class="hs-block">
+              <div class="section-head"><h2>Próximas publicações</h2><a href="#/publicacoes" class="linkbtn">Agenda</a></div>
+              <div id="home-next" class="next-list"><p class="hint">Carregando…</p></div>
+            </section>
+            <section class="hs-block">
+              <div class="section-head"><h2>Atalhos</h2></div>
+              <div class="shortcuts">
+                <a href="#/modelos"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M6 7h12M9 16h6"/></svg><span><b>Modelos</b><em>Moldura e legenda padrão</em></span></a>
+                <a href="#/marca"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.9 6.3 6.9.7-5.2 4.6 1.5 6.8L12 17l-6.1 3.4 1.5-6.8L2.2 9l6.9-.7z"/></svg><span><b>Marca</b><em>Logo, cores e seu @</em></span></a>
+                <a href="#/redes"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg><span><b>Redes sociais</b><em>Contas e destinos</em></span></a>
+                <a href="#/ia"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/></svg><span><b>Inteligência artificial</b><em>Chaves e transcrição</em></span></a>
+              </div>
+            </section>
+          </aside>
         </div>
-        <div id="recent-list" class="proj-grid"></div>
       </section>
 
       <!-- Projetos -->
@@ -384,6 +465,7 @@
         </div>
       </section>
     </main>
+    </div>
   </div>
 </section>
 
@@ -911,8 +993,20 @@
   <button type="button" id="bn-more"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg><span>Mais</span></button>
 </nav>
 
+<!-- Busca rápida (Ctrl+K) -->
+<dialog id="cmdk" class="cmdk" aria-label="Busca rápida">
+  <div class="cmdk-in">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+    <input id="cmdk-q" type="search" placeholder="Buscar projeto, tela ou ação" autocomplete="off" aria-label="Buscar" aria-controls="cmdk-list">
+    <kbd>Esc</kbd>
+  </div>
+  <div id="cmdk-list" class="cmdk-list" role="listbox"></div>
+  <div class="cmdk-foot"><span><kbd>↑</kbd><kbd>↓</kbd> escolher</span><span><kbd>Enter</kbd> abrir</span><span><kbd>Ctrl</kbd><kbd>K</kbd> abre de qualquer tela</span></div>
+</dialog>
+
 <div id="toast" class="toast hidden"></div>
 <script src="app.js"></script>
 <script src="montagem.js"></script>
+<script src="inicio.js"></script>
 </body>
 </html>
