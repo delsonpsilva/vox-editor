@@ -1,4 +1,4 @@
-VOX Editor 1.1 — Montagem + publicar sem configurar app + destinos próprios
+VOX Editor 1.1.1 — Montagem + publicar sem configurar app + destinos próprios
 ===========================================================================
 (Este pacote já inclui tudo da 1.0. Pode extrair por cima.)
 
@@ -6,7 +6,9 @@ NO PC (Windows)
 1. Feche o VOX Editor, se estiver aberto.
 2. Extraia este .zip DENTRO da pasta do VOX Editor (a mesma onde ficam INICIAR.bat e PUBLICAR.bat).
    Quando o Windows perguntar, escolha "Substituir os arquivos no destino".
-3. Abra o programa. No canto de baixo, à esquerda, deve aparecer "versão 1.1.0".
+3. Abra o programa. No canto de baixo, à esquerda, deve aparecer "versão 1.1.1".
+   Na primeira vez que abrir, o programa limpa sozinho o cache antigo da tela.
+   Se ainda assim a tela não mudar: feche o programa e dê dois cliques no LIMPAR-CACHE-DA-TELA.bat.
 4. Dois cliques no PUBLICAR.bat.
 
 NA VPS

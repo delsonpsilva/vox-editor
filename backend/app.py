@@ -21,7 +21,7 @@ from .core import destinos, importer, jobs, montagem, online, pacote, pipeline, 
 from .engine import edits, frames, platforms, reframe, socials, subtitles, transcribe
 from .engine import ffmpeg_tools as ff
 
-VERSION = "1.1.0"
+VERSION = "1.1.1"
 FRONT = store.ROOT / "frontend"
 PASSWORD = os.environ.get("APP_PASSWORD", "")
 SECRET = os.environ.get("APP_SECRET") or secrets.token_hex(16)
@@ -61,6 +61,16 @@ def _token() -> str:
 
 def _local(request: Request) -> bool:
     return (request.client.host if request.client else "") in ("127.0.0.1", "::1", "localhost")
+
+
+@app.middleware("http")
+async def sem_cache_da_tela(request: Request, call_next):
+    """A tela (HTML, JS, CSS) é sempre conferida com o servidor: depois de atualizar, a versão nova aparece na hora."""
+    resp = await call_next(request)
+    p = request.url.path
+    if not p.startswith("/api/") and (p == "/" or p.endswith((".html", ".js", ".css", ".webmanifest"))):
+        resp.headers["Cache-Control"] = "no-cache"
+    return resp
 
 
 @app.middleware("http")
