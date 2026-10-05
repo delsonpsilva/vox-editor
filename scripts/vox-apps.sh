@@ -39,6 +39,10 @@ print("  Apps oficiais do VOX — os usuários do editor online vão entrar com 
 print("  Em cada app, cadastre este endereço de retorno (redirect URI):")
 for k, *_ in redes:
     print(f"     {dominio}/api/oauth/{k}/callback")
+print("  Links que os formulários dos apps pedem (Termos, Privacidade e Exclusão de dados):")
+for pag in ("termos", "privacidade", "exclusao-de-dados"):
+    print(f"     {dominio}/{pag}")
+print("  (O nome e o e-mail que aparecem nessas páginas ficam em Configurações -> Páginas públicas.)\n")
 print("  Aperte Enter para manter o que já está salvo; digite - para apagar a rede.\n")
 for k, nome, rot_id, rot_sec in redes:
     c = dados.get(k) or {}

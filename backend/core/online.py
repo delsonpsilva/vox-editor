@@ -69,7 +69,7 @@ def pacote_config() -> dict:
     cfg = store.load_config()
     pub = cfg.get("publish") or {}
     conf = {k: cfg.get(k) for k in ("app", "transcription", "ai", "render", "defaults", "brand", "audio",
-                                     "pexels", "pixabay", "fundo") if cfg.get(k)}
+                                     "pexels", "pixabay", "fundo", "legal") if cfg.get(k)}
     conf["publish"] = {k: v for k, v in pub.items() if k in ("youtube", "meta", "tiktok", "slots")}
     arquivos = {}
     for f in [store.BRAND_DIR / "logo.png", store.BRAND_DIR / "app_logo.png", *(store.BRAND_DIR / "icones").glob("*.png"),
@@ -84,7 +84,7 @@ def aplicar_config(dados: dict) -> list[str]:
     conf = dados.get("config") or {}
     feito = []
     cfg = store.load_config()
-    for sec in ("app", "transcription", "ai", "render", "defaults", "brand", "audio", "pexels", "pixabay", "fundo"):
+    for sec in ("app", "transcription", "ai", "render", "defaults", "brand", "audio", "pexels", "pixabay", "fundo", "legal"):
         if isinstance(conf.get(sec), dict):
             novos = {k: v for k, v in conf[sec].items() if not (k == "api_key" and not v)}  # chave vazia não apaga a do online
             cfg[sec] = {**(cfg.get(sec) or {}), **novos}

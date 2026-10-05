@@ -1,4 +1,15 @@
-# VOX Editor — edição de vídeo com cortes inteligentes e montagem manual (versão 1.2)
+# VOX Editor — edição de vídeo com cortes inteligentes e montagem manual (versão 1.3)
+
+## Novidades da versão 1.3 — páginas públicas para aprovar os apps das redes
+
+- **/termos, /privacidade e /exclusao-de-dados** abrem sem senha (o resto do editor continua protegido). Textos em
+  português, de acordo com a LGPD e com as exigências do YouTube (Uso Limitado das APIs do Google), da Meta e do TikTok.
+  Também respondem em /termos-de-uso, /politica-de-privacidade, /terms, /privacy e /data-deletion.
+- **Configurações → Páginas públicas:** responsável, CPF/CNPJ (opcional), e-mail de contato e cidade. Vão junto no
+  "Copiar configurações para o online".
+- A tela de login do online mostra os links de Termos e Privacidade, e o `sudo vox-apps` mostra os três links para
+  colar nos formulários dos apps.
+
 
 ## Novidades da versão 1.2 — o super pacote da Montagem
 

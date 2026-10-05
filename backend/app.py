@@ -17,11 +17,11 @@ from fastapi import Body, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from .core import bancos, destinos, importer, jobs, montagem, online, pacote, pipeline, publish, store, trilhas
+from .core import bancos, destinos, importer, jobs, legal, montagem, online, pacote, pipeline, publish, store, trilhas
 from .engine import edits, frames, platforms, reframe, socials, subtitles, transcribe
 from .engine import ffmpeg_tools as ff
 
-VERSION = "1.2.1"
+VERSION = "1.3.0"
 FRONT = store.ROOT / "frontend"
 PASSWORD = os.environ.get("APP_PASSWORD", "")
 SECRET = os.environ.get("APP_SECRET") or secrets.token_hex(16)
@@ -1616,6 +1616,34 @@ def montagem_sem_fundo(pid: str, data: dict = Body(...)):
 @app.post("/api/projects/{pid}/midias/{mid}/aplicado")
 def montagem_substituicao_aplicada(pid: str, mid: str):
     return _404(lambda: montagem.substituicao_aplicada(pid, mid))
+
+
+# ---------- páginas públicas exigidas pelas redes (abrem sem senha) ----------
+
+def _pagina_legal(slug: str, request: Request) -> Response:
+    base = (os.environ.get("PUBLIC_URL") or str(request.base_url)).rstrip("/")
+    return Response(legal.pagina(slug, base), media_type="text/html; charset=utf-8",
+                    headers={"Cache-Control": "no-cache"})
+
+
+@app.get("/termos")
+@app.get("/termos-de-uso")
+@app.get("/terms")
+def pagina_termos(request: Request):
+    return _pagina_legal("termos", request)
+
+
+@app.get("/privacidade")
+@app.get("/politica-de-privacidade")
+@app.get("/privacy")
+def pagina_privacidade(request: Request):
+    return _pagina_legal("privacidade", request)
+
+
+@app.get("/exclusao-de-dados")
+@app.get("/data-deletion")
+def pagina_exclusao(request: Request):
+    return _pagina_legal("exclusao-de-dados", request)
 
 
 app.mount("/fontes", StaticFiles(directory=str(store.FONTS)), name="fontes")

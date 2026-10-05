@@ -20,6 +20,7 @@
     <input id="login-pass" type="password" autocomplete="current-password" required>
     <button class="btn primary" type="submit">Entrar</button>
     <p id="login-err" class="err"></p>
+    <p class="login-legal"><a href="/termos">Termos de uso</a> · <a href="/privacidade">Privacidade</a></p>
   </form>
 </section>
 
@@ -831,6 +832,22 @@
         </label>
       </div>
       <p id="sys-info" class="hint"></p>
+    </fieldset>
+
+    <fieldset id="fs-legal">
+      <legend>Páginas públicas (termos e privacidade)</legend>
+      <p class="hint">Aparecem em <b>/termos</b>, <b>/privacidade</b> e <b>/exclusao-de-dados</b>, sem senha. São os links
+        pedidos pelo YouTube, Meta e TikTok para aprovar os apps. O e-mail aparece para quem pedir a exclusão dos dados.</p>
+      <div class="grid2">
+        <label>Responsável (nome ou empresa)<input name="legal.responsavel" placeholder="Ex.: Vox Apps"></label>
+        <label>CPF ou CNPJ (opcional)<input name="legal.documento"></label>
+        <label>E-mail de contato<input type="email" name="legal.email" placeholder="contato@seudominio.com"></label>
+        <label>Cidade / UF<input name="legal.cidade" placeholder="Ex.: Picos/PI"></label>
+      </div>
+      <p class="hint">Ver: <a href="/termos" target="_blank" rel="noopener" data-ext>Termos de uso</a> ·
+        <a href="/privacidade" target="_blank" rel="noopener" data-ext>Privacidade</a> ·
+        <a href="/exclusao-de-dados" target="_blank" rel="noopener" data-ext>Exclusão de dados</a>
+        (salve antes de abrir). No PC, preencha e use "Copiar configurações para o online".</p>
     </fieldset>
 
     <fieldset class="pc-only" id="fs-senha">

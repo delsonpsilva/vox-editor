@@ -34,7 +34,8 @@ DEFAULT_CONFIG = {
     "online": {"url": "", "password": ""},  # endereço e senha da versão online, para enviar projetos do PC
     "pexels": {"api_key": ""},    # bancos de vídeos e fotos grátis (Montagem -> Grátis)
     "pixabay": {"api_key": ""},
-    "fundo": {"qualidade": "caprichada"},  # remoção de fundo com IA: rapida | caprichada
+    "fundo": {"qualidade": "caprichada"},
+    "legal": {"responsavel": "", "documento": "", "email": "", "cidade": ""},  # páginas /termos e /privacidade  # remoção de fundo com IA: rapida | caprichada
 }
 BRAND_DIR = DATA / "marca"
 BRAND_DIR.mkdir(parents=True, exist_ok=True)
