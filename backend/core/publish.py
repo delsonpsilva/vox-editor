@@ -382,7 +382,12 @@ def post_tiktok(path: Path, it: dict, log) -> str:
     body = {"post_info": {"title": (it.get("caption") or it.get("title") or "")[:2200], "privacy_level": privacy,
                           "disable_duet": False, "disable_comment": False, "disable_stitch": False},
             "source_info": {"source": "FILE_UPLOAD", "video_size": size, "chunk_size": chunk, "total_chunk_count": total}}
-    js = _ok(httpx.post("https://open.tiktokapis.com/v2/post/publish/video/init/", headers=h, json=body, timeout=60), "TikTok")
+    _u = "https://open.tiktokapis.com/v2/post/publish/video/init/"
+    _r = httpx.post(_u, headers=h, json=body, timeout=60)
+    if _r.status_code >= 400 and privacy != "SELF_ONLY":  # app ainda nao aprovado: TikTok so aceita privado
+        privacy = body["post_info"]["privacy_level"] = "SELF_ONLY"
+        _r = httpx.post(_u, headers=h, json=body, timeout=60)
+    js = _ok(_r, "TikTok")
     data = js.get("data") or {}
     url, pub = data.get("upload_url"), data.get("publish_id")
     with open(path, "rb") as fh:
