@@ -249,7 +249,7 @@ def _ok(r: httpx.Response, who: str) -> dict:
         js = r.json()
     except Exception:
         js = {}
-    if r.status_code >= 400 or (isinstance(js, dict) and js.get("error") and not js.get("access_token")):
+    if r.status_code >= 400 or (isinstance(js, dict) and js.get("error") and not (isinstance(js.get("error"), dict) and js["error"].get("code") == "ok") and not js.get("access_token")):
         err = js.get("error") if isinstance(js, dict) else None
         msg = (err.get("message") if isinstance(err, dict) else None) or js.get("error_description") or \
             (err if isinstance(err, str) else None) or r.text[:300]

@@ -18,7 +18,7 @@ ARQ="$DADOS/apps-sistema.json"
 DOMINIO=$(sed -n 's/^PUBLIC_URL=//p' "$ENV" 2>/dev/null); DOMINIO=${DOMINIO:-https://SEU-DOMINIO}
 
 python3 - "$ARQ" "$DOMINIO" "${1:-}" <<'PY'
-import getpass, json, os, sys
+import getpass, json, os, sys; sys.stdin = open("/dev/tty")
 arq, dominio, modo = sys.argv[1], sys.argv[2].rstrip("/"), sys.argv[3]
 dados = {}
 if os.path.exists(arq):
