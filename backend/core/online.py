@@ -170,3 +170,120 @@ def trazer_projeto(online_id: str, progress: Callable[[float, str], None]) -> di
     finally:
         tmp.unlink(missing_ok=True)
     return {"id": proj["id"], "name": proj["name"]}
+
+
+# ----------------------------------------------------------------- contas das redes pelo online
+# O PC não guarda login de rede nenhuma: as contas ficam conectadas no servidor (que renova o acesso sozinho)
+# e o PC só pergunta ao online quem está conectado, abre o login de lá no navegador e manda o vídeo para a fila.
+
+_cache_status: dict = {"t": 0.0, "dados": None}
+
+
+def configurado() -> bool:
+    o = store.load_config().get("online") or {}
+    return bool((o.get("url") or "").strip())
+
+
+def status_online(max_idade: float = 20.0) -> dict | None:
+    """Contas e apps do online (guardado por alguns segundos para a tela não ficar lenta). None se não der."""
+    import time as _t
+    if not configurado():
+        return None
+    if _cache_status["dados"] is not None and _t.time() - _cache_status["t"] < max_idade:
+        return _cache_status["dados"]
+    try:
+        c, _ = cliente()
+        with closing(c):
+            r = c.get("/api/publish/status", timeout=8.0)
+            dados = r.json() if r.status_code == 200 else None
+    except Exception:
+        dados = None
+    _cache_status.update(t=_t.time(), dados=dados)
+    return dados
+
+
+def esquecer_status() -> None:
+    _cache_status.update(t=0.0, dados=None)
+
+
+def link_login(app: str) -> str:
+    """Pede ao online um link de login (vale 10 minutos) para abrir no navegador do PC."""
+    c, _ = cliente()
+    with closing(c):
+        r = c.post(f"/api/oauth/{app}/ticket", json={"desk": True})
+        if r.status_code == 404:
+            raise RuntimeError("A versão online está desatualizada. Na VPS rode: sudo vox-atualizar")
+        if r.status_code != 200:
+            raise RuntimeError("O online recusou o login: " + _erro(r))
+    esquecer_status()
+    return r.json()["url"]
+
+
+def desconectar(app: str) -> None:
+    c, _ = cliente()
+    with closing(c):
+        r = c.delete(f"/api/publish/account/{app}")
+        if r.status_code != 200:
+            raise RuntimeError(_erro(r))
+    esquecer_status()
+
+
+def escolher_pagina(page_id: str) -> None:
+    c, _ = cliente()
+    with closing(c):
+        c.post("/api/publish/page", json={"page_id": page_id})
+    esquecer_status()
+
+
+def fila_online() -> list[dict]:
+    try:
+        c, _ = cliente()
+        with closing(c):
+            r = c.get("/api/publish/queue", timeout=8.0)
+            return r.json() if r.status_code == 200 else []
+    except Exception:
+        return []
+
+
+def fila_acao(metodo: str, caminho: str, json_body: dict | None = None) -> None:
+    c, _ = cliente()
+    with closing(c):
+        r = c.request(metodo, caminho, json=json_body)
+        if r.status_code != 200:
+            raise RuntimeError(_erro(r))
+
+
+def publicar(pid: str, arquivo: str, pedido: dict, progress: Callable[[float, str], None]) -> dict:
+    """Manda o vídeo exportado para o online e coloca na fila de lá (o online publica e renova os logins)."""
+    import json as _json
+    from urllib.parse import quote
+    src = store.pdir(pid) / "renders" / arquivo
+    if not src.exists():
+        raise RuntimeError("Vídeo exportado não encontrado.")
+    total = max(1, src.stat().st_size)
+    proj = store.load(pid)
+
+    def ler():
+        feito = 0
+        with open(src, "rb") as fh:
+            while True:
+                b = fh.read(2 * 1024 * 1024)
+                if not b:
+                    break
+                feito += len(b)
+                progress(min(0.97, feito / total), f"Enviando para o online: {feito / 1e6:,.0f} de "
+                         f"{total / 1e6:,.0f} MB".replace(",", "."))
+                yield b
+
+    meta = {**pedido, "project_name": proj.get("name", "")}
+    c, _ = cliente()
+    with closing(c):
+        progress(0.01, "Enviando o vídeo para o online…")
+        r = c.post("/api/publish/receber", content=ler(),
+                   headers={"Content-Type": "video/mp4", "X-Filename": quote(arquivo),
+                            "X-Vox-Pedido": quote(_json.dumps(meta, ensure_ascii=False))})
+        if r.status_code == 404:
+            raise RuntimeError("A versão online está desatualizada. Na VPS rode: sudo vox-atualizar")
+        if r.status_code != 200:
+            raise RuntimeError("O online não aceitou a publicação: " + _erro(r))
+    return r.json()

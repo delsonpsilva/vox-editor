@@ -252,14 +252,48 @@ def browser_friendly(info: dict, path: str) -> bool:
             and info.get("acodec") in (None, "aac", "mp3", "opus", "vorbis") and info.get("height", 0) <= 1440)
 
 
+@lru_cache
+def _filter_file_style() -> str:
+    """Descobre TESTANDO como este FFmpeg lê o grafo de um arquivo.
+    As compilações "master" (N-xxxxx, as que o instalador baixa) não têm número de versão e já removeram
+    -filter_complex_script; as antigas não conhecem -/filter_complex. Testar evita adivinhar."""
+    import tempfile
+    tmp = Path(tempfile.gettempdir()) / "vox_teste_filtro.txt"
+    try:
+        tmp.write_text("[0:v]null[o]", encoding="utf-8")
+        for style in ("-/filter_complex", "-filter_complex_script"):
+            p = run([ffmpeg(), "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "nullsrc=s=16x16:d=0.1",
+                     style, str(tmp), "-map", "[o]", "-frames:v", "1", "-f", "null", "-"], check=False)
+            if p.returncode == 0:
+                return style
+    except Exception:
+        pass
+    finally:
+        try:
+            tmp.unlink()
+        except Exception:
+            pass
+    return "-/filter_complex" if ffmpeg_version() >= (7, 0) else "-filter_complex_script"
+
+
 def filter_script_args(graph: str, script_path: str) -> list[str]:
     """Passa grafos de filtro longos por arquivo (limite de linha de comando do Windows)."""
     if len(graph) < 12000:
         return ["-filter_complex", graph]
     Path(script_path).write_text(graph, encoding="utf-8")
-    if ffmpeg_version() >= (7, 1):
-        return ["-/filter_complex", script_path]
-    return ["-filter_complex_script", script_path]
+    return [_filter_file_style(), script_path]
+
+
+def soma_expr(termos: list[str]) -> str:
+    """Soma de muitos termos para expressões do FFmpeg, em árvore equilibrada.
+    O avaliador do FFmpeg recusa mais de ~100 níveis ("Cannot allocate memory"); "a+b+c+..." com centenas de
+    pedaços (projeto vindo da edição automática) passava disso. Em árvore, a profundidade fica log2(n)."""
+    if not termos:
+        return "0"
+    if len(termos) == 1:
+        return termos[0]
+    meio = len(termos) // 2
+    return f"({soma_expr(termos[:meio])}+{soma_expr(termos[meio:])})"
 
 
 def python_info() -> str:

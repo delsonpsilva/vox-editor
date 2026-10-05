@@ -234,5 +234,6 @@ def expr_zoom(momentos: list[list[float]], forca: float = 0.12, rampa: float = 0
     """Expressão do FFmpeg (variável t) que vale 1 fora dos momentos e sobe suave até 1+forca dentro deles."""
     if not momentos:
         return "1"
-    termos = "+".join(f"clip((t-{a:.3f})/{rampa},0,1)*clip(({b:.3f}-t)/{rampa},0,1)" for a, b in momentos)
+    from .ffmpeg_tools import soma_expr
+    termos = soma_expr([f"clip((t-{a:.3f})/{rampa},0,1)*clip(({b:.3f}-t)/{rampa},0,1)" for a, b in momentos])
     return f"(1+{forca:.3f}*min(1,{termos}))"

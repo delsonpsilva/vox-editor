@@ -32,7 +32,7 @@ FONTES = {  # nome mostrado na tela -> arquivo em /fontes
 EXT_VIDEO = {".mp4", ".mov", ".m4v", ".mkv", ".webm", ".avi", ".mts", ".3gp"}
 EXT_IMAGEM = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif"}
 EXT_AUDIO = {".mp3", ".m4a", ".aac", ".wav", ".ogg", ".opus", ".flac", ".wma"}
-TIPOS_ITEM = {"video", "image", "text", "color", "audio"}
+TIPOS_ITEM = {"video", "image", "text", "color", "audio", "tarja"}
 TIPOS_TRILHA = {"video", "text", "audio"}
 MAX_ITENS = 4000
 
@@ -100,7 +100,7 @@ def nova(proj: dict, formato: str | None = None, com_edicao: bool = True) -> dic
     fps = 30
     if media.get("fps"):
         fps = 60 if media["fps"] > 45 else (25 if abs(media["fps"] - 25) < 0.5 else 30)
-    m = {"v": VERSAO, "formato": formato, "w": w, "h": h, "fps": fps, "bg": "#000000",
+    m = {"v": VERSAO, "formato": formato, "w": w, "h": h, "fps": fps, "bg": "#000000", "suave": "suave",
          "tracks": trilhas_padrao(), "items": [], "media": [orig] if orig else [], "updated": time.time()}
     if orig and orig["kind"] == "video" and com_edicao:
         keeps = []
@@ -212,13 +212,23 @@ def limpar(m: dict, atual: dict) -> dict:
                         strokeW=_num(it.get("strokeW"), 0, 0, 0.3), box=_cor(it.get("box"), "#000000"),
                         boxOn=bool(it.get("boxOn")), boxAlpha=_num(it.get("boxAlpha"), 0.6, 0, 1),
                         upper=bool(it.get("upper")))
+        if k == "tarja":
+            from . import tarjas as _tj
+            ids = {x["id"] for x in _tj.spec()["modelos"]}
+            pal = _tj.spec()["paletas"][0]
+            novo.update(tpl=it.get("tpl") if it.get("tpl") in ids else next(iter(ids)),
+                        l1=str(it.get("l1") or "")[:120], l2=str(it.get("l2") or "")[:120],
+                        **{c: _cor(it.get(c), pal[c]) for c in ("c1", "c2", "t1", "t2")})
         if k == "color":
             novo.update(color=_cor(it.get("color"), "#1B1C21"), w=_num(it.get("w"), 1, 0.01, 4),
                         h=_num(it.get("h"), 1, 0.01, 4))
         if k == "image":
             novo["speed"] = 1.0
+        if k == "audio":
+            novo["duck"] = bool(it.get("duck"))
         items.append(novo)
     return {"v": VERSAO, "formato": formato, "w": w, "h": h, "fps": fps, "bg": _cor(m.get("bg"), "#000000"),
+            "suave": m.get("suave") if m.get("suave") in SUAVE_MONTAGEM else "suave",
             "tracks": tracks, "items": items, "media": atual.get("media") or [], "updated": time.time()}
 
 
@@ -242,7 +252,7 @@ def recomecar(pid: str, formato: str | None = None) -> dict:
 
 # ---------------------------------------------------------------- mídias
 
-def adicionar_midia(pid: str, origem: Path, nome: str) -> dict:
+def adicionar_midia(pid: str, origem: Path, nome: str, extra: dict | None = None) -> dict:
     """Registra um arquivo já gravado em midias/. Descobre duração e tamanho; prepara prévia se precisar."""
     kind = tipo_por_extensao(nome) or "video"
     info = ff.probe(str(origem))
@@ -256,6 +266,8 @@ def adicionar_midia(pid: str, origem: Path, nome: str) -> dict:
             "duration": round(info.get("duration") or 0, 3) if kind != "image" else 0,
             "w": info.get("width", 0), "h": info.get("height", 0), "has_audio": bool(info.get("has_audio")),
             "fps": info.get("fps", 30), "size": origem.stat().st_size, "added": time.time()}
+    if extra:  # ex.: crédito e licença de uma trilha da biblioteca livre
+        item.update({k: v for k, v in extra.items() if k in ("credito", "licenca", "trilha")})
     if kind == "image" and Path(nome).suffix.lower() == ".gif":
         item["kind"] = "image"
     if kind == "video" and not ff.browser_friendly(info, str(origem)):
@@ -357,6 +369,10 @@ def _tamanho(it: dict, midia: dict | None, W: int, H: int) -> tuple[int, int]:
     return _par(aw * k), _par(ah * k)
 
 
+# suavidade das emendas de áudio da montagem (as janelas ficam em engine/render.py: SUAVIDADE)
+SUAVE_MONTAGEM = {"seca": 0.0, "suave": 0.035, "bem_suave": 0.07}
+
+
 def _atempo(speed: float) -> str:
     parts, s = [], speed
     while s > 2.0:
@@ -427,6 +443,7 @@ def exportar(pid: str, opts: dict, progress: Optional[Callable[[float, str], Non
     graph: list[str] = [f"color=c={m['bg']}:s={W}x{H}:r={fps}:d={total:.4f},format=yuv420p[base0]"]
     cur = "[base0]"
     audios: list[str] = []
+    fundo: list[str] = []   # trilhas marcadas "abaixar quando falam"
     eps = 0.25 / fps
 
     def entrada(extra: list[str]) -> int:
@@ -457,12 +474,31 @@ def exportar(pid: str, opts: dict, progress: Optional[Callable[[float, str], Non
             f.append(f"fade=t=out:st={max(0.0, dur - fo):.3f}:d={fo:.3f}:alpha=1")
         return ",".join(f)
 
-    def audio_de(idx: int, it: dict, dur: float, s0: float, trims: list[tuple[float, float]] | None = None):
+    def audio_de(idx: int, it: dict, dur: float, s0: float, trims: list[tuple[float, float]] | None = None,
+                 destino: list | None = None, fonte_abs: tuple[str, float] | None = None):
         vol = it["volume"]
         if vol <= 0.001:
             return
         lab = f"[a{len(audios)}]"
-        if trims:  # vários trechos do mesmo arquivo: cortes exatos na amostra, com 6 ms de suavização
+        feito = False
+        if trims and len(trims) > 1 and fonte_abs is not None:
+            # Emendas suaves: o áudio do grupo é montado amostra por amostra (o mesmo motor da edição automática):
+            # em cada emenda os dois lados se cruzam, sem mudar a duração, então a sincronia com a imagem fica exata.
+            # (Fazer isso com filtros do FFmpeg travava as versões novas dele.)
+            from ..engine import render as _rd
+            arq_fonte, base_t = fonte_abs
+            raw = folder / "audio48k.raw" if it.get("src") == ORIGINAL else folder / "cache" / "mont" / f"{it['src']}.raw"
+            raw.parent.mkdir(parents=True, exist_ok=True)
+            _rd.ensure_render_audio(arq_fonte, raw)
+            pedaco = folder / f"tmp_{tag}.a{len(audios) + len(fundo)}.raw"
+            _rd.build_audio(raw, [[a + base_t, b + base_t] for a, b in trims], [], pedaco, m.get("suave", "suave"))
+            idx_raw = entrada(["-f", "s16le", "-ar", "48000", "-ac", "2", "-i", str(pedaco)])
+            base = f"[{idx_raw}:a]"
+            chain = ["asetpts=PTS-STARTPTS", "afade=t=in:d=0.006", f"volume={vol:.3f}"]
+            feito = True
+        if feito:
+            pass
+        elif trims:  # vários trechos do mesmo arquivo: cortes exatos na amostra, com 6 ms de suavização
             parts = []
             src = f"[z{len(audios)}]"
             graph.append(f"[{idx}:a]asetpts=PTS-STARTPTS{src}")
@@ -499,10 +535,10 @@ def exportar(pid: str, opts: dict, progress: Optional[Callable[[float, str], Non
         chain += ["aresample=48000", "aformat=sample_fmts=fltp:channel_layouts=stereo",
                   f"adelay={int(round(s0 * 1000))}:all=1"]
         graph.append(base + ",".join(chain) + lab)
-        audios.append(lab)
+        (audios if destino is None else destino).append(lab)
 
     # camadas de baixo para cima: a última trilha da lista é a do fundo
-    visuais = [it for it in m["items"] if it["type"] in ("video", "image", "text", "color")
+    visuais = [it for it in m["items"] if it["type"] in ("video", "image", "text", "color", "tarja")
                and not tmap[it["track"]].get("hidden")]
     visuais.sort(key=lambda it: (-ordem[it["track"]], it["start"]))
     por_trilha: dict[str, list[dict]] = {}
@@ -524,6 +560,11 @@ def exportar(pid: str, opts: dict, progress: Optional[Callable[[float, str], Non
                 graph.append(f"color=c={it['color']}:s={w}x{h}:r={fps}:d={dur:.4f}," + efeitos(it, w, h, dur)
                              + f",setpts=PTS-STARTPTS+{s0:.4f}/TB{lab}")
                 sobrepor(lab, it["x"], it["y"], s0, s1)
+                continue
+            if it["type"] == "tarja":
+                from . import tarjas as _tj
+                cur, n = _tj.filtros(it, W, H, fps, cur, graph, folder, tag, n_txt + 1000)
+                n_txt += n
                 continue
             if it["type"] == "text":
                 fonte = (store.FONTS / FONTES.get(it.get("font"), "Poppins-ExtraBold.ttf")).as_posix()
@@ -556,7 +597,7 @@ def exportar(pid: str, opts: dict, progress: Optional[Callable[[float, str], Non
                     tf = f"tmp_{tag}.t{n_txt}.txt"  # texto por arquivo: acentos, aspas e dois-pontos sem problema
                     (folder / tf).write_text(ln, encoding="utf-8")
                     nxt = f"[b{len(graph)}]"
-                    graph.append(f"{cur}drawtext=fontfile='{fonte}':textfile='{tf}':fontsize={tam:.2f}:"
+                    graph.append(f"{cur}drawtext=fontfile='{fonte}':textfile='{tf}':expansion=none:fontsize={tam:.2f}:"
                                  f"fontcolor={it['color']}:x={it['x'] * W:.2f}-text_w/2:y={yl:.2f}:"
                                  f"alpha='{a_expr}'{extra}:enable='between(t,{s0:.4f},{s1:.4f})'{nxt}")
                     cur = nxt
@@ -603,15 +644,16 @@ def exportar(pid: str, opts: dict, progress: Optional[Callable[[float, str], Non
             seek = max(0.0, offset - 0.5 / fps) if k0 > 0 else 0.0
             idx = entrada((["-ss", f"{seek:.5f}"] if seek > 0 else []) +
                           ["-t", f"{g_out - offset + 1.0:.3f}", "-i", src])
-            termos = "+".join(f"gte(t,{x['in'] - offset - eps:.4f})*lt(t,{x['in'] + x['dur'] - offset - eps:.4f})"
-                              for x in grupo)
+            termos = ff.soma_expr([f"gte(t,{x['in'] - offset - eps:.4f})*lt(t,{x['in'] + x['dur'] - offset - eps:.4f})"
+                                   for x in grupo])
             lab = f"[k{len(graph)}]"
             graph.append(f"[{idx}:v]setpts=PTS-STARTPTS,fps={fps},select='{termos}',setpts=N/({fps})/TB," +
                          efeitos(it, w, h, dur) + f",setpts=PTS-STARTPTS+{s0:.4f}/TB{lab}")
             sobrepor(lab, it["x"], it["y"], s0, s1)
             if midia.get("has_audio") and not mudo:
                 base_t = seek if seek > 0 else 0.0
-                audio_de(idx, it, dur, s0, [(x["in"] - base_t, x["in"] + x["dur"] - base_t) for x in grupo])
+                audio_de(idx, it, dur, s0, [(x["in"] - base_t, x["in"] + x["dur"] - base_t) for x in grupo],
+                         fonte_abs=(src, base_t))
 
     p(0.05, "Mixando o áudio…")
     for it in sorted([x for x in m["items"] if x["type"] == "audio"], key=lambda x: x["start"]):
@@ -623,13 +665,26 @@ def exportar(pid: str, opts: dict, progress: Optional[Callable[[float, str], Non
         span = it["dur"] * it["speed"]
         idx = entrada((["-ss", f"{it['in']:.5f}"] if it["in"] > 0 else []) + ["-t", f"{span + 0.2:.4f}", "-i",
                                                                              str(folder / midia["file"])])
-        audio_de(idx, it, it["dur"], it["start"])
+        audio_de(idx, it, it["dur"], it["start"], destino=fundo if it.get("duck") else None)
 
     graph.append(f"{cur}null[vout]")
-    if audios:
-        mix = "".join(audios) + (f"amix=inputs={len(audios)}:normalize=0:dropout_transition=0," if len(audios) > 1
-                                 else "anull,")
-        graph.append(mix + f"apad,atrim=0:{total:.4f},alimiter=limit=0.95:level=disabled[aout]")
+
+    def junta(labs: list[str], saida: str):
+        mix = "".join(labs) + (f"amix=inputs={len(labs)}:normalize=0:dropout_transition=0" if len(labs) > 1
+                               else "anull")
+        graph.append(mix + f",apad,atrim=0:{total:.4f}{saida}")
+
+    if fundo and audios:
+        # trilha de fundo abaixa sozinha quando alguém fala e volta a subir nas pausas
+        junta(audios, "[voz]")
+        junta(fundo, "[mus]")
+        graph.append("[voz]asplit=2[voz1][vozsc]")
+        graph.append("[mus][vozsc]sidechaincompress=threshold=0.03:ratio=8:attack=25:release=500:makeup=1[musd]")
+        graph.append("[voz1][musd]amix=inputs=2:normalize=0:dropout_transition=0,"
+                     "alimiter=limit=0.95:level=disabled[aout]")
+    elif audios or fundo:
+        junta(audios or fundo, "[mx]")
+        graph.append("[mx]alimiter=limit=0.95:level=disabled[aout]")
     else:
         graph.append(f"anullsrc=r=48000:cl=stereo,atrim=0:{total:.4f}[aout]")
 

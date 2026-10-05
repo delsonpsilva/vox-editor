@@ -1,26 +1,29 @@
-VOX Editor 1.1.2 — Montagem + publicar sem configurar app + destinos próprios
-===========================================================================
-(Este pacote já inclui tudo da 1.0. Pode extrair por cima.)
+VOX Editor 1.1.3 — Exportação corrigida, cortes suaves, tarjas, músicas livres e contas pelo online
+===================================================================================================
+(Este pacote já inclui tudo das versões anteriores. Pode extrair por cima.)
 
 NO PC (Windows)
 1. Feche o VOX Editor, se estiver aberto.
 2. Extraia este .zip DENTRO da pasta do VOX Editor (a mesma onde ficam INICIAR.bat e PUBLICAR.bat).
    Quando o Windows perguntar, escolha "Substituir os arquivos no destino".
-3. Abra o programa. No canto de baixo, à esquerda, deve aparecer "versão 1.1.2".
-   Na primeira vez que abrir, o programa limpa sozinho o cache antigo da tela.
-   Se ainda assim a tela não mudar: feche o programa e dê dois cliques no LIMPAR-CACHE-DA-TELA.bat.
+3. Abra o programa. No canto de baixo, à esquerda, deve aparecer "versão 1.1.3".
+   Se a tela não mudar: feche o programa e dê dois cliques no LIMPAR-CACHE-DA-TELA.bat.
 4. Dois cliques no PUBLICAR.bat.
 
 NA VPS
 5. sudo vox-atualizar
-6. Só desta primeira vez, instale o comando novo dos apps oficiais:
-     sudo install -m 755 /srv/voxeditor/app/scripts/vox-apps.sh /usr/local/bin/vox-apps
-   (nas próximas atualizações o vox-atualizar faz isso sozinho)
-7. Quando tiver os apps das redes criados:  sudo vox-apps
-   Ele pergunta o ID e a chave de cada rede no próprio terminal e grava sozinho.
 
-ONDE VER AS NOVIDADES
-- Montagem: Início -> "Montar do zero", ou dentro de um projeto -> aba "Montagem".
-- Destinos próprios: Redes sociais -> "Destinos próprios" (web TV, FTP, webhook, pasta).
+O QUE MUDOU
+- Exportar a montagem voltou a funcionar (o FFmpeg novo não aceitava um comando antigo; e projetos com
+  muitos cortes, como uma pregação inteira, também travavam). Textos com "%" também travavam: corrigido.
+- Emendas da fala suaves: no corte, um lado se mistura com o outro em vez do "pá" seco.
+  Montagem -> Ajustes (sem nada selecionado) -> "Emendas da fala". Na edição automática fica em Configurações.
+- Tarjas (lower thirds): Montagem -> aba "Tarjas". 12 modelos x 10 cores, com nome e cargo, 5/10/15 segundos.
+- Músicas livres: Montagem -> aba "Músicas". Busca por estilo (Inspirador, Oração, Piano, Épico...),
+  ouve antes, "Usar" coloca na trilha de áudio baixinha e abaixando sozinha quando alguém fala.
+  Quando a música pede crédito, o texto pronto aparece em Ajustes para colar na descrição.
+- Redes sociais no PC: se o PC estiver ligado ao online (Configurações -> Versão online), as contas
+  ficam salvas no servidor. Conectar abre o login no navegador; Publicar manda o vídeo para a fila do online.
+  (Para isso o online precisa dos apps oficiais cadastrados uma vez com:  sudo vox-apps)
 
 Seus projetos, vídeos e configurações (pasta "dados") não são tocados.

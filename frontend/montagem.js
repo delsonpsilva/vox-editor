@@ -9,7 +9,7 @@ const Montagem = (() => {
   const FORMATOS = { "9:16": "Vertical 9:16 (Reels, Shorts, TikTok)", "16:9": "Horizontal 16:9 (YouTube)",
     "1:1": "Quadrado 1:1", "4:5": "Retrato 4:5 (Feed)" };
   const DIM = { "9:16": [1080, 1920], "16:9": [1920, 1080], "1:1": [1080, 1080], "4:5": [1080, 1350] };
-  const ACEITA = { video: ["video", "image", "color"], text: ["text"], audio: ["audio"] };
+  const ACEITA = { video: ["video", "image", "color"], text: ["text", "tarja"], audio: ["audio"] };
   const NOME_TRILHA = { video: "Vídeo", text: "Texto", audio: "Áudio" };
   const headW = () => { const c = document.querySelector("#montage-body .mt-corner"); return (c && c.offsetWidth) || 150; };  // cabeçalho das trilhas
   const ALTURA = { video: 58, text: 40, audio: 46 };
@@ -38,7 +38,7 @@ const Montagem = (() => {
   const uid = (p) => p + Math.random().toString(36).slice(2, 10);
   const urlMidia = (mid) => `/api/projects/${M.pid}/midias/${mid}`;
   const mainTrack = () => M.m.tracks.find((t) => t.main) || M.m.tracks.find((t) => t.kind === "video");
-  const kindOf = (it) => (it.type === "text" ? "text" : it.type === "audio" ? "audio" : "video");
+  const kindOf = (it) => (it.type === "text" || it.type === "tarja" ? "text" : it.type === "audio" ? "audio" : "video");
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const ico = (d, s = 16) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
   const I = {
@@ -74,7 +74,7 @@ const Montagem = (() => {
 
   /* ---------------- montagem (dados) ---------------- */
 
-  const snapshot = () => JSON.stringify({ tracks: M.m.tracks, items: M.m.items, formato: M.m.formato, bg: M.m.bg, fps: M.m.fps });
+  const snapshot = () => JSON.stringify({ tracks: M.m.tracks, items: M.m.items, formato: M.m.formato, bg: M.m.bg, fps: M.m.fps, suave: M.m.suave });
   function restore(s) {
     const o = JSON.parse(s);
     Object.assign(M.m, o);
@@ -176,6 +176,8 @@ const Montagem = (() => {
           <button class="seg-btn active" data-tab="midias">Mídias</button>
           <button class="seg-btn" data-tab="textos">Textos</button>
           <button class="seg-btn" data-tab="fundos">Fundos</button>
+          <button class="seg-btn" data-tab="tarjas">Tarjas</button>
+          <button class="seg-btn" data-tab="musicas">Músicas</button>
         </div>
         <div class="mt-tab" data-tab="midias">
           <label class="btn primary mt-upbtn">${ico(I.up)} Enviar vídeo, foto ou música
@@ -195,6 +197,22 @@ const Montagem = (() => {
           <div class="mt-swatches">${CORES_FUNDO.map((c) => `<button class="mt-sw" data-color="${c}" style="background:${c}" aria-label="Cor ${c}"></button>`).join("")}</div>
           <label class="field-inline">Outra cor <input type="color" class="mt-swcustom" value="#2B2D35"></label>
           <p class="hint">Bancos de vídeos e fotos livres (Pexels e Pixabay) chegam na próxima fase.</p>
+        </div>
+        <div class="mt-tab hidden" data-tab="tarjas">
+          <p class="hint">Tarjas com nome, cargo, versículo, redes sociais… Escolha as cores e o tempo, e toque no modelo para colocar no cursor.</p>
+          <label class="mt-f"><span>Linha 1</span><input type="text" class="mt-tj-l1" maxlength="120" placeholder="Nome (ou deixe o do modelo)"></label>
+          <label class="mt-f"><span>Linha 2</span><input type="text" class="mt-tj-l2" maxlength="120" placeholder="Cargo, igreja, @perfil…"></label>
+          <div class="mt-tj-pals"></div>
+          <div class="mt-f"><span>Fica na tela por</span><div class="seg small mt-tj-durs">${[5, 10, 15].map((d) => `<button class="seg-btn ${d === 5 ? "active" : ""}" data-tjdur="${d}">${d} s</button>`).join("")}</div></div>
+          <div class="mt-tj-grid"><p class="hint">Carregando modelos…</p></div>
+        </div>
+        <div class="mt-tab hidden" data-tab="musicas">
+          <form class="mt-msearch"><input type="search" placeholder="Buscar música (ex.: piano, calmo, épico)" maxlength="80"><button class="btn small" type="submit">Buscar</button></form>
+          <div class="mt-moods"></div>
+          <p class="hint">Músicas livres (Creative Commons) que podem ser usadas em vídeos, inclusive monetizados. Quando pedir crédito, o texto pronto fica no Ajustes da música para colar na descrição.</p>
+          <div class="mt-mlist"></div>
+          <div class="panel-title">Minhas músicas</div>
+          <div class="mt-mine"><p class="hint">Carregando…</p></div>
         </div>
       </aside>
 
@@ -245,6 +263,8 @@ const Montagem = (() => {
         <button data-sheet-open="lib" data-tabgo="midias">${ico(I.film, 20)}<span>Mídias</span></button>
         <button data-sheet-open="lib" data-tabgo="textos">${ico(I.text, 20)}<span>Texto</span></button>
         <button data-sheet-open="lib" data-tabgo="fundos">${ico(I.fill, 20)}<span>Fundos</span></button>
+        <button data-sheet-open="lib" data-tabgo="tarjas">${ico(I.text, 20)}<span>Tarjas</span></button>
+        <button data-sheet-open="lib" data-tabgo="musicas">${ico(I.music, 20)}<span>Músicas</span></button>
         <button data-sheet-open="props">${ico(I.sliders, 20)}<span>Ajustes</span></button>
       </nav>
       <div class="mt-backdrop"></div>`;
@@ -258,6 +278,8 @@ const Montagem = (() => {
     $$("[data-preset]", B).forEach((b) => b.addEventListener("click", () => { addText(TEXTOS[+b.dataset.preset].it); closeSheets(); }));
     $$("[data-color]", B).forEach((b) => b.addEventListener("click", () => { addColor(b.dataset.color); closeSheets(); }));
     $(".mt-swcustom", B).addEventListener("change", (e) => { addColor(e.target.value.toUpperCase()); closeSheets(); });
+    wireTarjas(B);
+    wireMusicas(B);
     $(".mt-play", B).addEventListener("click", toggle);
     $$("[data-act]", B).forEach((b) => b.addEventListener("click", (e) => act(b.dataset.act, e)));
     $$("[data-newtrack]", B).forEach((a) => a.addEventListener("click", () => {
@@ -460,6 +482,206 @@ const Montagem = (() => {
     M.sel = it.id; commit(before);
   }
 
+  /* ---------------- tarjas (lower thirds) ---------------- */
+  // Mesmas contas de backend/core/tarjas.py: o que aparece na prévia é o que sai no vídeo.
+  const TJ_LARG = { "Poppins ExtraBold": 0.6, "Poppins": 0.58, "Anton": 0.44, "Bebas Neue": 0.38, "Archivo Black": 0.68 };
+  const TJ_PAPEIS = ["c1", "c2", "t1", "t2"];
+  const TJ = { spec: null, pal: "vox", dur: 5, l1: "", l2: "" };
+  try { Object.assign(TJ, JSON.parse(localStorage.getItem("vox-tarjas") || "{}"), { spec: null }); } catch (_) {}
+  const tjGuardar = () => { try { localStorage.setItem("vox-tarjas", JSON.stringify({ pal: TJ.pal, dur: TJ.dur, l1: TJ.l1, l2: TJ.l2 })); } catch (_) {} };
+  function tjCabe(texto, tam, fonte, maxw) {
+    const f = (TJ_LARG[fonte] || 0.6) * (texto === texto.toUpperCase() && /[A-ZÀ-Ý]/.test(texto) ? 1.12 : 1);
+    const est = Math.max(1, texto.length) * tam * f;
+    return est <= maxw ? tam : tam * maxw / est;
+  }
+  /** Desenha a tarja no tempo t (ou só mede, se ctx for null). Devolve a caixa [x0, y0, x1, y1] em pixels da tela. */
+  function drawTarja(ctx, it, t, W, H, medir) {
+    const S = TJ.spec; if (!S) return null;
+    const mo = S.modelos.find((m) => m.id === it.tpl) || S.modelos[0];
+    const ent = S.entrada, sai = S.saida, menor = Math.min(W, H) * (it.scale || 1);
+    const sobe = H > W ? S.sobe_vertical || 0 : 0, A = S.ancora || 0.83;
+    const ox = ((it.x ?? 0.5) - 0.5) * W, oy = ((it.y ?? 0.5) - 0.5) * H;
+    const ypx = (y) => (A - sobe) * H + (y - A) * menor + oy;
+    const cor = (c) => (TJ_PAPEIS.includes(c) ? it[c] : c) || "#FFFFFF";
+    const lt = t - it.start, dur = it.dur;
+    const bb = [Infinity, Infinity, -Infinity, -Infinity];
+    const junta = (x0, y0, x1, y1) => { bb[0] = Math.min(bb[0], x0); bb[1] = Math.min(bb[1], y0); bb[2] = Math.max(bb[2], x1); bb[3] = Math.max(bb[3], y1); };
+    const op = it.opacity ?? 1;
+    const tela = ctx || document.createElement("canvas").getContext("2d");
+    mo.camadas.forEach((c) => {
+      const pin = clamp((lt - (c.atraso || 0)) / ent, 0, 1), pout = clamp((dur - lt) / sai, 0, 1);
+      const anda = (1 - (1 - Math.pow(1 - pin, 3))) + (1 - (1 - Math.pow(1 - pout, 3)));
+      const dx = (c.dx || 0) * W * anda, dy = (c.dy || 0) * H * anda;
+      const a = op * Math.min(pin, pout);
+      if (c.k === "r") {
+        const w = Math.max(2, Math.round(c.w * (c.lw ? W : menor))), h = Math.max(2, Math.round(c.h * menor));
+        const x = c.x * W + ox, y = ypx(c.y);
+        junta(x, y, x + w, y + h);
+        if (!medir && a > 0.001) { tela.globalAlpha = a * (c.alfa ?? 1); tela.fillStyle = cor(c.cor); tela.fillRect(x + dx, y + dy, w, h); }
+        return;
+      }
+      let texto = (c.linha === 2 ? it.l2 : it.l1) || "";
+      if (c.maius) texto = texto.toUpperCase();
+      texto = texto.replace(/\r/g, "").split("\n")[0].trim();
+      if (!texto) return;
+      const bx = c.x * W + ox + (c.recuo || 0) * menor, centro = c.alinha === "centro";
+      const tam = tjCabe(texto, c.tam * menor, c.fonte, centro ? W * 0.9 : Math.max(W * 0.2, W * 0.95 - bx));
+      tela.font = `${tam}px "${c.fonte || "Poppins ExtraBold"}"`;
+      const tw = tela.measureText(texto).width;
+      const top = ypx(c.y) - tam / 2, x0 = centro ? bx - tw / 2 : bx;
+      const pad = c.caixa ? Math.max(2, Math.round((c.pad ?? 0.28) * tam)) : 0;
+      junta(x0 - pad, top - pad, x0 + tw + pad, top + tam + pad);
+      if (medir || a <= 0.001) return;
+      if (c.caixa) { tela.globalAlpha = a * (c.alfa ?? 1); tela.fillStyle = cor(c.caixa); tela.fillRect(x0 + dx - pad, top + dy - pad, tw + pad * 2, tam + pad * 2); }
+      tela.globalAlpha = a; tela.textAlign = "left"; tela.textBaseline = "top";
+      if (c.contorno) { tela.lineJoin = "round"; tela.lineWidth = Math.max(1, Math.round(c.contorno * tam)) * 2; tela.strokeStyle = "rgba(0,0,0,.85)"; tela.strokeText(texto, x0 + dx, top + dy); }
+      tela.fillStyle = cor(c.cor); tela.fillText(texto, x0 + dx, top + dy);
+    });
+    return bb[0] === Infinity ? null : bb;
+  }
+  function tjPaleta(id) { return (TJ.spec.paletas.find((p) => p.id === id) || TJ.spec.paletas[0]); }
+  function tjCartoes() {
+    const grid = $(".mt-tj-grid", box()); if (!grid || !TJ.spec) return;
+    const pal = tjPaleta(TJ.pal);
+    $(".mt-tj-pals", box()).innerHTML = `<span class="hint">Cores</span>` + TJ.spec.paletas.map((p) => `<button class="mt-pal ${p.id === TJ.pal ? "on" : ""}" data-pal="${p.id}" title="${esc(p.nome)}" style="background:linear-gradient(135deg,${p.c1} 50%,${p.c2} 50%)"></button>`).join("");
+    $$(".mt-tj-durs [data-tjdur]", box()).forEach((b) => b.classList.toggle("active", +b.dataset.tjdur === TJ.dur));
+    if (!grid.querySelector("canvas")) {
+      grid.innerHTML = TJ.spec.modelos.map((m) => `<button class="mt-tjcard" data-tpl="${m.id}"><canvas width="320" height="96"></canvas><b>${esc(m.nome)}</b></button>`).join("");
+      $$("[data-tpl]", grid).forEach((b) => b.addEventListener("click", () => { addTarja(b.dataset.tpl); closeSheets(); }));
+    }
+    $$(".mt-tjcard", grid).forEach((card) => {
+      const m = TJ.spec.modelos.find((x) => x.id === card.dataset.tpl);
+      const cv = $("canvas", card), ctx = cv.getContext("2d");
+      const W = 1920, H = 1080, k = cv.width / (W * 0.62);
+      ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height);
+      const g = ctx.createLinearGradient(0, 0, cv.width, cv.height); g.addColorStop(0, "#3a4b5e"); g.addColorStop(1, "#1d2530");
+      ctx.fillStyle = g; ctx.fillRect(0, 0, cv.width, cv.height);
+      const fake = { tpl: m.id, start: 0, dur: 10, x: 0.5, y: 0.5, scale: 1, opacity: 1, l1: TJ.l1 || m.l1, l2: TJ.l2 || m.l2, ...Object.fromEntries(TJ_PAPEIS.map((c) => [c, pal[c]])) };
+      const bb = drawTarja(null, fake, 5, W, H, true) || [0, H * 0.7, W, H * 0.95];
+      const cx = m.camadas.some((c) => c.alinha === "centro") ? (bb[0] + bb[2]) / 2 - (cv.width / k) / 2 : Math.max(0, bb[0] - 40);
+      ctx.setTransform(k, 0, 0, k, -cx * k, -((bb[1] + bb[3]) / 2) * k + cv.height / 2);
+      drawTarja(ctx, fake, 5, W, H);
+    });
+  }
+  async function wireTarjas(B) {
+    const l1 = $(".mt-tj-l1", B), l2 = $(".mt-tj-l2", B);
+    l1.value = TJ.l1 || ""; l2.value = TJ.l2 || "";
+    [l1, l2].forEach((inp) => { inp.addEventListener("keydown", (e) => e.stopPropagation()); inp.addEventListener("input", () => { TJ.l1 = l1.value; TJ.l2 = l2.value; tjGuardar(); tjCartoes(); }); });
+    $(".mt-tj-pals", B).addEventListener("click", (e) => { const b = e.target.closest("[data-pal]"); if (!b) return; TJ.pal = b.dataset.pal; tjGuardar(); tjCartoes(); });
+    $$("[data-tjdur]", B).forEach((b) => b.addEventListener("click", () => { TJ.dur = +b.dataset.tjdur; tjGuardar(); tjCartoes(); }));
+    try { TJ.spec = await (await fetch("tarjas.json", { cache: "no-cache" })).json(); }
+    catch (_) { $(".mt-tj-grid", B).innerHTML = `<p class="err">Não consegui carregar os modelos de tarja.</p>`; return; }
+    if (!TJ.spec.paletas.some((p) => p.id === TJ.pal)) TJ.pal = TJ.spec.paletas[0].id;
+    tjCartoes();
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { tjCartoes(); draw(); });
+    draw();
+  }
+  function addTarja(tpl) {
+    if (!TJ.spec) return;
+    const m = TJ.spec.modelos.find((x) => x.id === tpl) || TJ.spec.modelos[0];
+    const pal = tjPaleta(TJ.pal);
+    const before = snapshot();
+    const it = { id: uid("i"), type: "tarja", track: null, src: null, start: q(M.t), dur: TJ.dur || 5, in: 0, x: 0.5, y: 0.5, scale: 1,
+      rot: 0, opacity: 1, volume: 1, fadeIn: 0, fadeOut: 0, speed: 1, fit: "contain", tpl: m.id,
+      l1: TJ.l1 || m.l1, l2: TJ.l2 || m.l2, ...Object.fromEntries(TJ_PAPEIS.map((c) => [c, pal[c]])) };
+    if (!M.m.tracks.some((t) => t.kind === "text")) newTrack("text", 0);
+    M.m.items.push(it); place(it, M.m.tracks.find((t) => t.kind === "text").id);
+    M.sel = it.id; commit(before);
+    if (window.innerWidth <= 900) openSheet("props");
+  }
+
+  /* ---------------- músicas livres ---------------- */
+  const MU = { audio: null, tocando: null, faixas: [], humor: "inspirador", q: "", pagina: 1 };
+  function pararPrevia() { if (MU.audio) { MU.audio.pause(); } MU.tocando = null; $$(".mt-mplay", box()).forEach((b) => (b.innerHTML = ico(I.play, 12))); }
+  function tocarPrevia(url, btn) {
+    if (MU.tocando === url) { pararPrevia(); return; }
+    pararPrevia();
+    if (M.playing) stop();
+    MU.audio = MU.audio || new Audio();
+    MU.audio.src = url; MU.audio.volume = 0.8;
+    MU.audio.play().then(() => { MU.tocando = url; btn.innerHTML = ico(I.pause, 12); }).catch(() => toast("Não consegui tocar a prévia dessa música.", true));
+    MU.audio.onended = pararPrevia;
+  }
+  function linhaMusica(f) {
+    const lic = { cc0: "Livre (CC0)", by: "CC BY", "by-sa": "CC BY-SA" }[f.license] || f.license;
+    return `<div class="mt-mrow" data-tid="${esc(f.id)}">
+      <button class="btn icon small mt-mplay" data-play="${esc(f.url)}" aria-label="Ouvir">${ico(I.play, 12)}</button>
+      <div class="mt-minfo"><b>${esc(f.title || "Sem título")}</b><span class="hint">${esc(f.creator || "")}${f.duration ? " · " + fmt(f.duration) : ""} · <span class="mt-lic ${f.license}">${esc(lic)}</span></span></div>
+      <button class="btn small primary" data-usar>Usar</button>
+      <button class="btn icon small ghost" data-guardar title="Guardar nas minhas músicas" aria-label="Guardar nas minhas músicas">${ico(I.download, 14)}</button>
+    </div>`;
+  }
+  async function buscarMusicas(mais) {
+    const lista = $(".mt-mlist", box());
+    if (!mais) { MU.pagina = 1; MU.faixas = []; lista.innerHTML = `<p class="hint">Buscando…</p>`; }
+    let r;
+    try { r = await api("GET", `/api/trilhas?q=${encodeURIComponent(MU.q)}&humor=${encodeURIComponent(MU.q ? "" : MU.humor)}&pagina=${MU.pagina}`); }
+    catch (e) { lista.innerHTML = `<p class="err">${esc(e.message)}</p>`; return; }
+    MU.faixas = MU.faixas.concat(r.faixas);
+    lista.innerHTML = MU.faixas.length ? MU.faixas.map(linhaMusica).join("") + (r.mais ? `<button class="btn small ghost mt-mmais">Mais músicas</button>` : "")
+      : `<p class="hint">Nenhuma música encontrada. Tente outra palavra (em inglês costuma achar mais: piano, calm, epic).</p>`;
+    const mm = $(".mt-mmais", lista); if (mm) mm.addEventListener("click", () => { MU.pagina++; buscarMusicas(true); });
+  }
+  async function minhasMusicas() {
+    const el = $(".mt-mine", box()); if (!el) return;
+    let ls = [];
+    try { ls = await api("GET", "/api/musicas"); } catch (_) {}
+    el.innerHTML = ls.length ? ls.map((x) => `<div class="mt-mrow" data-minha="${esc(x.nome)}">
+        <button class="btn icon small mt-mplay" data-play="/api/musicas/${encodeURIComponent(x.nome)}" aria-label="Ouvir">${ico(I.play, 12)}</button>
+        <div class="mt-minfo"><b>${esc(x.nome.replace(/\.[^.]+$/, ""))}</b><span class="hint">${fmt(x.duracao)}</span></div>
+        <button class="btn small" data-usar-minha>Usar</button></div>`).join("")
+      : `<p class="hint">Nenhuma ainda. Guarde as que gostar aqui em cima, ou envie as suas em Marca.</p>`;
+  }
+  async function usarMusica(caminho, rotulo) {
+    toast(`Baixando "${rotulo}"…`);
+    let md;
+    try { md = await api("POST", caminho); } catch (e) { toast(e.message, true); return; }
+    if (!media(md.id)) M.m.media.push(md);
+    renderMedia();
+    addMedia(md.id, M.t);
+    const it = itemById(M.sel);
+    if (it && it.type === "audio") { it.volume = 0.25; it.duck = true; save(); renderProps(); }
+    toast(md.credito ? "Música na trilha de áudio. O crédito para a descrição está em Ajustes." : "Música na trilha de áudio, baixinha e abaixando quando alguém fala.");
+  }
+  function wireMusicas(B) {
+    const moods = $(".mt-moods", B);
+    const pintar = () => $$("[data-humor]", moods).forEach((b) => b.classList.toggle("active", !MU.q && b.dataset.humor === MU.humor));
+    api("GET", "/api/trilhas/humores").then((hs) => {
+      moods.innerHTML = hs.map((h) => `<button class="chip-btn" data-humor="${h.id}">${esc(h.nome)}</button>`).join("");
+      pintar();
+    }).catch(() => {});
+    moods.addEventListener("click", (e) => { const b = e.target.closest("[data-humor]"); if (!b) return; MU.humor = b.dataset.humor; MU.q = ""; $(".mt-msearch input", B).value = ""; pintar(); buscarMusicas(); });
+    const inp = $(".mt-msearch input", B);
+    inp.addEventListener("keydown", (e) => e.stopPropagation());
+    $(".mt-msearch", B).addEventListener("submit", (e) => { e.preventDefault(); MU.q = inp.value.trim(); pintar(); buscarMusicas(); });
+    let carregou = false;
+    $$('.mt-tabs [data-tab="musicas"], [data-tabgo="musicas"]', B).forEach((b) => b.addEventListener("click", () => {
+      if (carregou) return; carregou = true; buscarMusicas(); minhasMusicas();
+    }));
+    const tab = $('.mt-tab[data-tab="musicas"]', B);
+    tab.addEventListener("click", async (e) => {
+      const pl = e.target.closest("[data-play]"); if (pl) { tocarPrevia(pl.dataset.play, pl); return; }
+      const row = e.target.closest(".mt-mrow"); if (!row) return;
+      if (e.target.closest("[data-usar]")) {
+        const f = MU.faixas.find((x) => x.id === row.dataset.tid); pararPrevia(); closeSheets();
+        usarMusica(`/api/projects/${M.pid}/trilhas/${encodeURIComponent(row.dataset.tid)}`, f ? f.title : "música");
+      } else if (e.target.closest("[data-usar-minha]")) {
+        pararPrevia(); closeSheets();
+        usarMusica(`/api/projects/${M.pid}/minhas-musicas/${encodeURIComponent(row.dataset.minha)}`, row.dataset.minha);
+      } else if (e.target.closest("[data-guardar]")) {
+        try { const r = await api("POST", `/api/trilhas/${encodeURIComponent(row.dataset.tid)}/guardar`); toast(`Guardada em Minhas músicas: ${r.nome}`); minhasMusicas(); }
+        catch (err) { toast(err.message, true); }
+      }
+    });
+  }
+  /** Prévia: a música marcada "abaixar quando falam" fica baixinha enquanto toca um vídeo com som. */
+  function duckK(it, t) {
+    if (!it.duck) return 1;
+    const fala = M.m.items.some((o) => o !== it && (o.type === "video" || (o.type === "audio" && !o.duck)) && o.start <= t && t < o.start + o.dur
+      && o.volume > 0.01 && !(track(o.track) || {}).muted && (media(o.src) || {}).has_audio !== false);
+    return fala ? 0.3 : 1;
+  }
+
   /* ---------------- linha do tempo ---------------- */
 
   function renderTimeline() {
@@ -520,6 +742,7 @@ const Montagem = (() => {
     const md = it.src ? media(it.src) : null;
     let label = "", bg = "";
     if (it.type === "text") label = (it.text || "").replace(/\n/g, " ");
+    else if (it.type === "tarja") label = "Tarja · " + (it.l1 || "");
     else if (it.type === "color") { label = "Cor"; bg = `background:${it.color}`; }
     else label = md ? md.name : "?";
     if ((it.type === "video" || it.type === "image") && md && md.preview && w > 36) {
@@ -769,6 +992,7 @@ const Montagem = (() => {
         <label class="mt-f"><span>Formato do vídeo</span><select data-proj="formato">${Object.entries(FORMATOS).map(([k, v]) => `<option value="${k}" ${M.m.formato === k ? "selected" : ""}>${v}</option>`).join("")}</select></label>
         <label class="mt-f"><span>Quadros por segundo</span><select data-proj="fps">${[24, 25, 30, 60].map((f) => `<option ${M.m.fps === f ? "selected" : ""}>${f}</option>`).join("")}</select></label>
         <label class="mt-f row"><span>Cor do fundo</span><input type="color" data-proj="bg" value="${M.m.bg}"></label>
+        <label class="mt-f"><span>Emendas da fala</span><select data-proj="suave">${[["suave", "Suaves (recomendado)"], ["bem_suave", "Bem suaves"], ["seca", "Secas (corte colado)"]].map(([v, n]) => `<option value="${v}" ${(M.m.suave || "suave") === v ? "selected" : ""}>${n}</option>`).join("")}</select></label>
         ${(M.m.media || []).some((x) => x.main) && (M.P || {}).kind !== "montagem" ? `<button class="btn small" data-recomecar>Recomeçar da edição automática</button>` : ""}
         <div class="panel-title">Atalhos</div>
         <ul class="mt-keys hint">
@@ -779,7 +1003,7 @@ const Montagem = (() => {
         </ul>`;
     } else {
       const md = it.src ? media(it.src) : null;
-      const nome = { video: "Vídeo", image: "Imagem", text: "Texto", color: "Cor", audio: "Áudio" }[it.type];
+      const nome = { video: "Vídeo", image: "Imagem", text: "Texto", color: "Cor", audio: "Áudio", tarja: "Tarja" }[it.type];
       html += `<div class="panel-title">${nome}${md ? ` · <span class="mt-mname">${esc(md.name)}</span>` : ""}</div>
         <div class="hint">Começa em ${fmt(it.start, true)} · dura ${fmt(it.dur, true)}${md && it.type !== "image" ? ` · do original ${fmt(it.in, true)}` : ""}</div>
         <div class="row mt-pbtns">
@@ -803,6 +1027,24 @@ const Montagem = (() => {
           </div>
           ${it.boxOn ? rng("boxAlpha", "Transparência do fundo", 0, 1, 0.05, it.boxAlpha, "", (v) => Math.round(v * 100) + "%") : ""}`;
       }
+      if (it.type === "tarja" && TJ.spec) {
+        html += `<label class="mt-f"><span>Modelo</span><select data-k="tpl">${TJ.spec.modelos.map((m) => `<option value="${m.id}" ${it.tpl === m.id ? "selected" : ""}>${esc(m.nome)}</option>`).join("")}</select></label>
+          <label class="mt-f"><span>Linha 1</span><input type="text" data-k="l1" maxlength="120" value="${esc(it.l1 || "")}"></label>
+          <label class="mt-f"><span>Linha 2</span><input type="text" data-k="l2" maxlength="120" value="${esc(it.l2 || "")}"></label>
+          <div class="mt-f"><span>Cores prontas</span><div class="mt-tj-pals in">${TJ.spec.paletas.map((p) => `<button class="mt-pal" data-ppal="${p.id}" title="${esc(p.nome)}" style="background:linear-gradient(135deg,${p.c1} 50%,${p.c2} 50%)"></button>`).join("")}</div></div>
+          <div class="row mt-colors">
+            <label>Fundo <input type="color" data-k="c1" value="${it.c1}"></label>
+            <label>Destaque <input type="color" data-k="c2" value="${it.c2}"></label>
+            <label>Texto <input type="color" data-k="t1" value="${it.t1}"></label>
+            <label>Texto 2 <input type="color" data-k="t2" value="${it.t2}"></label>
+          </div>
+          <div class="mt-f"><span>Fica na tela por</span><div class="seg small">${[5, 10, 15].map((d) => `<button class="seg-btn ${Math.abs(it.dur - d) < 0.01 ? "active" : ""}" data-pdur="${d}">${d} s</button>`).join("")}</div></div>
+          <p class="hint">Arraste a tarja na prévia para mudar o lugar. Para um tempo livre, puxe a ponta dela na linha do tempo.</p>`;
+      }
+      if (it.type === "audio" && md) {
+        html += `<label class="checkline"><input type="checkbox" data-k="duck" ${it.duck ? "checked" : ""}> Abaixar sozinha quando alguém fala</label>`;
+        if (md.credito) html += `<div class="mt-credito"><span class="hint">Crédito obrigatório (cole na descrição do vídeo):</span><p>${esc(md.credito)}</p><button class="btn small" data-copiar-credito>Copiar crédito</button></div>`;
+      }
       if (it.type === "color") {
         html += `<label class="mt-f row"><span>Cor</span><input type="color" data-k="color" value="${it.color}"></label>
           ${rng("w", "Largura", 0.05, 1, 0.01, it.w, "", (v) => Math.round(v * 100) + "%")}
@@ -814,11 +1056,11 @@ const Montagem = (() => {
           ${rng("x", "Horizontal", -0.5, 1.5, 0.005, it.x, "", (v) => Math.round(v * 100) + "%")}
           ${rng("y", "Vertical", -0.5, 1.5, 0.005, it.y, "", (v) => Math.round(v * 100) + "%")}
           ${rng("scale", "Tamanho", 0.05, 4, 0.01, it.scale, "", (v) => Math.round(v * 100) + "%")}
-          ${it.type !== "text" ? rng("rot", "Giro", -180, 180, 1, it.rot, "°") : ""}
+          ${it.type !== "text" && it.type !== "tarja" ? rng("rot", "Giro", -180, 180, 1, it.rot, "°") : ""}
           ${rng("opacity", "Opacidade", 0, 1, 0.01, it.opacity, "", (v) => Math.round(v * 100) + "%")}
           <button class="btn small" data-pact="center">${ico(I.center, 14)} Centralizar e tamanho original</button>`;
       }
-      html += `<div class="panel-title">Entrada e saída</div>
+      if (it.type !== "tarja") html += `<div class="panel-title">Entrada e saída</div>
         ${rng("fadeIn", "Entrada suave", 0, 3, 0.05, it.fadeIn, "s")}
         ${rng("fadeOut", "Saída suave", 0, 3, 0.05, it.fadeOut, "s")}`;
       if (it.type === "video" || it.type === "audio") {
@@ -857,6 +1099,7 @@ const Montagem = (() => {
       if (k === "formato") { M.m.formato = inp.value; [M.m.w, M.m.h] = DIM[inp.value]; }
       if (k === "fps") M.m.fps = +inp.value;
       if (k === "bg") M.m.bg = inp.value.toUpperCase();
+      if (k === "suave") M.m.suave = inp.value;
       commit(before); layoutCanvas(); draw();
     }));
     if (!it) return;
@@ -866,6 +1109,16 @@ const Montagem = (() => {
       if (a === "center") { const before = snapshot(); Object.assign(it, { x: 0.5, y: 0.5, scale: 1, rot: 0 }); commit(before); }
     }));
     $$("[data-fit]", el).forEach((b) => b.addEventListener("click", () => { const before = snapshot(); it.fit = b.dataset.fit; commit(before); }));
+    $$("[data-ppal]", el).forEach((b) => b.addEventListener("click", () => {
+      const p = TJ.spec.paletas.find((x) => x.id === b.dataset.ppal); if (!p) return;
+      const before = snapshot(); TJ_PAPEIS.forEach((c) => (it[c] = p[c])); TJ.pal = p.id; tjGuardar(); commit(before);
+    }));
+    $$("[data-pdur]", el).forEach((b) => b.addEventListener("click", () => { const before = snapshot(); it.dur = +b.dataset.pdur; TJ.dur = it.dur; tjGuardar(); commit(before); }));
+    const cc = $("[data-copiar-credito]", el);
+    if (cc) cc.addEventListener("click", () => {
+      const txt = (media(it.src) || {}).credito || "";
+      (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(() => toast("Crédito copiado")).catch(() => prompt("Copie o crédito:", txt));
+    });
     $$("[data-k]", el).forEach((inp) => {
       const k = inp.dataset.k;
       const read = () => inp.type === "checkbox" ? inp.checked : inp.type === "range" || k === "speed" ? +inp.value : inp.value;
@@ -879,16 +1132,16 @@ const Montagem = (() => {
         const out = $(`[data-out="${k}"]`, el);
         if (out) out.textContent = showVal(k, v);
         draw();
-        if (k === "text" || k === "speed") renderTimeline();
+        if (k === "text" || k === "speed" || k === "l1") renderTimeline();
       });
       inp.addEventListener("change", () => {
         const b = M.editBefore; M.editBefore = null;
-        if (k === "boxOn" || k === "speed") { commit(b); return; }
+        if (k === "boxOn" || k === "speed" || k === "tpl" || k === "duck") { commit(b); return; }
         if (b && b !== snapshot()) { M.hist.push(b); M.fut = []; }
         save(); renderTimeline();
         $("[data-act=undo]", box()).disabled = !M.hist.length;
       });
-      if (inp.tagName === "TEXTAREA") inp.addEventListener("keydown", (e) => e.stopPropagation());
+      if (inp.tagName === "TEXTAREA" || inp.type === "text") inp.addEventListener("keydown", (e) => e.stopPropagation());
     });
   }
 
@@ -964,6 +1217,20 @@ const Montagem = (() => {
     if (it.fadeOut > 0) k *= clamp((it.dur - lt) / it.fadeOut, 0, 1);
     return k;
   }
+  /** Na prévia, o som desce e sobe rapidinho nas emendas entre pedaços colados (igual ao arquivo exportado,
+      que cruza os dois lados). Sem isso, cada troca de pedaço soava como um "pá" seco. */
+  const RAMPA_PREVIA = { seca: 0, suave: 0.06, bem_suave: 0.12 };
+  function emendaK(it, t) {
+    const r = RAMPA_PREVIA[(M.m && M.m.suave) || "suave"] || 0;
+    if (!r || it.type !== "video") return 1;
+    const fim = it.start + it.dur, lt = t - it.start;
+    const colado = (x) => M.m.items.some((o) => o !== it && o.track === it.track && o.type === "video" &&
+      Math.abs((x === "antes" ? o.start + o.dur : o.start) - (x === "antes" ? it.start : fim)) < 0.02);
+    let k = 1;
+    if (lt < r && colado("antes")) k = Math.min(k, 0.25 + 0.75 * clamp(lt / r, 0, 1));
+    if (fim - t < r && colado("depois")) k = Math.min(k, 0.25 + 0.75 * clamp((fim - t) / r, 0, 1));
+    return k;
+  }
 
   function sync() {
     if (!M.m) return;
@@ -983,7 +1250,7 @@ const Montagem = (() => {
       const tr = track(it.track);
       if (!on) { if (!el.paused) el.pause(); return; }
       const target = it.in + (t - it.start) * it.speed;
-      const vol = tr.muted || (tr.hidden && it.type === "video") ? 0 : it.volume * fadeK(it, t);
+      const vol = tr.muted || (tr.hidden && it.type === "video") ? 0 : it.volume * fadeK(it, t) * emendaK(it, t) * duckK(it, t);
       el.volume = clamp(vol, 0, 1); el.muted = vol <= 0.001;
       if (Math.abs(el.playbackRate - it.speed) > 0.001) el.playbackRate = it.speed;
       if (M.playing) {
@@ -1046,7 +1313,11 @@ const Montagem = (() => {
         ctx.save();
         ctx.globalAlpha = clamp(a, 0, 1);
         const cx = it.x * W, cy = it.y * H;
-        if (it.type === "text") {
+        if (it.type === "tarja") {
+          ctx.globalAlpha = 1;
+          const bb = drawTarja(ctx, it, t, W, H);
+          if (it.id === M.sel && bb) selBox = { cx: (bb[0] + bb[2]) / 2, cy: (bb[1] + bb[3]) / 2, w: bb[2] - bb[0] + 12, h: bb[3] - bb[1] + 12, rot: 0, tarja: true };
+        } else if (it.type === "text") {
           const b = textBox(ctx, it);
           ctx.textAlign = "center"; ctx.textBaseline = "top";
           const y0 = cy - b.h / 2;
@@ -1120,7 +1391,7 @@ const Montagem = (() => {
       return { inside: Math.abs(lx) <= b.w / 2 && Math.abs(ly) <= b.h / 2, corner: Math.hypot(lx - b.w / 2, ly - b.h / 2) < 22 / M.view.css };
     };
     let it = itemById(M.sel), mode = null;
-    if (it && M.selBox) { const h = hit(M.selBox); if (h.corner && it.type !== "audio") mode = "scale"; else if (h.inside) mode = "move"; }
+    if (it && M.selBox) { const h = hit(M.selBox); if (h.corner && it.type !== "audio" && it.type !== "tarja") mode = "scale"; else if (h.inside) mode = "move"; }
     if (!mode) {
       const ctx = cv.getContext("2d");
       const cands = M.m.tracks.filter((t) => !t.hidden && t.kind !== "audio" && !t.locked)
@@ -1128,7 +1399,10 @@ const Montagem = (() => {
       it = null;
       for (const c of cands) {
         let b;
-        if (c.type === "text") { const tb = textBox(ctx, c); b = { cx: c.x * M.m.w, cy: c.y * M.m.h, w: tb.w + 16, h: tb.h + 8, rot: 0 }; }
+        if (c.type === "tarja") {
+          const bb = drawTarja(null, c, M.t, M.m.w, M.m.h, true); if (!bb) continue;
+          b = { cx: (bb[0] + bb[2]) / 2, cy: (bb[1] + bb[3]) / 2, w: bb[2] - bb[0] + 12, h: bb[3] - bb[1] + 12, rot: 0 };
+        } else if (c.type === "text") { const tb = textBox(ctx, c); b = { cx: c.x * M.m.w, cy: c.y * M.m.h, w: tb.w + 16, h: tb.h + 8, rot: 0 }; }
         else { const [w, h] = sizeOf(c); b = { cx: c.x * M.m.w, cy: c.y * M.m.h, w, h, rot: c.rot }; }
         if (hit(b).inside) { it = c; break; }
       }

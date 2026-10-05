@@ -380,8 +380,13 @@ function setupPublish() {
     try {
       const res = await api("POST", "/api/publish/queue", body);
       $("#pubdlg").close();
-      const first = Math.min(...res.items.map((x) => x.when));
-      toast(when === "now" ? "Aprovado: publicando agora" : `Aprovado: agendado para ${new Date(first * 1000).toLocaleString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}`);
+      if (res.online && res.online.length && !res.items.length) {
+        toast("Enviando o vídeo para o online. De lá ele é publicado no horário escolhido, mesmo com o PC desligado.");
+      } else {
+        const first = Math.min(...res.items.map((x) => x.when));
+        toast((when === "now" ? "Aprovado: publicando agora" : `Aprovado: agendado para ${new Date(first * 1000).toLocaleString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}`)
+          + (res.online && res.online.length ? " (as outras redes saem pelo online)" : ""));
+      }
       refreshQueueCount();
       if (!S.P) { S.qFilter = "agendado"; location.hash = "#/publicacoes"; }
     } catch (err) { $("#pub-err").textContent = err.message; }
@@ -420,28 +425,58 @@ async function renderRedes() {
   $("#net-cards").innerHTML = Object.entries(st.networks).map(([k, n]) => `
     <div class="nc" data-net="${k}" data-app="${n.app}">
       <div class="hd"><i style="background:${NET_COLORS[k]}"></i><b>${esc(n.name)}</b></div>
-      <div class="acc ${n.connected ? "ok" : ""}">${n.connected ? "Conectado: " + esc(n.account) : n.warn ? esc(n.warn) : n.system_app ? "Pronto: clique em Conectar e entre com a sua conta" : n.app_ready ? "Pronto para conectar" : "Falta configurar o app desta rede"}</div>
+      <div class="acc ${n.connected ? "ok" : ""}">${n.connected ? (n.via_online ? "Conectado (salvo no online): " : "Conectado: ") + esc(n.account) : n.warn ? esc(n.warn) : n.system_app ? "Pronto: clique em Conectar e entre com a sua conta" : n.app_ready ? "Pronto para conectar" : "Falta configurar o app desta rede"}</div>
       ${n.pages && n.pages.length > 1 ? `<label class="field">Página<select data-page>${n.pages.map((pg) => `<option value="${pg.id}" ${pg.id === n.page_id ? "selected" : ""}>${esc(pg.name)}${pg.ig ? " (@" + esc(pg.ig) + ")" : ""}</option>`).join("")}</select></label>` : ""}
       <div class="note">${notes[k]}</div>
       <div class="row">
-        <button class="btn small ${n.system_app ? "ghost" : ""}" data-app-cfg>${n.system_app ? "App próprio" : "Configurar app"}</button>
+        ${n.via_online ? "" : `<button class="btn small ${n.system_app ? "ghost" : ""}" data-app-cfg>${n.system_app ? "App próprio" : "Configurar app"}</button>`}
         ${n.connected ? `<button class="btn small ghost" data-disc>Desconectar</button>` : `<a class="btn small primary ${n.app_ready ? "" : "disabled"}" href="${n.app_ready ? `/api/oauth/${n.app}/start` : "#/redes"}" data-conn>Conectar</a>`}
       </div>
     </div>`).join("") + `<div class="nc"><div class="hd"><i style="background:#25D366"></i><b>Status do WhatsApp</b></div>
       <div class="acc">Sem postagem automática</div><div class="note">O WhatsApp não oferece forma oficial de publicar no Status. Exporte em "Status do WhatsApp" e poste pelo celular.</div></div>`;
   $$("#net-cards .nc[data-net]").forEach((c) => {
     const app = c.dataset.app;
-    $("[data-app-cfg]", c).addEventListener("click", () => openAppCfg(app));
+    const cfgB = $("[data-app-cfg]", c); if (cfgB) cfgB.addEventListener("click", () => openAppCfg(app));
     const d = $("[data-disc]", c); if (d) d.addEventListener("click", async () => { if (await ask("Desconectar?", "As postagens agendadas para esta conta vão dar erro até você conectar de novo.", null, "Desconectar")) { await api("DELETE", `/api/publish/account/${app}`); renderRedes(); } });
-    const cn = $("[data-conn]", c); if (cn && !st.networks[c.dataset.net].app_ready) cn.addEventListener("click", (e) => { e.preventDefault(); openAppCfg(app); });
+    const cn = $("[data-conn]", c);
+    if (cn) cn.addEventListener("click", (e) => {
+      e.preventDefault(); e.stopPropagation();
+      const n = st.networks[c.dataset.net];
+      if (!n.app_ready) openAppCfg(app); else conectarRede(c.dataset.net, app, !!n.via_online);
+    });
     const pg = $("[data-page]", c); if (pg) pg.addEventListener("change", async (e) => { await api("POST", "/api/publish/page", { page_id: e.target.value }); renderRedes(); });
   });
+  if (!m && !isOnline()) {
+    const semApp = Object.values(st.networks).some((n) => !n.app_ready);
+    if (st.online && !st.online.ok) $("#net-msg").innerHTML = `<div class="banner bad">Não consegui falar com a versão online para ver as contas conectadas lá. Confira a internet e o endereço em Configurações → Versão online.</div>`;
+    else if (!st.online && semApp) $("#net-msg").innerHTML = `<div class="banner">Para entrar só com login e senha (sem configurar app), ligue este PC à versão online em <b>Configurações → Versão online</b>. As contas ficam salvas no servidor e as postagens saem de lá, mesmo com o PC desligado.</div>`;
+  }
   renderDestinos(st);
   // selos nos vídeos
   const b = brand();
   $("#br-soc-mode").value = b.social_mode || "destino"; $("#br-soc-every").value = String(b.social_every || 12);
   $("#br-soc-side").value = b.social_side || "direita";
   renderSocialRows();
+}
+
+/** Login da rede: pede um link assinado (no online, se as contas ficam lá) e abre. No PC abre no navegador e
+    espera a conta aparecer; no navegador, vai direto para a página de login da rede. */
+async function conectarRede(net, app, viaOnline) {
+  const a = deskApi();
+  let url;
+  try {
+    url = (viaOnline ? await api("POST", `/api/publish/online-login/${app}`)
+      : await api("POST", `/api/oauth/${app}/ticket`, { desk: !!a })).url;
+  } catch (e) { toast(e.message, true); return; }
+  if (!a) { location.href = url; return; }
+  await a.open_external(url);
+  toast("Faça o login no navegador. Quando terminar, volte aqui.");
+  let n = 0; clearInterval(DESK.t);
+  DESK.t = setInterval(async () => {
+    if (++n > 100 || S.page !== "redes") { clearInterval(DESK.t); return; }
+    const st = await api("GET", "/api/publish/status").catch(() => null);
+    if (st && st.networks[net] && st.networks[net].connected) { clearInterval(DESK.t); toast("Conta conectada!"); renderRedes(); }
+  }, 3000);
 }
 
 function openAppCfg(app) {
@@ -738,19 +773,7 @@ function setupDesktop() {
       catch (err) { toast("Não consegui salvar: " + err, true); }
       return;
     }
-    if (link.hasAttribute("data-conn") && href.startsWith("/api/oauth/")) {  // login da rede no navegador
-      e.preventDefault();
-      await a.open_external(href + (href.includes("?") ? "&" : "?") + "desk=1");
-      toast("Faça o login no navegador. Quando terminar, volte aqui.");
-      let n = 0; clearInterval(DESK.t);
-      DESK.t = setInterval(async () => {
-        if (++n > 100 || S.page !== "redes") { clearInterval(DESK.t); return; }
-        const st = await api("GET", "/api/publish/status").catch(() => null);
-        const net = link.closest(".nc") && link.closest(".nc").dataset.net;
-        if (st && net && st.networks[net] && st.networks[net].connected) { clearInterval(DESK.t); toast("Conta conectada!"); renderRedes(); }
-      }, 3000);
-      return;
-    }
+    if (link.hasAttribute("data-conn")) return;  // login da rede: tratado em conectarRede()
     if (link.target === "_blank" || link.hasAttribute("data-ext")) { e.preventDefault(); a.open_external(link.href); }
   }, true);
   // fechar com postagens agendadas ou trabalhos em andamento
@@ -1360,6 +1383,7 @@ function renderStudio() {
   $("#s-count").textContent = st.count;
   if (document.activeElement !== $("#s-instr")) $("#s-instr").value = st.instructions || "";
   $("#s-layout").value = st.layout; $("#s-title").value = st.title_mode; $("#s-subs").checked = st.subtitles !== false;
+  $("#s-smooth").value = ((S.P.settings || {}).render || {}).smooth || "suave";
   $("#s-zoom").checked = st.zoom_cuts !== false; $("#s-enhance").value = st.enhance || "auto";
   const ai = (S.cfg || {}).ai || {};
   $("#s-ai-hint").textContent = ai.provider && ai.provider !== "none" && ai.api_key_set
@@ -1702,6 +1726,7 @@ function setupStudio() {
   $("#s-title").addEventListener("change", (e) => setSetting("studio", "title_mode", e.target.value, 50));
   $("#s-subs").addEventListener("change", (e) => setSetting("studio", "subtitles", e.target.checked, 50));
   $("#s-zoom").addEventListener("change", (e) => setSetting("studio", "zoom_cuts", e.target.checked, 50));
+  $("#s-smooth").addEventListener("change", (e) => setSetting("render", "smooth", e.target.value, 50));
   $("#s-enhance").addEventListener("change", (e) => setSetting("studio", "enhance", e.target.value, 50));
   $("#s-style-btn").addEventListener("click", openStyles);
   $("#s-generate").addEventListener("click", async () => {

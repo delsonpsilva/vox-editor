@@ -17,11 +17,11 @@ from fastapi import Body, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from .core import destinos, importer, jobs, montagem, online, pacote, pipeline, publish, store
+from .core import destinos, importer, jobs, montagem, online, pacote, pipeline, publish, store, trilhas
 from .engine import edits, frames, platforms, reframe, socials, subtitles, transcribe
 from .engine import ffmpeg_tools as ff
 
-VERSION = "1.1.2"
+VERSION = "1.1.3"
 FRONT = store.ROOT / "frontend"
 PASSWORD = os.environ.get("APP_PASSWORD", "")
 SECRET = os.environ.get("APP_SECRET") or secrets.token_hex(16)
@@ -976,13 +976,42 @@ def publish_status():
         apps[app_name] = {"client_id": a.get("client_id", ""), "secret_set": bool(a.get("client_secret")),
                           "system": bool((publish._sistema().get(app_name) or {}).get("client_id"))}
     nets = publish.public_status()
+    online_info = None
+    if not PASSWORD and online.configurado():  # programa do PC ligado ao online: as contas ficam lá
+        on = online.status_online()
+        online_info = {"ok": on is not None}
+        for k, n in nets.items():
+            o = ((on or {}).get("networks") or {}).get(k)
+            if n["connected"] or not o:
+                continue
+            if o.get("connected") or o.get("app_ready"):
+                n.update(via_online=True, connected=bool(o.get("connected")), account=o.get("account", ""),
+                         app_ready=True, system_app=True, warn=o.get("warn"))
+                if o.get("pages"):
+                    n.update(pages=o["pages"], page_id=o.get("page_id"))
     dests = destinos.publicos()
     targets = dict(nets)
     for d in dests:  # no diálogo de publicar, os destinos próprios aparecem junto das redes
         targets["dest:" + d["id"]] = {"name": d["name"], "connected": True, "account": destinos.descricao(d),
                                       "dest": d["kind"]}
     return {"networks": nets, "apps": apps, "slots": c["slots"], "destinos": dests, "targets": targets,
-            "tipos_destino": destinos.TIPOS}
+            "tipos_destino": destinos.TIPOS, "online": online_info}
+
+
+@app.post("/api/publish/online-login/{app_name}")
+def publish_online_login(app_name: str):
+    """Programa do PC: link de login da rede no online (a conta fica salva lá e o acesso é renovado sozinho)."""
+    try:
+        return {"url": online.link_login(app_name)}
+    except RuntimeError as e:
+        raise HTTPException(400, str(e))
+
+
+def _app_via_online(app_name: str) -> bool:
+    if PASSWORD or not online.configurado():
+        return False
+    st = publish.public_status()
+    return not any(n["connected"] for n in st.values() if n["app"] == app_name)
 
 
 @app.put("/api/publish/config")
@@ -1014,8 +1043,45 @@ def _redirect_uri(request: Request, app_name: str) -> str:
     return f"{base}/api/oauth/{app_name}/callback"
 
 
+def _ticket(app_name: str, validade: int = 600) -> str:
+    exp = int(time.time()) + validade
+    sig = hmac.new(SECRET.encode(), f"oauth.{app_name}.{exp}".encode(), hashlib.sha256).hexdigest()[:32]
+    return f"{exp}.{sig}"
+
+
+def _ticket_ok(app_name: str, ticket: str) -> bool:
+    try:
+        exp_s, sig = ticket.split(".", 1)
+        exp = int(exp_s)
+    except ValueError:
+        return False
+    if exp < time.time():
+        return False
+    certo = hmac.new(SECRET.encode(), f"oauth.{app_name}.{exp}".encode(), hashlib.sha256).hexdigest()[:32]
+    return hmac.compare_digest(certo, sig)
+
+
+@app.post("/api/oauth/{app_name}/ticket")
+def oauth_ticket(app_name: str, request: Request, data: dict = Body(default={})):
+    """Link de login da rede que vale 10 minutos. Serve para abrir o login num navegador sem a sessão do editor
+    (o navegador do PC, ou o programa do PC pedindo o login das contas que ficam no online)."""
+    if app_name not in ("youtube", "meta", "tiktok"):
+        raise HTTPException(404, "Rede desconhecida")
+    base = (os.environ.get("PUBLIC_URL") or str(request.base_url)).rstrip("/")
+    url = f"{base}/api/oauth/{app_name}/start?ticket={_ticket(app_name)}"
+    if data.get("desk"):
+        url += "&desk=1"
+    return {"url": url}
+
+
 @app.get("/api/oauth/{app_name}/start")
-def oauth_start(app_name: str, request: Request, desk: str = ""):
+def oauth_start(app_name: str, request: Request, desk: str = "", ticket: str = ""):
+    # Começar um login troca a conta conectada: só quem está logado no editor (ou tem um link assinado) pode.
+    if _senha_base() and not (hmac.compare_digest(request.cookies.get("editor_auth", ""), _token())
+                              or _ticket_ok(app_name, ticket)):
+        return Response(_DONE_PAGE.format(title="Link expirado", color="#f87171",
+                                          msg="Este link de login vale por 10 minutos. Volte ao VOX Editor e clique "
+                                              "em Conectar de novo."), media_type="text/html", status_code=403)
     try:
         r = RedirectResponse(publish.auth_url(app_name, _redirect_uri(request, app_name)))
     except Exception as e:
@@ -1096,14 +1162,26 @@ def link_publico(token: str):
 
 @app.post("/api/publish/page")
 def publish_page(data: dict = Body(...)):
-    publish.select_page(str(data.get("page_id", "")))
+    if _app_via_online("meta"):
+        online.escolher_pagina(str(data.get("page_id", "")))
+    else:
+        publish.select_page(str(data.get("page_id", "")))
     return publish_status()
 
 
 @app.delete("/api/publish/account/{app_name}")
 def publish_disconnect(app_name: str):
-    publish.remove_account(app_name)
+    if _app_via_online(app_name):
+        try:
+            online.desconectar(app_name)
+        except RuntimeError as e:
+            raise HTTPException(400, str(e))
+    else:
+        publish.remove_account(app_name)
     return publish_status()
+
+
+ON = "on_"  # itens da fila que estão no online (vistos daqui do PC)
 
 
 @app.get("/api/publish/queue")
@@ -1112,7 +1190,20 @@ def publish_queue():
     out = []
     for it in publish.queue():
         out.append({**it, "project_name": names.get(it["project"], "Projeto apagado")})
+    if not PASSWORD and online.configurado():
+        for it in online.fila_online():
+            out.append({**it, "id": ON + str(it.get("id")), "online": True,
+                        "project_name": (it.get("project_name") or "") + " · pelo online"})
     return sorted(out, key=lambda x: -x["when"] if x["status"] in ("publicado", "erro", "cancelado") else x["when"])
+
+
+def _pelo_online(nets: list[str]) -> list[str]:
+    """Redes que, neste PC, saem pelas contas conectadas no online (o PC não tem a conta, o online tem)."""
+    if PASSWORD or not online.configurado():
+        return []
+    local = publish.public_status()
+    on = (online.status_online() or {}).get("networks") or {}
+    return [n for n in nets if n in publish.NETWORKS and not local[n]["connected"] and (on.get(n) or {}).get("connected")]
 
 
 @app.post("/api/publish/queue")
@@ -1120,6 +1211,66 @@ def publish_add(data: dict = Body(...)):
     pid, file = str(data.get("project", "")), str(data.get("file", ""))
     if "/" in file or "\\" in file or not (store.pdir(pid) / "renders" / file).exists():
         raise HTTPException(404, "Vídeo exportado não encontrado")
+    nets = [str(n) for n in data.get("nets", [])]
+    remotas = _pelo_online(nets)
+    res = {"items": []}
+    if remotas:
+        pedido = {**{k: data.get(k) for k in ("when", "at", "caption", "title", "privacy", "label")}, "nets": remotas}
+        jobs.submit("publicar-online", pid, lambda pr: online.publicar(pid, file, pedido, pr), queue="download",
+                    label="Enviando para publicar pelo online")
+        res["online"] = remotas
+    locais = [n for n in nets if n not in remotas]
+    if locais:
+        res["items"] = _enfileirar(pid, file, {**data, "nets": locais})
+    elif not remotas:
+        raise HTTPException(400, "Escolha pelo menos uma rede ou destino")
+    return res
+
+
+@app.post("/api/publish/receber")
+async def publish_receber(request: Request):
+    """Lado do online: recebe um vídeo pronto do programa do PC e coloca na fila de publicação daqui."""
+    import json as _json
+    from urllib.parse import unquote
+    try:
+        pedido = _json.loads(unquote(request.headers.get("x-vox-pedido", "{}")))
+    except ValueError:
+        raise HTTPException(400, "Pedido inválido")
+    nome = re.sub(r"[^\w.\- ]+", "_", unquote(request.headers.get("x-filename", "video.mp4")))[:120] or "video.mp4"
+    if not nome.lower().endswith((".mp4", ".mov", ".m4a")):
+        nome += ".mp4"
+    proj = next((p for p in store.list_projects() if p.get("recebidos")), None)
+    if not proj:  # projeto de montagem em branco que guarda os vídeos que chegam do PC (aparecem em Exportados)
+        proj = montagem.projeto_em_branco("Vídeos enviados do PC", "9:16")
+        store.update(proj["id"], lambda p: p.update(recebidos=True))
+    pid = proj["id"]
+    nome = f"{time.strftime('%Y%m%d-%H%M%S')}-{nome}"
+    alvo = store.pdir(pid) / "renders" / nome
+    alvo.parent.mkdir(parents=True, exist_ok=True)
+    size, limit = 0, (MAX_UPLOAD_GB + 1) * 1024 ** 3
+    try:
+        with open(alvo, "wb") as fh:
+            async for chunk in request.stream():
+                size += len(chunk)
+                if size > limit:
+                    raise HTTPException(413, f"Vídeo maior que {MAX_UPLOAD_GB:g} GB")
+                fh.write(chunk)
+        if size == 0:
+            raise HTTPException(400, "Arquivo vazio")
+        item = {"file": nome, "created": time.time(), "duration": 0, "label": pedido.get("label") or
+                f"Do PC: {pedido.get('project_name') or ''}".strip(), "size": size, "platform": None}
+        try:
+            item["duration"] = round(ff.probe(str(alvo))["duration"], 2)
+        except Exception:
+            pass
+        store.update(pid, lambda p: p.setdefault("renders", []).insert(0, item))
+        return {"items": _enfileirar(pid, nome, pedido)}
+    except HTTPException:
+        alvo.unlink(missing_ok=True)
+        raise
+
+
+def _enfileirar(pid: str, file: str, data: dict) -> list[dict]:
     ids_dest = {"dest:" + d["id"] for d in destinos.publicos()}
     nets = [n for n in data.get("nets", []) if n in publish.NETWORKS or n in ids_dest]
     if not nets:
@@ -1128,7 +1279,7 @@ def publish_add(data: dict = Body(...)):
     off = [publish.NETWORKS[n]["name"] for n in nets if n in publish.NETWORKS and not status[n]["connected"]]
     if off:
         raise HTTPException(400, "Conecte antes: " + ", ".join(off))
-    mode = data.get("when", "slot")
+    mode = data.get("when") or "slot"
     items = []
     for n in nets:
         if mode == "now":
@@ -1137,15 +1288,18 @@ def publish_add(data: dict = Body(...)):
             when = float(data.get("at") or time.time())
         else:
             when = publish.next_slot(n)
-        items.append(publish.new_item(pid, file, n, when, str(data.get("caption", ""))[:2200],
-                                      str(data.get("title", ""))[:100], data.get("privacy", "public"),
-                                      str(data.get("label", ""))[:120]))
+        items.append(publish.new_item(pid, file, n, when, str(data.get("caption") or "")[:2200],
+                                      str(data.get("title") or "")[:100], data.get("privacy") or "public",
+                                      str(data.get("label", "") or "")[:120]))
     publish.add(items)
-    return {"items": items}
+    return items
 
 
 @app.delete("/api/publish/queue/{iid}")
 def publish_remove(iid: str):
+    if iid.startswith(ON):
+        online.fila_acao("DELETE", f"/api/publish/queue/{iid[len(ON):]}")
+        return {"ok": True}
     with publish._lock:
         q = [it for it in publish.queue() if not (it["id"] == iid and it["status"] != "publicando")]
         publish._save_queue(q)
@@ -1154,12 +1308,18 @@ def publish_remove(iid: str):
 
 @app.post("/api/publish/queue/{iid}/retry")
 def publish_retry(iid: str):
+    if iid.startswith(ON):
+        online.fila_acao("POST", f"/api/publish/queue/{iid[len(ON):]}/retry")
+        return {"ok": True}
     publish.update_item(iid, status="agendado", when=time.time(), error="", msg="", pct=0)
     return {"ok": True}
 
 
 @app.put("/api/publish/queue/{iid}")
 def publish_edit(iid: str, data: dict = Body(...)):
+    if iid.startswith(ON):
+        online.fila_acao("PUT", f"/api/publish/queue/{iid[len(ON):]}", data)
+        return {"ok": True}
     fields = {}
     if "when" in data:
         fields["when"] = float(data["when"])
@@ -1264,6 +1424,69 @@ def montagem_put(pid: str, data: dict = Body(...)):
 @app.post("/api/projects/{pid}/montagem/recomecar")
 def montagem_recomecar(pid: str, data: dict = Body(default={})):
     return _404(lambda: montagem.recomecar(pid, data.get("formato")))
+
+
+# ---------- trilhas sonoras livres ----------
+
+@app.get("/api/trilhas/humores")
+def trilhas_humores():
+    return trilhas.HUMORES
+
+
+@app.get("/api/trilhas")
+def trilhas_buscar(q: str = "", humor: str = "", pagina: int = 1):
+    try:
+        return trilhas.buscar(q, humor, pagina)
+    except RuntimeError as e:
+        raise HTTPException(502, str(e))
+
+
+@app.post("/api/projects/{pid}/trilhas/{tid}")
+def trilha_no_projeto(pid: str, tid: str):
+    """Baixa a trilha livre para as mídias da montagem (com o crédito guardado junto)."""
+    _404(lambda: store.load(pid))
+    try:
+        arq, f = trilhas.baixar(tid, montagem.pasta_midias(pid))
+        return montagem.adicionar_midia(pid, arq, f"{f['title'] or 'Música'} — {f['creator'] or 'autor'}{arq.suffix}",
+                                        {"credito": f["credito"], "licenca": f["license"], "trilha": f["id"]})
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e))
+    except (RuntimeError, ValueError) as e:
+        raise HTTPException(400, str(e))
+
+
+@app.post("/api/projects/{pid}/minhas-musicas/{nome}")
+def minha_musica_no_projeto(pid: str, nome: str):
+    """Coloca uma música da biblioteca pessoal (Marca → Músicas) nas mídias da montagem."""
+    import shutil
+    _404(lambda: store.load(pid))
+    src = pipeline.musica_path(nome)
+    if not src:
+        raise HTTPException(404, "Música não encontrada")
+    dest = montagem.pasta_midias(pid) / f"{secrets.token_hex(4)}_{nome}"
+    shutil.copy(src, dest)
+    try:
+        return montagem.adicionar_midia(pid, dest, nome)
+    except Exception as e:
+        dest.unlink(missing_ok=True)
+        raise HTTPException(400, f"Não consegui usar essa música: {str(e)[:200]}")
+
+
+@app.post("/api/trilhas/{tid}/guardar")
+def trilha_guardar(tid: str):
+    """Guarda a trilha livre nas "Minhas músicas" (serve de fundo musical também na edição automática)."""
+    try:
+        arq, f = trilhas.baixar(tid, pipeline.MUSICAS)
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e))
+    except RuntimeError as e:
+        raise HTTPException(400, str(e))
+    cred = pipeline.MUSICAS / "creditos.txt"
+    linhas = cred.read_text(encoding="utf-8").splitlines() if cred.exists() else []
+    linha = f"{arq.name}: {f['credito']}"
+    if linha not in linhas:
+        cred.write_text("\n".join(linhas + [linha]) + "\n", encoding="utf-8")
+    return {"nome": arq.name, "credito": f["credito"]}
 
 
 @app.post("/api/projects/{pid}/midias")

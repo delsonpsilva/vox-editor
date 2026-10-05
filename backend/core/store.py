@@ -195,7 +195,7 @@ def list_projects() -> list[dict]:
                         "final": (p.get("stats") or {}).get("final"), "updated": f.stat().st_mtime,
                         "has_video": bool(p.get("media", {}).get("has_video")),
                         "clips": len(p.get("clips") or []), "renders": len(p.get("renders") or []),
-                        "size": p.get("size", 0), "kind": p.get("kind") or "",
+                        "size": p.get("size", 0), "kind": p.get("kind") or "", "recebidos": bool(p.get("recebidos")),
                         "montagem": (f.parent / "montagem.json").exists()})
         except Exception:
             continue

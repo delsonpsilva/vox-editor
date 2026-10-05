@@ -447,6 +447,7 @@ def _render_keeps(pid: str, progress, keeps: list[list[float]], *, name: str, pl
         "ducks": ed["active_ducks"], "out": str(out), "out_w": out_w, "out_h": out_h, "layout": layout,
         "center_fn": center_fn, "ass_builder": ass_builder if media.get("has_video") else None,
         "zoom_cuts": zoom_cuts, "enhance": st["studio"].get("enhance", "auto"), "emphasis": fortes,
+        "smooth": (st.get("render") or {}).get("smooth", "suave"),
         "audio_clean": bool(st["audio"].get("clean")), "music_path": musica_path(st["audio"].get("music", "")),
         "music_volume": st["audio"].get("music_volume", 0.12),
         "geom": geom, "bg_color": brand.get("bg"), "overlay_builder": overlay_builder,

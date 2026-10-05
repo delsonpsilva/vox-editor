@@ -14,7 +14,7 @@ DEFAULT_SETTINGS = {
                   "size": "m", "size_pct": 100, "y_pct": 18,
                   "keywords": True, "keyword_color": "#39E75F", "emojis": True, "ai_highlights": True},
     "audio": {"normalize": True, "target_lufs": -14.0, "clean": False, "music": "", "music_volume": 0.12},
-    "render": {"quality": "alta"},
+    "render": {"quality": "alta", "smooth": "suave"},
     "clips": {"min": 30, "max": 60, "count": 5},
     "studio": {"platform": "ig_reels", "mode": "cortes", "duration": "60", "min": 20, "max": 90, "count": 5,
                "instructions": "", "layout": "face", "title_mode": "inicio", "subtitles": True, "zoom_cuts": True,

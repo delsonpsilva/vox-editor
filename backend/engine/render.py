@@ -18,6 +18,8 @@ ASR = 48000          # taxa do áudio final
 CH = 2
 XFADE = 0.010        # meia janela do cruzamento quando só tirou pausa (10 ms de cada lado)
 XFADE_FAR = 0.040    # emenda entre partes distantes do vídeo (40 ms de cada lado)
+# Suavidade das emendas (meia janela perto, meia janela longe). "seca" é o corte de antes, colado.
+SUAVIDADE = {"seca": (0.010, 0.040), "suave": (0.035, 0.070), "bem_suave": (0.070, 0.120)}
 RAMP = 0.03          # rampa de 30 ms na atenuação das respirações
 
 
@@ -45,8 +47,11 @@ def _gain(times: np.ndarray, ducks: list[list[float]]) -> np.ndarray:
     return g
 
 
-def build_audio(raw_src: Path, keeps: list[list[float]], ducks: list[list[float]], out_raw: Path) -> float:
-    """Junta os trechos mantidos com cruzamento equal-power (sem estalos) e preserva a sincronia exata."""
+def build_audio(raw_src: Path, keeps: list[list[float]], ducks: list[list[float]], out_raw: Path,
+                smooth: str = "suave") -> float:
+    """Junta os trechos mantidos com cruzamento equal-power (sem estalos) e preserva a sincronia exata.
+    smooth: "seca" | "suave" | "bem_suave" — quanto maior, mais longo o cruzamento em cada emenda."""
+    near, far = SUAVIDADE.get(smooth, SUAVIDADE["suave"])
     src = np.memmap(raw_src, dtype=np.int16, mode="r")
     n_total = len(src) // CH
     src = src[: n_total * CH].reshape(n_total, CH)
@@ -67,7 +72,7 @@ def build_audio(raw_src: Path, keeps: list[list[float]], ducks: list[list[float]
     hs = [0]
     for k in range(1, len(spans)):
         gap = (spans[k][0] - spans[k - 1][1]) / ASR
-        half = XFADE_FAR if (gap < -0.01 or gap > 2.5) else XFADE
+        half = far if (gap < -0.01 or gap > 2.5) else near
         lim = min(spans[k - 1][1] - spans[k - 1][0], spans[k][1] - spans[k][0]) // 3
         hs.append(max(16, min(int(half * ASR), lim)))
     hs.append(0)
@@ -195,10 +200,13 @@ def _piecewise(values: list[float], keeps: list[list[float]], fmt=str) -> str:
         if not bounds or bounds[-1][1] != v:
             bounds.append((acc, v))
         acc += e - s
-    expr = fmt(bounds[-1][1])
-    for k in range(len(bounds) - 2, -1, -1):
-        expr = f"if(lt(t,{bounds[k + 1][0]:.4f}),{fmt(bounds[k][1])},{expr})"
-    return expr
+    # busca binária em vez de uma fila de "if" (o FFmpeg recusa mais de ~100 níveis)
+    def arvore(a: int, b: int) -> str:
+        if a == b:
+            return fmt(bounds[a][1])
+        m = (a + b + 1) // 2
+        return f"if(lt(t,{bounds[m][0]:.4f}),{arvore(a, m - 1)},{arvore(m, b)})"
+    return arvore(0, len(bounds) - 1)
 
 
 def _layout_chain(job: dict, keeps: list[list[float]], w: int, h: int) -> tuple[list[str], int, int, bool]:
@@ -343,7 +351,7 @@ def render(job: dict, progress: Optional[Callable[[float, str], None]] = None) -
     raw_src = folder / "audio48k.raw"
     ensure_render_audio(job["src"], raw_src)
     out_raw = folder / f"tmp_{tag}.raw"
-    total = build_audio(raw_src, keeps, job.get("ducks") or [], out_raw)
+    total = build_audio(raw_src, keeps, job.get("ducks") or [], out_raw, job.get("smooth", "suave"))
     if job.get("audio_clean") or job.get("music_path"):
         p(0.06, "Limpando a voz e mixando a música…" if job.get("music_path") else "Limpando a voz…")
         mixed = post_audio(out_raw, total, job, folder / f"tmp_{tag}.mix.raw")
@@ -378,7 +386,8 @@ def render(job: dict, progress: Optional[Callable[[float, str], None]] = None) -
         # busca meio quadro antes, para o primeiro quadro decodificado ser exatamente o quadro k0
         seek = max(0.0, offset - 0.5 / fps) if k0 > 0 else 0.0
         args += (["-ss", f"{seek:.5f}"] if seek > 0 else []) + ["-t", f"{g_e - offset + 1.0:.3f}", "-i", job["src"]]
-        terms = "+".join(f"gte(t,{keeps[i][0] - offset - eps:.4f})*lt(t,{keeps[i][1] - offset - eps:.4f})" for i in g)
+        terms = ff.soma_expr([f"gte(t,{keeps[i][0] - offset - eps:.4f})*lt(t,{keeps[i][1] - offset - eps:.4f})"
+                              for i in g])
         parts.append(f"[{gi}:v]setpts=PTS-STARTPTS,fps={fps_str},select='{terms}',setpts=N/({fps_str})/TB[c{gi}]")
     a_idx = len(groups)
     args += ["-f", "s16le", "-ar", str(ASR), "-ac", str(CH), "-i", str(out_raw)]
