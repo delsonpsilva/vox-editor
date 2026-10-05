@@ -60,8 +60,8 @@ async function boot() {
 }
 
 function route() {
-  const m = location.hash.match(/^#\/p\/([0-9a-f]+)(\/cortes)?/);
-  if (m) { S.mode = m[2] ? "studio" : "edit"; openProject(m[1]); return; }
+  const m = location.hash.match(/^#\/p\/([0-9a-f]+)(\/cortes|\/montagem)?/);
+  if (m) { S.mode = m[2] === "/cortes" ? "studio" : m[2] === "/montagem" ? "montage" : "edit"; openProject(m[1]); return; }
   const pg = (location.hash.match(/^#\/(projetos|exportados|marca|publicacoes|modelos|redes|ia)/) || [])[1] || "inicio";
   goHome(pg);
 }
@@ -140,8 +140,9 @@ function renderProjectCards(box, list, compact = false) {
       </button>
       <button class="menu-btn" data-menu aria-label="Ações do projeto"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>
       <div class="menu hidden">
-        <a data-act="edit">Abrir edição</a>
-        <a data-act="studio">Abrir cortes e resumos</a>
+        ${p.kind === "montagem" ? "" : `<a data-act="edit">Abrir edição</a>
+        <a data-act="studio">Abrir cortes e resumos</a>`}
+        <a data-act="montage">Abrir montagem (edição manual)</a>
         <a data-act="exports">Ver vídeos exportados (${p.renders})</a>
         <a data-act="rename">Renomear</a>
         ${p.status === "pronto" ? `<a data-act="pacote">Baixar projeto completo (.vox)</a>` : ""}
@@ -158,7 +159,7 @@ function renderProjectCards(box, list, compact = false) {
   }).join("");
   $$(".pc", box).forEach((card) => {
     const p = list.find((x) => x.id === card.dataset.id);
-    $("[data-open]", card).addEventListener("click", () => (location.hash = "#/p/" + p.id + (p.clips ? "/cortes" : "")));
+    $("[data-open]", card).addEventListener("click", () => (location.hash = "#/p/" + p.id + (p.kind === "montagem" ? "/montagem" : p.clips ? "/cortes" : "")));
     const menu = $(".menu", card);
     $("[data-menu]", card).addEventListener("click", (e) => { e.stopPropagation(); $$(".pc .menu").forEach((m) => m !== menu && m.classList.add("hidden")); menu.classList.toggle("hidden"); });
     $$("[data-act]", card).forEach((a) => a.addEventListener("click", () => projectAction(a.dataset.act, p)));
@@ -169,6 +170,7 @@ async function projectAction(act, p) {
   $$(".pc .menu").forEach((m) => m.classList.add("hidden"));
   if (act === "edit") location.hash = "#/p/" + p.id;
   if (act === "studio") location.hash = "#/p/" + p.id + "/cortes";
+  if (act === "montage") location.hash = "#/p/" + p.id + "/montagem";
   if (act === "exports") { S.libProject = p.id; location.hash = "#/exportados"; }
   if (act === "pacote") baixarPacote(p);
   if (act === "online") enviarOnline(p);
@@ -543,6 +545,13 @@ function applyAppIdentity() {
 }
 
 function setupHome() {
+  $$("[data-blank]").forEach((b) => b.addEventListener("click", async () => {
+    const formato = b.dataset.blank;
+    const name = await ask("Nome do projeto", "Projeto em branco para montar com vídeos, fotos, textos e música.", "Montagem " + new Date().toLocaleDateString("pt-BR"), "Criar");
+    if (name === null || name === false) return;
+    try { const r = await api("POST", "/api/montagem/novo", { name: String(name).trim() || "Montagem", formato }); location.hash = "#/p/" + r.id + "/montagem"; }
+    catch (e) { toast(e.message, true); }
+  }));
   $("#proj-search").addEventListener("input", renderProjectsPage);
   $("#proj-sort").addEventListener("change", renderProjectsPage);
   $("#lib-project").addEventListener("change", (e) => { e.target.dataset.v = e.target.value; renderLibrary(); });
@@ -719,15 +728,20 @@ async function openProject(id) {
 }
 
 function setMode(mode) {
+  if (S.P && S.P.kind === "montagem") mode = "montage";
   S.mode = mode;
-  const base = "#/p/" + S.P.id + (mode === "studio" ? "/cortes" : "");
+  const base = "#/p/" + S.P.id + (mode === "studio" ? "/cortes" : mode === "montage" ? "/montagem" : "");
   if (location.hash !== base) history.replaceState(null, "", base);
   $$(".seg-btn[data-mode]").forEach((b) => b.classList.toggle("active", b.dataset.mode === mode));
   $$(".edit-only").forEach((el) => el.classList.toggle("hidden", mode !== "edit"));
+  $("#view-editor").classList.toggle("mode-montage", mode === "montage");
   if (S.P && S.P.status === "pronto") {
     $("#editor-body").classList.toggle("hidden", mode !== "edit");
     $("#studio-body").classList.toggle("hidden", mode !== "studio");
+    $("#montage-body").classList.toggle("hidden", mode !== "montage");
   }
+  if (mode !== "montage" && typeof Montagem !== "undefined") Montagem.close();
+  if (mode === "montage") { const v = $("#video"); if (v) v.pause(); $("#svideo").pause(); if (S.P.status === "pronto") Montagem.open(S.P); return; }
   if (mode === "edit") { $("#svideo").pause(); drawTimeline(); } else { $("#video").pause(); renderStudio(); }
 }
 
@@ -736,6 +750,13 @@ function applyProject() {
   if (P.name && document.activeElement !== $("#ed-name") && $("#ed-name").textContent !== P.name) $("#ed-name").textContent = P.name;
   const ready = P.status === "pronto";
   $("#processing").classList.toggle("hidden", ready);
+  $("#view-editor").classList.toggle("blank-proj", P.kind === "montagem");
+  if (ready && P.kind === "montagem") {  // projeto só de montagem: sem análise, sem transcrição
+    $("#ed-dur").textContent = "Montagem";
+    setMode("montage");
+    if (busy()) startPoll(); else stopPoll();
+    return;
+  }
   if (!ready) {
     $("#editor-body").classList.add("hidden"); $("#studio-body").classList.add("hidden");
     const err = P.status === "erro";
@@ -2029,6 +2050,7 @@ function setupEditor() {
   $$("[data-render]").forEach((a) => a.addEventListener("click", () => startRender(`/api/projects/${S.P.id}/render`, JSON.parse(a.dataset.render))));
   document.addEventListener("keydown", (e) => {
     if ($("#view-editor").classList.contains("hidden") || S.editing || document.querySelector("dialog[open]")) return;
+    if (S.mode === "montage") return;  // a montagem tem os próprios atalhos (montagem.js)
     if (e.target.closest && e.target.closest("#s-clipedit")) return;
     const tag = (e.target.tagName || "").toLowerCase();
     if (["input", "select", "textarea"].includes(tag) || e.target.isContentEditable) return;

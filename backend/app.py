@@ -17,11 +17,11 @@ from fastapi import Body, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from .core import importer, jobs, online, pacote, pipeline, publish, store
+from .core import importer, jobs, montagem, online, pacote, pipeline, publish, store
 from .engine import edits, frames, platforms, reframe, socials, subtitles, transcribe
 from .engine import ffmpeg_tools as ff
 
-VERSION = "0.9.1"
+VERSION = "1.0.0"
 FRONT = store.ROOT / "frontend"
 PASSWORD = os.environ.get("APP_PASSWORD", "")
 SECRET = os.environ.get("APP_SECRET") or secrets.token_hex(16)
@@ -581,7 +581,7 @@ def trazer_online(rid: str):
 @app.get("/api/projects/{pid}")
 def project(pid: str):
     proj = _404(lambda: store.load(pid))
-    if proj.get("status") == "pronto" and (proj.get("analysis") or {}).get("v", 0) < 3:
+    if proj.get("status") == "pronto" and proj.get("kind") != "montagem" and (proj.get("analysis") or {}).get("v", 0) < 3:
         proj = pipeline.reanalyze(pid)  # projetos de versões anteriores ganham as emendas inteligentes
     return view(proj)
 
@@ -1174,6 +1174,106 @@ def export(pid: str, fmt: str):
 @app.get("/api/jobs/{pid}")
 def project_jobs(pid: str):
     return jobs.for_project(pid)
+
+
+# ---------- montagem (editor manual multicamadas) ----------
+
+def _previas_pendentes(pid: str, m: dict) -> None:
+    """Vídeos que o navegador não toca (iPhone/HEVC, .mkv, 4K) ganham uma cópia leve em segundo plano."""
+    andando = {j.get("ref") for j in jobs.for_project(pid) if j["kind"] == "previa" and j["status"] != "erro"}
+    for x in m.get("media") or []:
+        if x.get("needs_proxy") and x["id"] not in andando:
+            mid = x["id"]
+            j = jobs.submit("previa", pid, lambda pr, mid=mid: montagem.gerar_previa(pid, mid, pr), queue="download",
+                            label="Prévia da mídia")
+            j["ref"] = mid
+
+
+@app.post("/api/montagem/novo")
+def montagem_novo(data: dict = Body(default={})):
+    proj = montagem.projeto_em_branco(str(data.get("name") or "")[:120], data.get("formato") or "9:16")
+    return {"id": proj["id"]}
+
+
+@app.get("/api/projects/{pid}/montagem")
+def montagem_get(pid: str):
+    m = _404(lambda: montagem.carregar(pid))
+    _previas_pendentes(pid, m)
+    return m
+
+
+@app.put("/api/projects/{pid}/montagem")
+def montagem_put(pid: str, data: dict = Body(...)):
+    return _404(lambda: montagem.salvar(pid, data))
+
+
+@app.post("/api/projects/{pid}/montagem/recomecar")
+def montagem_recomecar(pid: str, data: dict = Body(default={})):
+    return _404(lambda: montagem.recomecar(pid, data.get("formato")))
+
+
+@app.post("/api/projects/{pid}/midias")
+async def montagem_upload(pid: str, request: Request):
+    _404(lambda: store.load(pid))
+    from urllib.parse import unquote
+    nome = unquote(request.headers.get("x-filename", "arquivo"))
+    nome = re.sub(r"[\\/:*?\"<>|]+", "_", nome).strip() or "arquivo"
+    if not montagem.tipo_por_extensao(nome):
+        raise HTTPException(400, "Tipo de arquivo não aceito. Envie vídeo, imagem (JPG, PNG, WEBP) ou áudio.")
+    pasta = montagem.pasta_midias(pid)
+    dest = pasta / f"{secrets.token_hex(4)}_{nome}"
+    size, limit = 0, MAX_UPLOAD_GB * 1024 ** 3
+    try:
+        with open(dest, "wb") as fh:
+            async for chunk in request.stream():
+                size += len(chunk)
+                if size > limit:
+                    raise HTTPException(413, f"Arquivo maior que {MAX_UPLOAD_GB:g} GB")
+                fh.write(chunk)
+        if size == 0:
+            raise HTTPException(400, "Arquivo vazio")
+        item = montagem.adicionar_midia(pid, dest, nome)
+    except HTTPException:
+        dest.unlink(missing_ok=True)
+        raise
+    except Exception as e:
+        dest.unlink(missing_ok=True)
+        raise HTTPException(400, f"Não consegui usar esse arquivo: {str(e)[:200]}")
+    _previas_pendentes(pid, montagem.carregar(pid))
+    return item
+
+
+@app.get("/api/projects/{pid}/midias/{mid}")
+def montagem_midia(pid: str, mid: str, original: int = 0):
+    return FileResponse(_404(lambda: montagem.caminho_midia(pid, mid, previa=not original)))
+
+
+@app.get("/api/projects/{pid}/midias/{mid}/thumb")
+def montagem_thumb(pid: str, mid: str, t: float = 0.0):
+    try:
+        f = montagem.miniatura(pid, mid, t)
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e))
+    except Exception:
+        raise HTTPException(404, "Sem imagem")
+    return FileResponse(f, media_type="image/jpeg", headers={"Cache-Control": "max-age=86400"})
+
+
+@app.delete("/api/projects/{pid}/midias/{mid}")
+def montagem_midia_del(pid: str, mid: str):
+    try:
+        return _404(lambda: montagem.remover_midia(pid, mid))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@app.post("/api/projects/{pid}/montagem/exportar")
+def montagem_exportar(pid: str, data: dict = Body(default={})):
+    _404(lambda: store.load(pid))
+    if data.get("montagem"):
+        _404(lambda: montagem.salvar(pid, data["montagem"]))
+    jobs.submit("montagem", pid, lambda pr: montagem.exportar(pid, data, pr), queue="render", label="Montagem")
+    return view(store.load(pid))
 
 
 app.mount("/fontes", StaticFiles(directory=str(store.FONTS)), name="fontes")

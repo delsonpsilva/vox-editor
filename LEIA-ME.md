@@ -1,4 +1,42 @@
-# Editor IA — edição de vídeo com cortes inteligentes (versão 0.9)
+# VOX Editor — edição de vídeo com cortes inteligentes e montagem manual (versão 1.0)
+
+## Novidades da versão 1.0 — Montagem: o editor manual com camadas
+
+### Onde fica
+- **Em qualquer projeto já analisado:** no topo do editor, aba **Montagem** (ao lado de Edição e Cortes & Resumos).
+  Na primeira vez, o vídeo entra na trilha principal **já com a edição automática aplicada** (cada trecho mantido vira
+  um pedaço). Em Ajustes (sem nada selecionado) há o botão **Recomeçar da edição automática**.
+- **Projeto em branco:** na tela inicial, em **Montar do zero**, escolha Vertical 9:16, Horizontal 16:9 ou Quadrado 1:1.
+  Não passa por análise: é só montar.
+
+### O que dá para fazer
+- **Camadas sem limite:** trilhas de vídeo/imagem, texto e áudio. A de cima aparece por cima. Cada trilha pode ser
+  escondida, silenciada ou travada. Botão **+ Trilha** cria mais; clique direito no nome de uma trilha vazia remove.
+- **Biblioteca:** envie vídeos, fotos (JPG, PNG, WEBP) e músicas (MP3, M4A, WAV…). Toque numa mídia para colocar no
+  cursor ou arraste para a trilha que quiser. Também dá para soltar arquivos direto em cima da Montagem.
+  Vídeos que o navegador não toca (iPhone/HEVC, .mkv, 4K) ganham uma cópia leve só para a prévia; a exportação usa o
+  original.
+- **Textos prontos:** Título, Legenda, Nome na tela, Versículo, Chamada e Texto simples, com 5 fontes, cor, contorno,
+  fundo atrás do texto e maiúsculas.
+- **Fundos:** cores sólidas (16 prontas ou qualquer cor), usadas como fundo ou como faixa (ajuste largura e altura).
+- **Ferramentas:** dividir no cursor (**S**), duplicar (**Ctrl+D**), apagar (**Delete**), desfazer/refazer sem limite
+  (**Ctrl+Z / Ctrl+Y**), aparar puxando as pontas, arrastar para outra trilha, zoom (**Ctrl + roda do mouse**).
+- **Ímã:** encaixa nos cortes e no cursor, e mantém a **trilha principal sem buracos** (apagou um pedaço, o resto
+  encosta). Desligue o ímã para posição livre.
+- **Ajustes de cada pedaço:** posição, tamanho, giro, opacidade, entrada e saída suave, encaixe (inteiro ou preenchendo
+  a tela), volume e velocidade (0,25× a 4×). Na prévia, arraste para mover e puxe a bolinha do canto para aumentar;
+  ao passar pelo centro ele "gruda" no meio.
+- **Prévia na hora**, desenhada no próprio aparelho, e **exportação** em MP4 (com a placa de vídeo, quando houver),
+  com as mesmas contas da prévia. O vídeo exportado aparece em Ajustes → Exportados da montagem e na página Exportados,
+  pronto para **Publicar**.
+- **Celular:** a mesma Montagem, com a prévia em cima, a linha do tempo embaixo e Mídias, Texto, Fundos e Ajustes em
+  gavetas. No celular, o primeiro toque num pedaço seleciona; com ele selecionado, arraste para mover ou aparar.
+- Tudo é salvo sozinho. A montagem vai junto no pacote **.vox** e no **Enviar para o online**.
+
+### Próximas fases (já planejadas)
+Transições, efeitos, keyframes e bancos de vídeos/fotos/músicas livres (Pexels e Pixabay); depois remoção de fundo
+com IA, edição automática 2.0, app Android e transmissão ao vivo com caracteres na tela.
+
 
 ## Novidades da versão 0.9 — celular, PC ↔ online, destaques e áudio de estúdio
 

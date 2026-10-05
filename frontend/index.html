@@ -87,6 +87,14 @@
           <button class="btn primary" id="link-go" type="submit">Importar</button>
         </form>
         <p class="hint link-note">Use em vídeos seus ou que você tem permissão para editar.</p>
+        <div class="blank-start">
+          <div><strong>Montar do zero</strong><span class="hint">Projeto em branco com camadas de vídeo, fotos, textos e música — sem análise automática.</span></div>
+          <div class="row">
+            <button class="btn" data-blank="9:16">Vertical 9:16</button>
+            <button class="btn" data-blank="16:9">Horizontal 16:9</button>
+            <button class="btn" data-blank="1:1">Quadrado 1:1</button>
+          </div>
+        </div>
         <p class="summary" id="dash-summary"></p>
         <div class="section-head">
           <h2>Continuar de onde parou</h2>
@@ -364,7 +372,8 @@
     <span id="ed-dur" class="chip mono"></span>
     <div class="seg" role="tablist" aria-label="Modo">
       <button class="seg-btn active" data-mode="edit" role="tab">Edição</button>
-      <button class="seg-btn" data-mode="studio" role="tab">Cortes &amp; Resumos <span class="dot-new"></span></button>
+      <button class="seg-btn" data-mode="studio" role="tab">Cortes &amp; Resumos</button>
+      <button class="seg-btn" data-mode="montage" role="tab">Montagem <span class="tag-new">novo</span></button>
     </div>
     <div class="grow"></div>
     <button class="btn ghost" data-open-settings>Configurações</button>
@@ -458,6 +467,9 @@
   </div>
 
   <!-- ===== ESTÚDIO DE CORTES ===== -->
+  <!-- ===== MONTAGEM (editor manual multicamadas) ===== -->
+  <div id="montage-body" class="mont hidden"></div>
+
   <div id="studio-body" class="studio hidden">
     <aside class="panel s-left">
       <section class="s-sec">
@@ -841,5 +853,6 @@
 
 <div id="toast" class="toast hidden"></div>
 <script src="app.js"></script>
+<script src="montagem.js"></script>
 </body>
 </html>

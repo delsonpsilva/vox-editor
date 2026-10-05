@@ -1,0 +1,22 @@
+VOX Editor 1.0 — Montagem (editor manual com camadas)
+=====================================================
+
+NO PC (Windows)
+1. Feche o VOX Editor, se estiver aberto.
+2. Extraia este .zip DENTRO da pasta do VOX Editor (a mesma onde ficam INICIAR.bat e PUBLICAR.bat).
+   Quando o Windows perguntar, escolha "Substituir os arquivos no destino".
+3. Abra o programa pelo atalho de sempre. Não precisa rodar o ATUALIZAR.bat: nada novo para instalar.
+4. Teste:
+   - Tela inicial -> "Montar do zero" -> Vertical 9:16 (projeto em branco), ou
+   - Abra um projeto já analisado -> aba "Montagem" no topo.
+
+NA VERSÃO ONLINE (editor.voxapps.app) — depois de testar no PC
+5. No PC: dois cliques no PUBLICAR.bat.
+6. Na VPS: sudo vox-atualizar
+
+Arquivos que mudam:
+  backend/app.py, backend/core/store.py, frontend/app.js, frontend/index.html, frontend/style.css, LEIA-ME.md
+Arquivos novos:
+  backend/core/montagem.py, frontend/montagem.js, tests/teste_v10_montagem.py
+
+Seus projetos, vídeos e configurações (pasta "dados") não são tocados.
