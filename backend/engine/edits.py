@@ -21,6 +21,51 @@ DEFAULT_SETTINGS = {
                "enhance": "auto", "frame": "cheia", "emphasis_zoom": True},
 }
 
+# Perfis da edição automática 2.0: um clique ajusta silêncios, ritmo, respirações e vícios para o tipo de vídeo.
+PERFIS = {
+    "pregacao": {"nome": "Pregação e culto", "desc": "Natural, respeita as pausas de ênfase e o ritmo de quem prega.",
+                 "settings": {"silence": {"enabled": True, "auto": True, "min_dur": 0.6, "rhythm": "natural"},
+                              "breath": {"enabled": True, "mode": "attenuate", "reduce_db": 14.0},
+                              "fillers": {"enabled": True, "repetitions": True, "speech_errors": True}}},
+    "reels": {"nome": "Reels dinâmico", "desc": "Ritmo rápido, sem respiro entre as frases. Ideal para vídeo curto.",
+              "settings": {"silence": {"enabled": True, "auto": True, "min_dur": 0.3, "rhythm": "rapido"},
+                           "breath": {"enabled": True, "mode": "cut", "reduce_db": 18.0},
+                           "fillers": {"enabled": True, "repetitions": True, "speech_errors": True}}},
+    "aula": {"nome": "Aula e estudo", "desc": "Enxuto, mas com tempo para a ideia assentar.",
+             "settings": {"silence": {"enabled": True, "auto": True, "min_dur": 0.45, "rhythm": "dinamico"},
+                          "breath": {"enabled": True, "mode": "attenuate", "reduce_db": 18.0},
+                          "fillers": {"enabled": True, "repetitions": True, "speech_errors": True}}},
+    "podcast": {"nome": "Podcast e entrevista", "desc": "Preserva a conversa: só tira as pausas longas e os vícios.",
+                "settings": {"silence": {"enabled": True, "auto": True, "min_dur": 0.9, "rhythm": "natural"},
+                             "breath": {"enabled": True, "mode": "attenuate", "reduce_db": 10.0},
+                             "fillers": {"enabled": True, "repetitions": True, "speech_errors": False}}},
+    "leve": {"nome": "Só o essencial", "desc": "Mexe o mínimo: corta só os silêncios bem longos.",
+             "settings": {"silence": {"enabled": True, "auto": True, "min_dur": 1.5, "rhythm": "natural"},
+                          "breath": {"enabled": False, "mode": "attenuate", "reduce_db": 18.0},
+                          "fillers": {"enabled": False, "repetitions": False, "speech_errors": False}}},
+}
+
+
+def aplicar_perfil(settings: dict | None, perfil: str) -> dict:
+    """Settings do projeto com o perfil aplicado (mantém o que o perfil não mexe: legenda, áudio, estúdio...)."""
+    if perfil not in PERFIS:
+        raise KeyError(perfil)
+    out = {k: dict(v) for k, v in (settings or {}).items() if isinstance(v, dict)}
+    for sec, vals in PERFIS[perfil]["settings"].items():
+        out[sec] = {**out.get(sec, {}), **vals}
+    out["perfil"] = {"id": perfil}
+    return out
+
+
+def perfil_atual(settings: dict | None) -> str:
+    """Qual perfil bate com os ajustes de agora ("" = ajustes personalizados)."""
+    st = merged_settings(settings)
+    for pid, p in PERFIS.items():
+        if all(st.get(sec, {}).get(k) == v for sec, vals in p["settings"].items() for k, v in vals.items()):
+            return pid
+    return ""
+
+
 # Fornecedor das "emendas inteligentes" (definido pelo pipeline: carrega a análise de áudio do projeto)
 SEAMS_PROVIDER = None
 

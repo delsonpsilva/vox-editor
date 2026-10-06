@@ -18,10 +18,10 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Resp
 from fastapi.staticfiles import StaticFiles
 
 from .core import bancos, destinos, importer, jobs, legal, montagem, online, pacote, pipeline, publish, store, trilhas
-from .engine import edits, frames, platforms, reframe, socials, subtitles, transcribe
+from .engine import capitulos, edits, frames, platforms, reframe, socials, subtitles, transcribe
 from .engine import ffmpeg_tools as ff
 
-VERSION = "1.4.0"
+VERSION = "1.5.0"
 FRONT = store.ROOT / "frontend"
 PASSWORD = os.environ.get("APP_PASSWORD", "")
 SECRET = os.environ.get("APP_SECRET") or secrets.token_hex(16)
@@ -716,6 +716,93 @@ def delete_manual(pid: str, cid: str):
         ov = p.setdefault("overrides", {})
         ov["manual"] = [m for m in ov.get("manual", []) if m["id"] != cid]
     return view(_404(lambda: store.update(pid, fn)))
+
+
+# ---------- edição automática 2.0: perfis e capítulos ----------
+
+@app.get("/api/projects/{pid}/perfis")
+def perfis_do_projeto(pid: str):
+    """Os perfis da edição automática com a prévia do resultado de cada um neste vídeo (duração final e cortes)."""
+    proj = _404(lambda: store.load(pid))
+    out = []
+    pronto = proj.get("status") == "pronto" and proj.get("words") is not None
+    for k, pf in edits.PERFIS.items():
+        item = {"id": k, "nome": pf["nome"], "desc": pf["desc"]}
+        if pronto:
+            try:
+                st = edits.build_edit({**proj, "settings": edits.aplicar_perfil(proj.get("settings"), k)})["stats"]
+                item.update(final=st["final"], removido=st["removed_s"], cortes=sum(st["counts"].values()))
+            except Exception:
+                pass
+        out.append(item)
+    return {"atual": edits.perfil_atual(proj.get("settings")), "original": (proj.get("media") or {}).get("duration", 0),
+            "perfis": out}
+
+
+@app.post("/api/projects/{pid}/perfil")
+def aplicar_perfil(pid: str, data: dict = Body(...)):
+    perfil = str(data.get("perfil") or "")
+    if perfil not in edits.PERFIS:
+        raise HTTPException(400, "Perfil desconhecido")
+    proj = _404(lambda: store.update(pid, lambda p: p.update(settings=edits.aplicar_perfil(p.get("settings"), perfil))))
+    if data.get("padrao"):  # projetos novos já nascem com este perfil
+        cfg = store.load_config()
+        d = cfg.get("defaults") or {}
+        for sec, vals in edits.PERFIS[perfil]["settings"].items():
+            d[sec] = {**(d.get(sec) or {}), **vals}
+        store.save_config({"defaults": d})
+    return view(proj)
+
+
+def _capitulos_view(proj: dict) -> dict:
+    cap = proj.get("capitulos") or {}
+    itens = cap.get("itens") or []
+    keeps = []
+    if itens and proj.get("status") == "pronto":
+        try:
+            keeps = edits.build_edit(proj)["keeps"]
+        except Exception:
+            keeps = []
+    ed = capitulos.no_editado(itens, keeps)
+    return {"itens": ed, "texto": capitulos.texto(ed), "fonte": cap.get("fonte", ""), "aviso": cap.get("aviso", ""),
+            "criado": cap.get("criado"), "valido_youtube": len(ed) >= 3}
+
+
+@app.get("/api/projects/{pid}/capitulos")
+def ver_capitulos(pid: str):
+    return _capitulos_view(_404(lambda: store.load(pid)))
+
+
+@app.post("/api/projects/{pid}/capitulos")
+def gerar_capitulos(pid: str, data: dict = Body(default={})):
+    proj = _404(lambda: store.load(pid))
+    ai = store.load_config().get("ai") if data.get("ia", True) else None
+    try:
+        res = capitulos.gerar(proj, ai)
+    except RuntimeError as e:
+        raise HTTPException(400, str(e))
+    res["criado"] = time.time()
+    proj = store.update(pid, lambda p: p.update(capitulos=res))
+    return _capitulos_view(proj)
+
+
+@app.put("/api/projects/{pid}/capitulos")
+def salvar_capitulos(pid: str, data: dict = Body(...)):
+    itens = []
+    for it in data.get("itens") or []:
+        try:
+            t = float(it["t"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        titulo = str(it.get("titulo") or "").strip()[:80]
+        if titulo:
+            itens.append({"t": round(max(0.0, t), 2), "titulo": titulo})
+
+    def fn(p):
+        cap = p.get("capitulos") or {}
+        cap["itens"] = sorted(itens, key=lambda x: x["t"])
+        p["capitulos"] = cap
+    return _capitulos_view(_404(lambda: store.update(pid, fn)))
 
 
 @app.post("/api/projects/{pid}/reset")

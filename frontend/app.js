@@ -358,6 +358,7 @@ async function openPublish(r) {
       <small>${n.connected ? esc(n.account) : "não conectado"}</small></span></label>`).join("");
   $("#pub-title").value = (r.title || r.label || "").slice(0, 100);
   $("#pub-caption").value = r.post || "";
+  if (window.E2) E2.publicar(r);
   $("#pub-err").textContent = Object.values(alvos).some((n) => n.connected) ? "" : "Nenhuma rede ou destino conectado ainda. Conecte em Redes sociais.";
   $$("input[name=pub-when]").forEach((x) => (x.checked = x.value === "slot"));
   $("#pub-at").classList.add("hidden");
@@ -944,7 +945,7 @@ function setSetting(sec, key, val, delay = 350) {
   return new Promise((res) => {
     pendT = setTimeout(async () => {
       const patch = pending; pending = {};
-      try { S.P = await api("PUT", `/api/projects/${S.P.id}/settings`, patch); applyProject(); }
+      try { S.P = await api("PUT", `/api/projects/${S.P.id}/settings`, patch); applyProject(); if (window.E2) E2.recalcular(); }
       catch (e) { toast(e.message, true); }
       res();
     }, delay);
@@ -963,6 +964,7 @@ function buildTools() {
     <input type="range" min="${min}" max="${max}" step="${step}" value="${val}" data-range="${sec}.${key}" data-unit="${unit}"></label>`;
   box.innerHTML = `
     <div class="panel-title">Edição com IA</div>
+    <div class="tool perfil-tool" id="perfil-box"></div>
 
     <div class="tool ${st.silence.enabled ? "" : "disabled"}">
       <div class="tool-head"><span class="dot" style="background:var(--sil)"></span><strong>Cortar silêncios</strong>${sw("silence", "enabled", st.silence.enabled)}</div>
@@ -1011,6 +1013,8 @@ function buildTools() {
         <span class="hint" data-ai-count>${(S.P.ai_cuts || []).length ? `${S.P.ai_cuts.length} trecho(s) marcado(s) pela IA — em verde-água na transcrição` : ""}</span>
       </div>
     </div>
+
+    <div class="tool cap-tool" id="cap-box"></div>
 
     <div class="tool ${st.subtitles.enabled ? "" : "disabled"}">
       <div class="tool-head"><span class="dot" style="background:#FACC15"></span><strong>Legendas</strong>${sw("subtitles", "enabled", st.subtitles.enabled)}</div>
@@ -1063,6 +1067,7 @@ function buildTools() {
     try { S.P = await api("POST", `/api/projects/${S.P.id}/cleanup-ai`); toast("A IA está lendo a fala…"); startPoll(); } catch (e) { toast(e.message, true); }
   });
   refreshStyleThumbs();
+  if (window.E2) E2.montar();
 }
 
 /* ---------- mídia / reprodução ---------- */

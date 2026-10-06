@@ -1,4 +1,15 @@
-# VOX Editor — edição de vídeo com cortes inteligentes e montagem manual (versão 1.4)
+# VOX Editor — edição de vídeo com cortes inteligentes e montagem manual (versão 1.5)
+
+## Novidades da versão 1.5 — edição automática 2.0
+
+- **Perfil da edição** (aba Edição): Pregação e culto, Reels dinâmico, Aula e estudo, Podcast e entrevista e Só o
+  essencial. Um clique ajusta silêncios, ritmo, respirações e vícios; cada perfil mostra antes a duração final do seu
+  vídeo. Pode virar padrão dos projetos novos.
+- **Capítulos do YouTube**: divisão automática por assunto, com títulos tirados da fala (ou pela IA, se ligada).
+  Tempos do vídeo editado, editáveis, nas regras do YouTube, com "Copiar para a descrição" e inserção direta ao
+  publicar o vídeo editado.
+- **Menu lateral** rola quando a janela é baixa.
+
 
 ## Novidades da versão 1.4 — cara nova
 

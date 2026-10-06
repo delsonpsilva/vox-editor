@@ -1,36 +1,34 @@
-VOX Editor 1.4.0 — Cara nova: barra do topo, busca rápida, botão Novo, atividade e tela inicial redesenhada
-==========================================================================================================
-(Este pacote já inclui tudo das versões anteriores, inclusive a 1.3.0. Pode extrair por cima.)
+VOX Editor 1.5.0 — Edição automática 2.0: perfis de um clique e capítulos do YouTube
+====================================================================================
+(Este pacote já inclui tudo das versões anteriores. Pode extrair por cima.)
 
 NO PC (Windows)
 1. Feche o VOX Editor, se estiver aberto.
 2. Extraia este .zip DENTRO da pasta C:\editor-ia (onde ficam INICIAR.bat e PUBLICAR.bat).
    Quando o Windows perguntar, escolha "Substituir os arquivos no destino".
    (Não precisa rodar o ATUALIZAR.bat: não há componente novo.)
-3. Abra o programa. No canto de baixo, à esquerda, deve aparecer "versão 1.4.0".
+3. Abra o programa. No canto de baixo, à esquerda, deve aparecer "versão 1.5.0".
    Se a tela não mudar: feche o programa e dê dois cliques no LIMPAR-CACHE-DA-TELA.bat.
 4. Dois cliques no PUBLICAR.bat.
 
 NA VPS
 5. sudo vox-atualizar
-   (Se ainda não fez: Configurações -> Páginas públicas, preencha e salve. Veja a parte da 1.3.0 no LEIA-ME.)
 
 O QUE MUDOU
-- Barra no topo, em todas as telas do menu:
-  - Busca rápida (Ctrl+K): ache qualquer projeto pelo nome, abra qualquer tela ou faça uma ação
-    (enviar vídeo, montar do zero, configurações, liberar espaço...) só digitando. Setas + Enter.
-  - Botão Novo: enviar vídeo, importar por link, montagem 9:16 / 16:9 / 1:1, abrir .vox e trazer do online.
-  - Atividade: mostra na hora o que está andando (análise, exportação, download, remover fundo, publicação),
-    o que terminou há pouco e as próximas postagens. Um número azul aparece quando há trabalho rodando.
-- Menu lateral organizado em grupos (Criar, Publicar, Estilo, Sistema) e que recolhe só nos ícones
-  (botão no rodapé do menu ou Ctrl+B). O programa lembra a sua escolha.
-- Tela inicial nova:
-  - Saudação e um console com três abas: Enviar vídeo (linha do tempo com trilha de vídeo e de áudio),
-    Importar por link e Montar do zero (escolha o formato pelo desenho da tela).
-    Colar um link em qualquer lugar da tela inicial já abre a aba do link.
-  - Painel de números: vídeo enviado, silêncio cortado pela IA, cortes, exportados e postagens na fila.
-  - "Em andamento" com barra de progresso de cada trabalho.
-  - Ao lado dos projetos: Próximas publicações e Atalhos (Modelos, Marca, Redes sociais, IA).
-- No celular: barra do topo compacta com busca e botão +; o menu de baixo continua igual.
+- Menu lateral: agora rola sozinho quando a janela é baixa (nada fica escondido embaixo) e fica mais
+  compacto em telas de notebook.
+- Edição automática 2.0 — "Perfil da edição" (no topo da aba Edição):
+  Pregação e culto · Reels dinâmico · Aula e estudo · Podcast e entrevista · Só o essencial.
+  Um clique ajusta silêncios, ritmo das pausas, respirações e vícios. Cada perfil já mostra como o SEU vídeo
+  vai ficar (duração final e quanto sai) antes de escolher. Dá para afinar nos ajustes de baixo, e marcar
+  "Usar o perfil escolhido nos próximos projetos".
+- Capítulos do YouTube (na aba Edição, abaixo da limpeza com IA):
+  - "Gerar capítulos": o programa divide o vídeo por assunto e dá nome a cada parte. Sem IA o título sai da
+    própria fala; com o Claude ligado, a IA dá nomes melhores (custa centavos).
+  - Os tempos já são do vídeo EDITADO e se ajustam sozinhos quando você muda a edição.
+  - Toque no tempo para ouvir o trecho; toque no título para mudar; ✕ tira um capítulo.
+  - Segue as regras do YouTube: primeiro em 00:00, pelo menos 3, e no mínimo 10 s entre eles.
+  - "Copiar para a descrição" copia o bloco pronto. Ao publicar o "Vídeo editado", o diálogo de publicação
+    mostra o botão "Inserir os capítulos na descrição".
 
 Seus projetos, vídeos e configurações (pasta "dados") não são tocados.

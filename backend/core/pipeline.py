@@ -471,7 +471,7 @@ def render_full(pid: str, opts: dict, progress) -> dict:
     return _render_keeps(pid, progress, keeps, name="editado", platform=platform,
                          layout=opts.get("layout", "face"), with_subs=bool(opts.get("subtitles", True)),
                          zoom_cuts=bool(opts.get("zoom_cuts", False)),
-                         label="Vídeo editado" + (" 9:16" if platform else ""))
+                         label="Vídeo editado" + (" 9:16" if platform else ""), meta={"completo": True})
 
 
 def _slug(text: str) -> str:

@@ -808,6 +808,7 @@
     <fieldset><legend>Onde publicar</legend><div id="pub-nets" class="pub-nets"></div></fieldset>
     <label>Título (YouTube)<input type="text" id="pub-title" maxlength="100"></label>
     <label>Legenda da publicação<textarea id="pub-caption" rows="5" maxlength="2200"></textarea></label>
+    <div class="pub-caps hidden" id="pub-caps"><button type="button" class="btn small" id="pub-caps-add">Inserir os capítulos na descrição</button><span class="hint" id="pub-caps-info"></span></div>
     <fieldset><legend>Quando</legend>
       <label class="checkline"><input type="radio" name="pub-when" value="slot" checked> No próximo horário livre da agenda</label>
       <label class="checkline"><input type="radio" name="pub-when" value="now"> Agora</label>
@@ -1008,5 +1009,6 @@
 <script src="app.js"></script>
 <script src="montagem.js"></script>
 <script src="inicio.js"></script>
+<script src="edicao.js"></script>
 </body>
 </html>

@@ -1148,3 +1148,44 @@ kbd{font-family:var(--font);font-size:11px;color:var(--muted);background:var(--p
 #pg-inicio{max-width:1320px}
 .lp-title{color:var(--text)}
 @media (max-width:760px){.drop-timeline .track:not(.t2){display:none}.drop-timeline .drop-copy{padding-top:18px}}
+
+/* =====================================================================
+   v1.5 — menu lateral que rola, perfis da edição e capítulos
+   ===================================================================== */
+/* o menu lateral rola sozinho quando a janela é baixa (nada fica escondido embaixo) */
+.side{overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--line2) transparent}
+.side::-webkit-scrollbar{width:6px}
+.side::-webkit-scrollbar-thumb{background:var(--line2);border-radius:3px}
+.side-foot{padding-bottom:2px}
+@media (max-height:760px){
+  .side{gap:12px;padding-top:12px}
+  .side-nav a,.side-nav button{height:34px}
+  .side-nav .nav-group{padding:9px 10px 4px}
+  .side-foot{gap:8px}
+}
+.side-mini .side{overflow:visible}
+@media (max-height:640px){.side-mini .side{overflow-y:auto}}
+
+/* perfis da edição */
+.perfil-tool{border-color:color-mix(in srgb,var(--accent) 35%,var(--line))}
+.perfis{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.perfil{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:8px 10px;border-radius:8px;border:1px solid var(--line2);background:var(--panel);
+  color:var(--text);font:inherit;text-align:left;cursor:pointer;min-width:0}
+.perfil:hover{border-color:#454a55}
+.perfil b{font-size:12.5px;font-weight:600}
+.perfil span{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.perfil em{font-style:normal;color:var(--dim)}
+.perfil.on{border-color:var(--accent);background:var(--accent-soft)}
+.perfil.on b{color:var(--accent-2)}
+.perfis .perfil:last-child:nth-child(odd){grid-column:1/-1}
+
+/* capítulos */
+.caps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;max-height:280px;overflow-y:auto}
+.caps li{display:grid;grid-template-columns:auto minmax(0,1fr) 24px;align-items:center;gap:6px}
+.cap-t{font-family:var(--mono);font-size:11.5px;color:var(--accent-2);background:var(--panel);border:1px solid var(--line2);border-radius:6px;padding:4px 6px;cursor:pointer}
+.cap-t:hover{border-color:var(--accent)}
+.caps input{height:30px;font-size:12.5px;padding:0 8px}
+.cap-x{width:24px;height:24px;border:0;background:transparent;color:var(--dim);cursor:pointer;border-radius:6px}
+.cap-x:hover{color:var(--text);background:var(--card2)}
+.cap-aviso{color:#FCD34D !important}
+.pub-caps{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:-4px}
