@@ -6,7 +6,9 @@
   const KIND = { analise: "Análise", render: "Exportação", download: "Download", publicar: "Publicação", "publicar-online": "Envio",
     semfundo: "Remover fundo", previa: "Prévia", banco: "Banco grátis", limpeza: "Limpeza com IA", pacote: "Pacote",
     online: "Envio para o online", trazer: "Trazer do online", montagem: "Exportação da montagem" };
-  const A = { data: { trabalhos: [], analisando: [], proximas: [] }, t: null, open: false };
+  const A = { data: { trabalhos: [], analisando: [], proximas: [] }, t: null, open: false, pop: "#tb-act-pop" };
+  // v1.6: o botão Atividade existe na barra da tela principal e na barra do editor
+  const PARES = [["#tb-act", "#tb-act-pop", "#tb-act-n"], ["#ed-act", "#ed-act-pop", "#ed-act-n"]];
   const semAcento = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
   const guardar = (k, v) => { try { localStorage.setItem(k, v); } catch (_) {} };
   const ler = (k) => { try { return localStorage.getItem(k); } catch (_) { return null; } };
@@ -70,7 +72,7 @@
 
   function fecharMenus() {
     $("#tb-new-menu").classList.add("hidden"); $("#tb-new").setAttribute("aria-expanded", "false");
-    $("#tb-act-pop").classList.add("hidden"); $("#tb-act").setAttribute("aria-expanded", "false"); A.open = false;
+    PARES.forEach(([b, p]) => { if ($(p)) { $(p).classList.add("hidden"); $(b).setAttribute("aria-expanded", "false"); } }); A.open = false;
   }
 
   function setupNovo() {
@@ -97,9 +99,11 @@
     clearTimeout(A.t);
     try { A.data = await api("GET", "/api/atividade"); } catch (_) { A.t = setTimeout(atualizar, 30000); return; }
     const n = ativos().length + A.data.analisando.filter((p) => !A.data.trabalhos.some((j) => j.project === p.id && j.status === "processando")).length;
-    const badge = $("#tb-act-n");
-    badge.textContent = n > 9 ? "9+" : n; badge.classList.toggle("hidden", !n);
-    $("#tb-act").classList.toggle("busy", !!n);
+    PARES.forEach(([b, , nn]) => {
+      const badge = $(nn); if (!badge) return;
+      badge.textContent = n > 9 ? "9+" : n; badge.classList.toggle("hidden", !n);
+      $(b).classList.toggle("busy", !!n);
+    });
     if (A.open) desenharPop();
     if (homeVisivel() && S.page === "inicio") { desenharAndamento(); desenharProximas(); if (A.lastD) readout(A.lastD); }
     A.t = setTimeout(atualizar, n ? 3000 : (document.hidden ? 60000 : 20000));
@@ -147,8 +151,8 @@
     if (d.proximas.length) h += `<div class="pop-label">Próximas publicações</div><div class="pop-sec">${d.proximas.slice(0, 4).map(linhaPost).join("")}</div>`;
     if (!analise.length && !d.trabalhos.length && !d.proximas.length)
       h += `<p class="pop-empty">Quando você enviar um vídeo, exportar ou agendar uma postagem, o andamento aparece aqui.</p>`;
-    $("#tb-act-pop").innerHTML = h;
-    ligarGoto($("#tb-act-pop"));
+    $(A.pop).innerHTML = h;
+    ligarGoto($(A.pop));
   }
 
   function ligarGoto(box) {
@@ -175,13 +179,16 @@
   }
 
   function setupAtividade() {
-    $("#tb-act").addEventListener("click", (e) => {
-      e.stopPropagation();
-      const abrir = $("#tb-act-pop").classList.contains("hidden");
-      fecharMenus();
-      if (abrir) { A.open = true; desenharPop(); $("#tb-act-pop").classList.remove("hidden"); $("#tb-act").setAttribute("aria-expanded", "true"); atualizar(); }
+    PARES.forEach(([b, p]) => {
+      if (!$(b)) return;
+      $(b).addEventListener("click", (e) => {
+        e.stopPropagation();
+        const abrir = $(p).classList.contains("hidden");
+        fecharMenus();
+        if (abrir) { A.open = true; A.pop = p; desenharPop(); $(p).classList.remove("hidden"); $(b).setAttribute("aria-expanded", "true"); atualizar(); }
+      });
+      $(p).addEventListener("keydown", (e) => { if (e.key === "Escape") { fecharMenus(); $(b).focus(); } });
     });
-    $("#tb-act-pop").addEventListener("keydown", (e) => { if (e.key === "Escape") { fecharMenus(); $("#tb-act").focus(); } });
     document.addEventListener("visibilitychange", () => { if (!document.hidden) atualizar(); });
   }
 
@@ -297,6 +304,6 @@
     title("inicio");
   }
 
-  window.V14 = { title, readout, onHome, abrirBusca, aba };
+  window.V14 = { title, readout, onHome, abrirBusca, aba, atualizar, fecharMenus };
   setup();
 })();

@@ -359,6 +359,7 @@ async function openPublish(r) {
   $("#pub-title").value = (r.title || r.label || "").slice(0, 100);
   $("#pub-caption").value = r.post || "";
   if (window.E2) E2.publicar(r);
+  if (window.V16) V16.publicar(r, alvos);
   $("#pub-err").textContent = Object.values(alvos).some((n) => n.connected) ? "" : "Nenhuma rede ou destino conectado ainda. Conecte em Redes sociais.";
   $$("input[name=pub-when]").forEach((x) => (x.checked = x.value === "slot"));
   $("#pub-at").classList.add("hidden");
@@ -382,6 +383,7 @@ function setupPublish() {
     const body = { project: r.project, file: r.file, nets, when, caption: $("#pub-caption").value, title: $("#pub-title").value,
       privacy: $("#pub-privacy").value, label: r.label || "" };
     if (when === "at") body.at = new Date($("#pub-at").value).getTime() / 1000;
+    if (window.V16) { const tx = V16.textosPublicar(nets); if (tx) body.textos = tx; }
     try {
       const res = await api("POST", "/api/publish/queue", body);
       $("#pubdlg").close();
@@ -1421,8 +1423,10 @@ function clipThumb(c) {
   return `/api/projects/${S.P.id}/thumb?t=${t.toFixed(2)}&vertical=${vertical}&layout=${st.layout}`;
 }
 
+const notaDe = (c) => ((c.avaliacao || {}).nota) || 0;
 function renderClipGrid() {
   const clips = (S.P.clips || []).filter((c) => S.filter === "all" || c.kind === S.filter);
+  if (S.sort === "nota") clips.sort((a, b) => notaDe(b) - notaDe(a));
   const all = S.P.clips || [];
   const nC = all.filter((c) => c.kind !== "resumo").length, nR = all.filter((c) => c.kind === "resumo").length;
   $("#s-count-title").textContent = all.length ? `${nC} corte${nC === 1 ? "" : "s"} · ${nR} resumo${nR === 1 ? "" : "s"}` : "Cortes e resumos";
@@ -1440,12 +1444,13 @@ function renderClipGrid() {
         <span class="tag ${c.kind === "resumo" ? "resumo" : ""}">${c.kind === "resumo" ? "RESUMO" : "CORTE"}</span>
         ${c.parts > 1 ? `<span class="parts">${c.parts} partes</span>` : ""}
         <span class="dur">${fmt(c.final)}</span>
+        ${c.avaliacao && c.avaliacao.nota ? `<span class="nota-badge n-${c.avaliacao.nivel}" title="Nota ${c.avaliacao.nota}: ${esc(c.avaliacao.rotulo)}">${c.avaliacao.nota}</span>` : ""}
         <span class="play"><svg width="18" height="18" viewBox="0 0 24 24" fill="#fff"><path d="M6 4l14 8-14 8z"/></svg></span>
       </button>
       <div class="body">
         <div class="ttl" contenteditable="true" spellcheck="false" data-title>${esc(c.title)}</div>
-        <div class="meta">${c.kind === "resumo" ? `${c.segments.length} momentos · ` : `${fmt(c.segments[0][0])}–${fmt(c.segments[0][1])} · `}${esc(c.reason || "")}</div>
-        ${c.score ? `<div class="score" title="Potencial ${Math.round(c.score)}"><i style="width:${Math.min(100, c.score)}%"></i></div>` : ""}
+        <div class="meta">${c.kind === "resumo" ? `${c.segments.length} momentos` : `${fmt(c.segments[0][0])}–${fmt(c.segments[0][1])}`}${c.avaliacao && c.avaliacao.rotulo && c.avaliacao.nota ? ` · <b class="t-${c.avaliacao.nivel}">${esc(c.avaliacao.rotulo)}</b>` : ""}</div>
+        ${window.V16 ? V16.chips(c) : ""}
         ${c.rendered ? `<span class="done">✓ exportado</span>` : ""}
         <div class="acts">
           <button class="btn small primary" data-export>Exportar</button>
@@ -1476,6 +1481,7 @@ function renderClipGrid() {
   });
   if (S.sel && !S.P.clips.find((c) => c.id === S.sel)) selectClip(null);
   else if (!S.sel && clips.length) selectClip(clips[0].id, false);
+  else if (window.V16) V16.atualizar();
 }
 
 /* ----- prévia no "celular" ----- */
@@ -1509,6 +1515,7 @@ async function selectClip(id, play = false) {
   $("#s-ph-empty").classList.toggle("hidden", !!c);
   if (!c) $("#s-clipedit").classList.add("hidden");
   $("#s-post").classList.toggle("hidden", !(c && c.post));
+  if (window.V16) V16.selecionar(c || null);
   if (!c) { S.sq = null; return; }
   if (c.post) $("#s-post-text").textContent = c.post;
   $("#s-clipedit").classList.remove("hidden");

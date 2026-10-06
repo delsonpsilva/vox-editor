@@ -169,7 +169,10 @@ Responda SOMENTE com JSON válido, sem texto antes ou depois:
 [{{"inicio": <nº da primeira frase>, "fim": <nº da última frase>, "titulo": "<título curto e chamativo>",
 "gancho": "<título de até 8 palavras para a tarja no topo do vídeo>", "selo": "<chamada de 2 a 4 palavras em MAIÚSCULAS que dá vontade de assistir, ex.: PALAVRA DE HOJE, ASSISTA ATÉ O FIM, ISSO MUDA TUDO>",
 "motivo": "<por que funciona, até 8 palavras>",
-"nota": <0 a 100>, "post": "<texto curto para a publicação, com 3 a 5 hashtags>"}}]
+"nota": <0 a 100>, "post": "<texto curto para a publicação, com 3 a 5 hashtags>",
+"redes": {{"yt": "<título para o YouTube Shorts, até 70 caracteres>", "ig": "<primeira linha da legenda do Instagram, até 8 palavras>",
+"tt": "<legenda curta para o TikTok, até 100 caracteres>", "fb": "<legenda de 1 a 2 frases para o Facebook>",
+"tags": ["<3 a 5 hashtags sobre o assunto, minúsculas, sem espaço>"]}}}}]
 
 TRANSCRIÇÃO:
 {transcript}"""
@@ -191,7 +194,10 @@ Responda SOMENTE com JSON válido, sem texto antes ou depois:
 [{{"trechos": [{{"inicio": <nº>, "fim": <nº>}}, ...], "titulo": "<título curto e chamativo>",
 "gancho": "<título de até 8 palavras para a tarja no topo do vídeo>", "selo": "<chamada de 2 a 4 palavras em MAIÚSCULAS que dá vontade de assistir>",
 "motivo": "<o que o resumo transmite, até 10 palavras>",
-"nota": <0 a 100>, "post": "<texto curto para a publicação, com 3 a 5 hashtags>"}}]
+"nota": <0 a 100>, "post": "<texto curto para a publicação, com 3 a 5 hashtags>",
+"redes": {{"yt": "<título para o YouTube Shorts, até 70 caracteres>", "ig": "<primeira linha da legenda do Instagram, até 8 palavras>",
+"tt": "<legenda curta para o TikTok, até 100 caracteres>", "fb": "<legenda de 1 a 2 frases para o Facebook>",
+"tags": ["<3 a 5 hashtags sobre o assunto, minúsculas, sem espaço>"]}}}}]
 
 TRANSCRIÇÃO:
 {transcript}"""
@@ -224,7 +230,7 @@ def _call_llm(prompt: str, ai: dict) -> str:
     if provider == "anthropic":
         r = httpx.post("https://api.anthropic.com/v1/messages",
                        headers={"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"},
-                       json={"model": ai.get("model") or "claude-haiku-4-5-20251001", "max_tokens": 4000,
+                       json={"model": ai.get("model") or "claude-haiku-4-5-20251001", "max_tokens": 8000,
                              "messages": [{"role": "user", "content": prompt}]}, timeout=300)
         if r.status_code != 200:
             raise _api_error("Claude", r)
@@ -256,9 +262,19 @@ def _parse(raw: str) -> list[dict]:
 
 
 def _common(it: dict) -> dict:
-    return {"title": short_hook(str(it.get("titulo", "")), 90), "hook": short_hook(str(it.get("gancho", ""))),
-            "reason": str(it.get("motivo", ""))[:90], "score": int(it.get("nota", 0) or 0) if str(it.get("nota", "0")).isdigit() else 0,
-            "post": str(it.get("post", ""))[:600], "kicker": str(it.get("selo", "")).upper()[:34]}
+    try:
+        nota = max(0, min(100, int(float(it.get("nota") or 0))))
+    except (TypeError, ValueError):
+        nota = 0
+    out = {"title": short_hook(str(it.get("titulo", "")), 90), "hook": short_hook(str(it.get("gancho", ""))),
+           "reason": str(it.get("motivo", ""))[:90], "score": nota, "score_fonte": "ia" if nota else "",
+           "post": str(it.get("post", ""))[:600], "kicker": str(it.get("selo", "")).upper()[:34]}
+    rd = it.get("redes")
+    if isinstance(rd, dict):  # textos curtos por rede vindos da IA (completados depois pelo módulo redes)
+        out["redes_ia"] = {k: str(rd.get(k) or "")[:300] for k in ("yt", "ig", "tt", "fb")}
+        tags = rd.get("tags")
+        out["redes_ia"]["tags"] = [str(x)[:40] for x in tags[:6]] if isinstance(tags, list) else []
+    return out
 
 
 def llm_cuts(sents, lo, hi, count, ai, platform, extra) -> list[dict]:

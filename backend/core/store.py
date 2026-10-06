@@ -29,7 +29,8 @@ DEFAULT_CONFIG = {
     "publish": {},
     "brand": {"handle": "", "kicker": "", "color": "#FF8A3D", "text": "#FFFFFF", "bg": "#101114", "progress": True,
               "logo": "", "logo_pos": "auto", "logo_size": "m", "logo_opacity": 1.0, "socials": {},
-              "social_mode": "destino", "social_every": 12, "social_side": "direita"},
+              "social_mode": "destino", "social_every": 12, "social_side": "direita",
+              "hashtags": ""},  # hashtags fixas (v1.6): vão no fim do texto de todas as redes
     "security": {},   # senha do programa do PC (só o "hash"); nunca vai para o navegador
     "online": {"url": "", "password": ""},  # endereço e senha da versão online, para enviar projetos do PC
     "pexels": {"api_key": ""},    # bancos de vídeos e fotos grátis (Montagem -> Grátis)

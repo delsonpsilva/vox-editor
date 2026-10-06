@@ -471,39 +471,65 @@
 
 <!-- Projeto -->
 <section id="view-editor" class="view hidden">
-  <header class="topbar">
-    <button class="btn icon ghost" id="btn-back" aria-label="Voltar aos projetos">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
-    </button>
-    <div class="brand"><span class="logo app-logo"></span></div>
-    <span id="ed-name" class="proj-name"></span>
-    <span id="ed-dur" class="chip mono"></span>
-    <div class="seg" role="tablist" aria-label="Modo">
-      <button class="seg-btn active" data-mode="edit" role="tab">Edição</button>
-      <button class="seg-btn" data-mode="studio" role="tab">Cortes &amp; Resumos</button>
-      <button class="seg-btn" data-mode="montage" role="tab">Montagem <span class="tag-new">novo</span></button>
+  <!-- v1.6: o editor ganha a cara nova da tela principal: menu lateral em ícones e barra do topo -->
+  <aside class="ed-rail" id="ed-rail" aria-label="Menu principal"></aside>
+  <div class="ed-main">
+  <header class="edbar" id="edbar">
+    <div class="eb-left">
+      <button type="button" class="tb-icon" id="btn-back" aria-label="Voltar aos projetos" title="Voltar aos projetos">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <nav class="tb-crumbs eb-crumbs" aria-label="Você está em">
+        <a href="#/projetos" class="eb-crumb">Projetos</a>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+        <b id="ed-name" class="proj-name"></b>
+      </nav>
+      <span id="ed-dur" class="eb-dur mono"></span>
     </div>
-    <div class="grow"></div>
-    <button class="btn ghost" data-open-settings>Configurações</button>
-    <div class="menu-wrap edit-only">
-      <button class="btn" id="btn-export">Exportar ▾</button>
-      <div class="menu hidden" id="menu-export">
-        <a data-export="xml">XML para Premiere / DaVinci</a>
-        <a data-export="edl">EDL (qualquer editor)</a>
-        <a data-export="srt">Legendas SRT (vídeo editado)</a>
-        <a data-export="srt-original">Legendas SRT (vídeo original)</a>
-        <a data-export="txt">Transcrição em texto</a>
-        <hr>
-        <a id="exp-pacote">Projeto completo (.vox) para abrir em outra instalação</a>
-        <a id="exp-online" class="pc-only">Enviar este projeto para o online</a>
+    <div class="seg eb-modes" role="tablist" aria-label="Modo">
+      <button class="seg-btn active" data-mode="edit" role="tab">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h10M4 18h7"/><path d="M17 15l3 3-3 3"/></svg><span>Edição</span></button>
+      <button class="seg-btn" data-mode="studio" role="tab">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg><span>Cortes<span class="eb-long"> &amp; Resumos</span></span></button>
+      <button class="seg-btn" data-mode="montage" role="tab">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="5" rx="1.5"/><rect x="3" y="11" width="11" height="4" rx="1.5"/><rect x="8" y="17" width="13" height="4" rx="1.5"/></svg><span>Montagem</span></button>
+    </div>
+    <div class="eb-actions">
+      <button type="button" class="tb-icon" id="ed-search" aria-label="Buscar (Ctrl+K)" title="Buscar projeto, tela ou ação (Ctrl+K)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></button>
+      <div class="tb-wrap">
+        <button type="button" class="tb-icon" id="ed-act" aria-haspopup="dialog" aria-expanded="false" aria-label="Atividade" title="Atividade">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 8L9 4l-3 8H2"/></svg>
+          <span class="tb-badge hidden" id="ed-act-n"></span>
+        </button>
+        <div class="pop hidden" id="ed-act-pop" role="dialog" aria-label="Atividade"></div>
       </div>
-    </div>
-    <div class="menu-wrap edit-only">
-      <button class="btn primary" id="btn-render">Renderizar vídeo ▾</button>
-      <div class="menu hidden" id="menu-render">
-        <a data-render='{"subtitles":true}'>Horizontal com legendas</a>
-        <a data-render='{"subtitles":false}'>Horizontal sem legendas</a>
-        <a data-render='{"subtitles":true,"vertical":true}'>Vertical 9:16 com legendas (vídeo inteiro)</a>
+      <button type="button" class="tb-icon eb-gear" data-open-settings aria-label="Configurações" title="Configurações">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+      <div class="menu-wrap edit-only eb-exp">
+        <button class="btn" id="btn-export">Exportar
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></button>
+        <div class="menu hidden" id="menu-export">
+          <a data-export="xml">XML para Premiere / DaVinci</a>
+          <a data-export="edl">EDL (qualquer editor)</a>
+          <a data-export="srt">Legendas SRT (vídeo editado)</a>
+          <a data-export="srt-original">Legendas SRT (vídeo original)</a>
+          <a data-export="txt">Transcrição em texto</a>
+          <hr>
+          <a id="exp-pacote">Projeto completo (.vox) para abrir em outra instalação</a>
+          <a id="exp-online" class="pc-only">Enviar este projeto para o online</a>
+        </div>
+      </div>
+      <div class="menu-wrap edit-only eb-ren">
+        <button class="btn primary" id="btn-render">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg>
+          <span>Renderizar<span class="eb-long"> vídeo</span></span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></button>
+        <div class="menu hidden" id="menu-render">
+          <a data-render='{"subtitles":true}'>Horizontal com legendas</a>
+          <a data-render='{"subtitles":false}'>Horizontal sem legendas</a>
+          <a data-render='{"subtitles":true,"vertical":true}'>Vertical 9:16 com legendas (vídeo inteiro)</a>
+        </div>
       </div>
     </div>
   </header>
@@ -581,12 +607,12 @@
   <div id="studio-body" class="studio hidden">
     <aside class="panel s-left">
       <section class="s-sec">
-        <h3>1. Para onde vai o vídeo?</h3>
+        <h3><i class="stepn">1</i>Para onde vai o vídeo?</h3>
         <div id="s-platforms" class="plat-grid"></div>
         <p id="s-plat-hint" class="hint"></p>
       </section>
       <section class="s-sec">
-        <h3>2. O que criar?</h3>
+        <h3><i class="stepn">2</i>O que criar?</h3>
         <div class="seg full" id="s-mode">
           <button class="seg-btn" data-v="cortes">Cortes</button>
           <button class="seg-btn" data-v="resumo">Resumo</button>
@@ -595,7 +621,7 @@
         <p class="hint" id="s-mode-hint"></p>
       </section>
       <section class="s-sec">
-        <h3>3. Duração</h3>
+        <h3><i class="stepn">3</i>Duração</h3>
         <div class="chips" id="s-dur">
           <button class="chip-btn" data-v="30">30s</button>
           <button class="chip-btn" data-v="60">60s</button>
@@ -609,7 +635,7 @@
         </div>
       </section>
       <section class="s-sec">
-        <h3>4. Quantos?</h3>
+        <h3><i class="stepn">4</i>Quantos?</h3>
         <div class="stepper"><button class="btn icon small" id="s-cnt-minus" aria-label="Menos">−</button><b id="s-count">5</b><button class="btn icon small" id="s-cnt-plus" aria-label="Mais">+</button></div>
       </section>
       <section class="s-sec">
@@ -698,6 +724,10 @@
           <span class="hint" id="s-source"></span>
         </div>
         <div class="grow"></div>
+        <div class="seg small" id="s-sort" aria-label="Ordem dos cortes">
+          <button class="seg-btn active" data-v="video" title="Na ordem em que aparecem no vídeo">Ordem do vídeo</button>
+          <button class="seg-btn" data-v="nota" title="Os de maior nota primeiro">Melhor nota</button>
+        </div>
         <div class="seg small" id="s-filter">
           <button class="seg-btn active" data-v="all">Todos</button>
           <button class="seg-btn" data-v="corte">Cortes</button>
@@ -731,6 +761,8 @@
         </div>
         <p class="hint center">Prévia aproximada · a legenda final segue exatamente o estilo escolhido</p>
       </div>
+      <!-- v1.6: nota do corte com os motivos e textos de cada rede -->
+      <section id="s-nota" class="post-box nota-box hidden" aria-label="Nota do corte"></section>
       <div id="s-clipedit" class="post-box hidden">
         <strong>Textos deste corte</strong>
         <label class="field">Título na tarja<input type="text" id="s-ed-hook" maxlength="90"></label>
@@ -740,6 +772,7 @@
           Baixar capa (thumbnail)
         </a>
       </div>
+      <section id="s-redes" class="post-box redes-box hidden" aria-label="Texto para cada rede"></section>
       <div id="s-post" class="post-box hidden">
         <div class="row between"><strong>Texto para a publicação</strong><button class="btn small" id="s-copy-post">Copiar</button></div>
         <p id="s-post-text"></p>
@@ -749,6 +782,7 @@
       <div class="renders-box"></div>
     </aside>
   </div>
+  </div><!-- /.ed-main -->
 </section>
 
 <!-- Galeria de molduras + marca -->
@@ -806,7 +840,12 @@
     <header class="row between"><h2>Publicar nas redes</h2><button class="btn icon ghost" value="cancel" aria-label="Fechar">✕</button></header>
     <div class="pub-head"><img id="pub-thumb" alt=""><div><b id="pub-label"></b><span class="hint" id="pub-meta"></span></div></div>
     <fieldset><legend>Onde publicar</legend><div id="pub-nets" class="pub-nets"></div></fieldset>
-    <label>Título (YouTube)<input type="text" id="pub-title" maxlength="100"></label>
+    <div class="pub-redes hidden" id="pub-redes">
+      <div class="row between"><span class="pr-lbl">Texto de cada rede <span class="hint" id="pub-redes-info"></span></span>
+        <label class="checkline small"><input type="checkbox" id="pub-mesmo"> Mesmo texto em todas</label></div>
+      <div class="pr-tabs" role="tablist" aria-label="Rede" id="pub-redes-tabs"></div>
+    </div>
+    <label id="pub-title-wrap">Título (YouTube)<input type="text" id="pub-title" maxlength="100"></label>
     <label>Legenda da publicação<textarea id="pub-caption" rows="5" maxlength="2200"></textarea></label>
     <div class="pub-caps hidden" id="pub-caps"><button type="button" class="btn small" id="pub-caps-add">Inserir os capítulos na descrição</button><span class="hint" id="pub-caps-info"></span></div>
     <fieldset><legend>Quando</legend>
@@ -1010,5 +1049,7 @@
 <script src="montagem.js"></script>
 <script src="inicio.js"></script>
 <script src="edicao.js"></script>
+<script src="cortes.js"></script>
+<script src="editor-novo.js"></script>
 </body>
 </html>

@@ -1,4 +1,23 @@
-# VOX Editor — edição de vídeo com cortes inteligentes e montagem manual (versão 1.5)
+# VOX Editor — edição de vídeo com cortes inteligentes e montagem manual (versão 1.6)
+
+## Novidades da versão 1.6 — a cara nova dentro do editor e a nota de cada corte
+
+- **Editor com a cara nova** (abas Edição, Cortes e Montagem): o mesmo menu lateral da tela principal, em ícones, para
+  ir a qualquer tela sem voltar; barra do topo com o caminho (Projetos › nome do projeto), as abas com ícones, busca
+  rápida (Ctrl+K) e Atividade. Painéis, cartões e títulos no mesmo visual da tela inicial. No celular, a barra fica compacta.
+- **Nota de cada corte, com os motivos** (edição automática 2.0, parte 2): cada corte e resumo ganha uma nota de 0 a 100
+  e os motivos — "gancho forte", "pergunta que prende", "ideia completa", "frase marcante", "ritmo bom", "duração certa" —
+  e também os alertas: "começa no meio de uma ideia", "termina no meio da frase", "muitas pausas", "curto demais".
+  A nota é calculada no próprio programa, sem gastar API; com o Claude ligado, entra também a nota da IA.
+  Ao lado da prévia, a nota por critério (gancho, ideia completa, emoção, ritmo e duração) e a explicação de cada motivo.
+  Botão **Melhor nota** para ver os melhores cortes primeiro.
+- **Título, legenda e hashtags para cada rede**: YouTube Shorts (título + descrição), Instagram Reels, TikTok e
+  Facebook Reels, cada um do seu jeito e com as hashtags do assunto do vídeo (#shorts, #reels, #fyp entram sozinhas;
+  o Instagram respeita o limite de 5). Dá para editar, **Copiar texto pronto**, **Reescrever com IA** (centavos) e
+  voltar ao automático. **Hashtags fixas da marca** vão no fim de todos os textos.
+- **Publicar**: ao publicar um corte exportado, cada rede já sai com o próprio texto (abas por rede no diálogo).
+  Quem preferir marca "Mesmo texto em todas".
+
 
 ## Novidades da versão 1.5 — edição automática 2.0
 

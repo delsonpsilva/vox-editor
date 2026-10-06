@@ -1,4 +1,4 @@
-VOX Editor 1.5.0 — Edição automática 2.0: perfis de um clique e capítulos do YouTube
+VOX Editor 1.6.0 — Cara nova dentro do editor + nota de cada corte e textos por rede
 ====================================================================================
 (Este pacote já inclui tudo das versões anteriores. Pode extrair por cima.)
 
@@ -7,7 +7,7 @@ NO PC (Windows)
 2. Extraia este .zip DENTRO da pasta C:\editor-ia (onde ficam INICIAR.bat e PUBLICAR.bat).
    Quando o Windows perguntar, escolha "Substituir os arquivos no destino".
    (Não precisa rodar o ATUALIZAR.bat: não há componente novo.)
-3. Abra o programa. No canto de baixo, à esquerda, deve aparecer "versão 1.5.0".
+3. Abra o programa. No canto de baixo, à esquerda, deve aparecer "versão 1.6.0".
    Se a tela não mudar: feche o programa e dê dois cliques no LIMPAR-CACHE-DA-TELA.bat.
 4. Dois cliques no PUBLICAR.bat.
 
@@ -15,20 +15,26 @@ NA VPS
 5. sudo vox-atualizar
 
 O QUE MUDOU
-- Menu lateral: agora rola sozinho quando a janela é baixa (nada fica escondido embaixo) e fica mais
-  compacto em telas de notebook.
-- Edição automática 2.0 — "Perfil da edição" (no topo da aba Edição):
-  Pregação e culto · Reels dinâmico · Aula e estudo · Podcast e entrevista · Só o essencial.
-  Um clique ajusta silêncios, ritmo das pausas, respirações e vícios. Cada perfil já mostra como o SEU vídeo
-  vai ficar (duração final e quanto sai) antes de escolher. Dá para afinar nos ajustes de baixo, e marcar
-  "Usar o perfil escolhido nos próximos projetos".
-- Capítulos do YouTube (na aba Edição, abaixo da limpeza com IA):
-  - "Gerar capítulos": o programa divide o vídeo por assunto e dá nome a cada parte. Sem IA o título sai da
-    própria fala; com o Claude ligado, a IA dá nomes melhores (custa centavos).
-  - Os tempos já são do vídeo EDITADO e se ajustam sozinhos quando você muda a edição.
-  - Toque no tempo para ouvir o trecho; toque no título para mudar; ✕ tira um capítulo.
-  - Segue as regras do YouTube: primeiro em 00:00, pelo menos 3, e no mínimo 10 s entre eles.
-  - "Copiar para a descrição" copia o bloco pronto. Ao publicar o "Vídeo editado", o diálogo de publicação
-    mostra o botão "Inserir os capítulos na descrição".
+- Editor com a cara nova (abas Edição, Cortes e Montagem):
+  - Menu lateral da tela principal, só com os ícones, à esquerda do editor: vai para Início, Exportados,
+    Publicações, Redes sociais etc. sem precisar voltar.
+  - Barra do topo nova: "Projetos > nome do projeto" (clique em Projetos para voltar), abas com ícones,
+    busca rápida (Ctrl+K), Atividade (andamento das exportações) e Configurações.
+  - Painéis e cartões no mesmo visual da tela inicial. No celular a barra fica compacta.
+- Nota de cada corte (aba Cortes):
+  - Cada corte mostra a nota (0 a 100) no canto da imagem e os motivos embaixo do título:
+    "gancho forte", "pergunta que prende", "ideia completa", "frase marcante", "ritmo bom"...
+    e os alertas em amarelo: "começa no meio de uma ideia", "termina no meio da frase", "muitas pausas".
+  - Ao lado da prévia: a nota por critério (gancho, ideia completa, emoção, ritmo, duração) e a explicação.
+  - Botão "Melhor nota" (acima dos cortes) mostra os melhores primeiro.
+  - A nota é feita pelo próprio programa (não gasta API). Com o Claude ligado, entra também a nota da IA.
+- Texto para cada rede (aba Cortes, ao lado da prévia):
+  - YouTube (título + descrição), Instagram, TikTok e Facebook, cada um do seu jeito, com hashtags do assunto.
+  - Edite à vontade (salva sozinho), "Copiar texto pronto", "Reescrever com IA" (centavos) ou
+    "Voltar ao automático".
+  - "Hashtags fixas da marca": coloque uma vez (ex.: #suaigreja) e elas vão no fim de todos os textos.
+  - Os cortes gerados com o Claude ligado já vêm com o título e as hashtags de cada rede escritos pela IA.
+- Publicar: ao publicar um corte, o diálogo mostra abas por rede e cada uma sai com o próprio texto.
+  Para usar um texto só, marque "Mesmo texto em todas".
 
 Seus projetos, vídeos e configurações (pasta "dados") não são tocados.

@@ -1189,3 +1189,167 @@ kbd{font-family:var(--font);font-size:11px;color:var(--muted);background:var(--p
 .cap-x:hover{color:var(--text);background:var(--card2)}
 .cap-aviso{color:#FCD34D !important}
 .pub-caps{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:-4px}
+
+/* =====================================================================
+   v1.6 — a cara nova dentro do editor (Edição, Cortes e Montagem) + nota dos cortes e textos por rede
+   ===================================================================== */
+:root{--n-otimo:#4ADE80;--n-bom:#A3E635;--n-medio:#FACC15;--n-fraco:#F87171}
+
+/* estrutura: menu em ícones + coluna principal */
+#view-editor{flex-direction:row;height:100vh;height:100dvh;min-height:0}
+.ed-main{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column}
+.ed-rail{width:64px;flex:none;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;gap:2px;padding:12px 0 14px}
+.er-brand{display:flex;margin-bottom:12px;border-radius:10px}
+.er-brand .logo{width:36px;height:36px;border-radius:10px}
+.ed-rail > a:not(.er-brand),.ed-rail > button{position:relative;width:44px;height:40px;flex:none;border-radius:9px;display:flex;align-items:center;justify-content:center;
+  color:var(--muted);background:transparent;border:0;cursor:pointer;text-decoration:none;padding:0}
+.ed-rail .lbl{display:none}
+.ed-rail > a:hover,.ed-rail > button:hover{background:var(--card);color:var(--text)}
+.ed-rail > a.active{background:var(--accent-soft);color:var(--text)}
+.ed-rail > a.active svg{color:var(--accent)}
+.ed-rail > a.active::before{content:"";position:absolute;left:-10px;top:9px;bottom:9px;width:3px;border-radius:0 3px 3px 0;background:var(--accent)}
+.ed-rail > button[data-open-settings]{margin-top:auto}
+.er-sep{width:26px;flex:none;border-top:1px solid var(--line);margin:7px 0}
+@media (max-height:620px){.ed-rail{overflow-y:auto;scrollbar-width:none}.ed-rail > button[data-open-settings]{margin-top:8px}}
+
+/* barra do topo do editor (mesma linguagem da barra da tela principal) */
+.edbar{height:var(--topbar);flex:none;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:14px;padding:0 14px 0 10px;
+  background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--line);position:relative;z-index:30}
+.eb-left{display:flex;align-items:center;gap:6px;min-width:0}
+.eb-crumbs{min-width:0;flex:0 1 auto}
+.eb-crumb{color:var(--muted);text-decoration:none;white-space:nowrap}
+.eb-crumb:hover{color:var(--text);text-decoration:underline}
+.eb-crumbs .proj-name{max-width:none;min-width:0;font-weight:600}
+.eb-dur{flex:none;font-size:11.5px;color:var(--muted);background:var(--card);border:1px solid var(--line);padding:3px 9px;border-radius:20px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.eb-dur:empty{display:none}
+.eb-modes{padding:3px;border-radius:12px;background:var(--panel);border-color:var(--line2)}
+.eb-modes .seg-btn{height:34px;padding:0 14px;border-radius:9px;font-weight:500;gap:7px}
+.eb-modes .seg-btn svg{color:var(--dim);flex:none}
+.eb-modes .seg-btn:hover svg{color:var(--muted)}
+.eb-modes .seg-btn.active{background:var(--accent-soft);color:var(--text);font-weight:600;box-shadow:none}
+.eb-modes .seg-btn.active svg{color:var(--accent)}
+.eb-actions{display:flex;align-items:center;justify-content:flex-end;gap:6px;min-width:0}
+.eb-actions .btn{height:36px}
+.eb-actions .menu{top:44px}
+.eb-actions .menu-wrap + .menu-wrap{margin-left:2px}
+#ed-act-pop{right:0}
+#view-editor.blank-proj .edbar{grid-template-columns:minmax(0,1fr) auto}
+@media (max-width:1380px){.eb-long{display:none}}
+@media (max-width:1180px){.eb-modes .seg-btn{padding:0 10px}.edbar{gap:10px}.eb-dur{display:none}}
+
+/* painéis no novo visual */
+.panel-title{font-size:12px;font-weight:500;letter-spacing:0;text-transform:none;color:var(--dim)}
+.tool{border-radius:12px;background:var(--card);border-color:var(--line)}
+.tool-head strong{font-family:"Poppins",var(--font);font-size:13.5px;font-weight:700}
+.player{border-radius:14px;border-color:var(--line2)}
+.controls{background:var(--panel)}
+.transcript-box{border-radius:14px}
+.tb-head strong,.timeline .row strong{font-family:"Poppins",var(--font);font-weight:700}
+.timeline{background:var(--panel)}
+.job,.render{border-radius:12px}
+.processing .proc-card{border-radius:18px;border-color:var(--line2)}
+.proc-card h2{font-family:"Poppins",var(--font)}
+
+/* Cortes: passos numerados e cabeçalho */
+.s-sec h3{display:flex;align-items:center;gap:9px;font-family:"Poppins",var(--font);font-size:14px;font-weight:700}
+.stepn{font-style:normal;flex:none;width:22px;height:22px;border-radius:50%;background:var(--accent-soft);color:var(--accent-2);font:700 12px/1 var(--font);display:inline-flex;align-items:center;justify-content:center}
+.s-sec.look h3{font-size:13.5px}
+.s-head h2{font-family:"Poppins",var(--font);font-size:20px;font-weight:700;letter-spacing:-.01em}
+.s-head{row-gap:8px}
+
+/* cartão do corte: nota e motivos */
+.ccard{background:var(--panel);border-color:var(--line);border-radius:14px}
+.ccard:hover{border-color:#3a3e48}
+.ccard.selected{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.nota-badge{position:absolute;top:8px;right:8px;min-width:32px;height:32px;padding:0 6px;border-radius:16px;font:700 13px/1 "Poppins",var(--font);
+  display:flex;align-items:center;justify-content:center;background:rgba(10,11,13,.78);border:2px solid currentColor;font-variant-numeric:tabular-nums;backdrop-filter:blur(4px)}
+.n-otimo{color:var(--n-otimo);--c:var(--n-otimo)} .n-bom{color:var(--n-bom);--c:var(--n-bom)} .n-medio{color:var(--n-medio);--c:var(--n-medio)} .n-fraco{color:var(--n-fraco);--c:var(--n-fraco)}
+.t-otimo{color:var(--n-otimo)} .t-bom{color:var(--n-bom)} .t-medio{color:var(--n-medio)} .t-fraco{color:var(--n-fraco)}
+.ccard .meta b{font-weight:600}
+.motivos{display:flex;flex-wrap:wrap;gap:4px}
+.mtv{font-size:11px;line-height:1.5;padding:1px 7px;border-radius:20px;background:rgba(74,222,128,.09);color:#86EFAC;border:1px solid rgba(74,222,128,.2);white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;cursor:help}
+.mtv.al{background:rgba(250,204,21,.08);color:#FDE68A;border-color:rgba(250,204,21,.22)}
+
+/* painel da direita: nota do corte */
+.nota-box{gap:12px}
+.nota-top{display:flex;align-items:center;gap:12px}
+.nota-ring{width:54px;height:54px;border-radius:50%;flex:none;background:conic-gradient(var(--c) var(--deg),var(--line2) 0);display:flex;align-items:center;justify-content:center}
+.nota-ring b{width:44px;height:44px;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center;font:700 17px/1 "Poppins",var(--font);color:var(--text);font-variant-numeric:tabular-nums}
+.nota-tx{display:flex;flex-direction:column;gap:3px;min-width:0}
+.nota-tx strong{font-size:14px}
+.crit{display:flex;flex-direction:column;gap:6px}
+.crit-row{display:grid;grid-template-columns:96px minmax(0,1fr) 40px;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.crit-row i{display:block;height:5px;border-radius:3px;background:var(--line2);overflow:hidden}
+.crit-row i b{display:block;height:100%;border-radius:3px;background:var(--accent)}
+.crit-row em{font-style:normal;text-align:right;color:var(--dim);font-family:var(--mono);font-size:11px}
+.mtv-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.mtv-list li{display:flex;gap:9px;align-items:flex-start}
+.mi{width:18px;height:18px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;margin-top:1px}
+.mtv-list li.ok .mi{background:rgba(74,222,128,.15);color:var(--n-otimo)}
+.mtv-list li.al .mi{background:rgba(250,204,21,.15);color:var(--n-medio)}
+.mtv-list b{display:block;font-size:12.5px;font-weight:600;color:var(--text)}
+.mtv-list em{display:block;font-style:normal;font-size:12px;color:var(--muted);line-height:1.45;margin-top:1px}
+.nota-ia{margin:0}
+
+/* painel da direita: textos por rede */
+.redes-box{gap:10px}
+.pr-tabs{display:flex;gap:4px;flex-wrap:wrap}
+.pr-tab{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 10px;border-radius:8px;border:1px solid var(--line2);background:transparent;color:var(--muted);font:inherit;font-size:12.5px;cursor:pointer}
+.pr-tab:hover{color:var(--text);border-color:#454a55}
+.pr-tab i{width:8px;height:8px;border-radius:50%;flex:none}
+.pr-tab[aria-selected="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--text);font-weight:600}
+.pr-tab.off{opacity:.45}
+.pr-tab:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.field .lbl b.cnt,.cnt{font-family:var(--mono);font-weight:400;color:var(--dim);font-size:11px}
+.field .lbl b.cnt.over{color:#FCA5A5}
+.redes-box textarea{min-height:96px}
+.redes-box .pr-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}
+.redes-box .pr-tab{justify-content:center;padding:0 4px;font-size:12px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.redes-box .pr-tab i{display:none}
+.redes-box .pr-tab[aria-selected="true"] i{display:block}
+.rd-fonte{white-space:nowrap}
+.rd-fixas{margin:-4px 0 0}
+.rd-acts{gap:6px}
+.rd-fixas-cfg{border-top:1px solid var(--line);padding-top:8px}
+.rd-fixas-cfg summary{cursor:pointer;font-size:12px;color:var(--muted)}
+.rd-fixas-cfg summary:hover{color:var(--text)}
+.rd-fixas-cfg[open]{display:flex;flex-direction:column;gap:6px}
+.rd-fixas-cfg input{margin-top:4px}
+#s-post{display:none !important}  /* trocado pelos textos de cada rede */
+
+/* diálogo Publicar: texto de cada rede */
+.pub-redes{display:flex;flex-direction:column;gap:8px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--card)}
+.pr-lbl{font-size:12.5px;color:var(--text);font-weight:600}
+.settings label.checkline.small{font-size:12px}
+
+/* telas menores */
+@media (max-width:1100px){
+  #view-editor{height:auto;min-height:100vh}
+  .ed-rail{position:sticky;top:0;height:100vh;align-self:flex-start}
+  #view-editor.mode-montage{height:100vh;height:100dvh}
+  #view-editor.mode-montage .ed-rail{position:static;height:auto;align-self:stretch}
+}
+@media (max-width:900px){
+  #view-editor.mode-montage .eb-dur,#view-editor.mode-montage .eb-gear,#view-editor.mode-montage #ed-search{display:none}
+  #view-editor.mode-montage .eb-modes .seg-btn{padding:0 8px;font-size:12px}
+}
+@media (max-width:760px){
+  .ed-rail{display:none}
+  .edbar{height:auto;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;grid-template-areas:"left left act" "modes modes modes" "exp ren ren";
+    gap:8px 6px;padding:8px 10px;background:var(--panel);backdrop-filter:none;-webkit-backdrop-filter:none}
+  .eb-left{grid-area:left}
+  .eb-actions{display:contents}
+  .eb-actions > .tb-wrap{grid-area:act}
+  .eb-exp{grid-area:exp} .eb-ren{grid-area:ren}
+  .eb-exp .btn,.eb-ren .btn{width:100%}
+  #ed-search,.eb-gear,.eb-crumb,.eb-crumbs > svg,.eb-dur,.eb-long{display:none}
+  .edbar .eb-crumbs{display:flex;min-width:0}
+  .eb-crumbs .proj-name{font-size:15px}
+  .eb-modes{grid-area:modes;display:flex;width:100%}
+  .eb-modes .seg-btn{flex:1;justify-content:center;padding:0 6px;height:38px}
+  #view-editor.blank-proj .edbar{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"left act"}
+  #ed-act-pop{right:0}
+  .crit-row{grid-template-columns:90px minmax(0,1fr) 38px}
+}
+/* textos centralizados (.hint.center) não herdam o layout da coluna central do editor (subiam para o topo em telas médias) */
+p.hint.center,p.center{display:block;padding:0;overflow:visible;order:0;gap:0}

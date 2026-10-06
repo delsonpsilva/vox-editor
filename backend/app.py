@@ -18,10 +18,10 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Resp
 from fastapi.staticfiles import StaticFiles
 
 from .core import bancos, destinos, importer, jobs, legal, montagem, online, pacote, pipeline, publish, store, trilhas
-from .engine import capitulos, edits, frames, platforms, reframe, socials, subtitles, transcribe
+from .engine import avaliacao, capitulos, edits, frames, platforms, redes, reframe, socials, subtitles, transcribe
 from .engine import ffmpeg_tools as ff
 
-VERSION = "1.5.0"
+VERSION = "1.6.0"
 FRONT = store.ROOT / "frontend"
 PASSWORD = os.environ.get("APP_PASSWORD", "")
 SECRET = os.environ.get("APP_SECRET") or secrets.token_hex(16)
@@ -109,6 +109,7 @@ def view(proj: dict) -> dict:
         out["stats"] = ed["stats"]
         plat = platforms.get(out["settings"]["studio"].get("platform"))
         clips = []
+        ctx = _ctx_cortes(proj, out["settings"]) if proj.get("clips") else None
         for c in proj.get("clips", []):
             c = dict(c)
             ks = edits.intersect(ed["keeps"], pipeline.clip_segments(proj, c))
@@ -117,10 +118,42 @@ def view(proj: dict) -> dict:
             c["raw"] = round(sum(e - s for s, e in c["segments"]), 1)
             c["parts"] = (int(c["final"] // max(1, plat["max"] - 0.5)) + 1) if plat.get("split") and plat.get("max") \
                 and c["final"] > plat["max"] + 0.5 else 1
+            _enriquecer_corte(c, ctx)
             clips.append(c)
         out["clips"] = clips
     out["jobs"] = jobs.for_project(proj["id"])
     return out
+
+
+def _ctx_cortes(proj: dict, settings: dict) -> dict:
+    """O que a nota e os textos por rede precisam, calculado uma vez por projeto."""
+    studio = settings["studio"]
+    plat = dict(platforms.get(studio.get("platform")))
+    plat["lo"], plat["hi"] = platforms.duration_range(studio)
+    words = proj.get("words") or []
+    marca = store.load_config().get("brand") or {}
+    return {"words": words, "starts": [w["s"] for w in words], "plat": plat, "marca": marca,
+            "fixas": redes.limpar_tags([marca.get("hashtags") or ""])}
+
+
+def _enriquecer_corte(c: dict, ctx: dict) -> None:
+    """v1.6: nota com os motivos ("gancho forte", "ideia completa"...) e título/legenda/hashtags de cada rede."""
+    try:
+        av = avaliacao.avaliar(ctx["words"], c, c.get("keeps"), ctx["plat"], ctx["starts"])
+    except Exception:  # nunca derruba a tela por causa da nota
+        av = {"nota": 0, "nivel": "fraco", "rotulo": "—", "motivos": [], "criterios": {}, "texto": ""}
+    texto = av.pop("texto", "")
+    c["avaliacao"] = av
+    try:
+        auto = redes.de_ia_curto(c["redes_ia"], c, texto, ctx["marca"]) if c.get("redes_ia") else redes.local(c, texto, ctx["marca"])
+        if c.get("redes"):
+            c["redes"], c["redes_fonte"] = redes.normalizar(c["redes"], auto), c.get("redes_fonte") or "editado"
+        else:
+            c["redes"], c["redes_fonte"] = auto, ("ia" if c.get("redes_ia") else "auto")
+    except Exception:
+        c["redes"], c["redes_fonte"] = {}, "auto"
+    c.pop("redes_ia", None)
+    c["hashtags_fixas"] = ctx["fixas"]
 
 
 # ---------- sistema / login / configurações ----------
@@ -832,7 +865,65 @@ def edit_clip(pid: str, clip_id: str, data: dict = Body(...)):
                         c[k] = str(data[k])[:600]
                 if "pinned" in data:
                     c["pinned"] = bool(data["pinned"])
+                if isinstance(data.get("redes"), dict):  # textos por rede editados à mão
+                    c["redes"] = redes.normalizar(data["redes"], c.get("redes") or {})
+                    c["redes_fonte"] = "editado"
     return view(_404(lambda: store.update(pid, fn)))
+
+
+def _corte_e_texto(pid: str, clip_id: str) -> tuple[dict, dict, str]:
+    """Projeto, corte (já com nota e redes calculadas) e a fala do corte."""
+    proj = _404(lambda: store.load(pid))
+    v = view(proj)
+    clip = next((c for c in v.get("clips") or [] if c["id"] == clip_id), None)
+    if not clip:
+        raise HTTPException(404, "Corte não encontrado")
+    words = proj.get("words") or []
+    ks = clip.get("keeps") or clip["segments"]
+    texto = " ".join(w["w"].strip() for w in words if any(a <= (w["s"] + w["e"]) / 2 <= b for a, b in ks))
+    return proj, clip, texto
+
+
+def _redes_view(clip: dict) -> dict:
+    fixas = clip.get("hashtags_fixas") or []
+    rd = clip.get("redes") or {}
+    return {"redes": rd, "fonte": clip.get("redes_fonte", "auto"), "fixas": fixas,
+            "prontos": {n: {"titulo": rd[n].get("titulo", ""), "legenda": redes.texto_final(rd[n], fixas, n)} for n in rd},
+            "nomes": {n: redes.REDES[n]["nome"] for n in redes.ORDEM}}
+
+
+@app.get("/api/projects/{pid}/clips/{clip_id}/redes")
+def ver_redes(pid: str, clip_id: str):
+    """Título e legenda pronta (com hashtags) de cada rede — usado no diálogo Publicar."""
+    return _redes_view(_corte_e_texto(pid, clip_id)[1])
+
+
+@app.post("/api/projects/{pid}/clips/{clip_id}/redes")
+def refazer_redes(pid: str, clip_id: str, data: dict = Body(default={})):
+    """ia=true: o Claude reescreve os textos das 4 redes (centavos). ia=false: volta às sugestões automáticas."""
+    proj, clip, texto = _corte_e_texto(pid, clip_id)
+    novo = None
+    if data.get("ia"):
+        ai = store.load_config().get("ai") or {}
+        if ai.get("provider") in (None, "none") or not ai.get("api_key"):
+            raise HTTPException(400, "Ligue uma IA (Claude ou compatível) em Inteligência artificial para reescrever com IA.")
+        instr = ((proj.get("settings") or {}).get("studio") or {}).get("instructions") or ""
+        try:
+            novo = redes.normalizar(redes.com_ia(clip, texto, ai, instr), clip.get("redes") or {})
+        except RuntimeError as e:
+            raise HTTPException(400, str(e))
+
+    def fn(p):
+        for c in p.get("clips", []):
+            if c["id"] == clip_id:
+                if novo:
+                    c["redes"], c["redes_fonte"] = novo, "ia"
+                else:
+                    c.pop("redes", None)
+                    c.pop("redes_fonte", None)
+    v = view(store.update(pid, fn))
+    clip = next((c for c in v.get("clips") or [] if c["id"] == clip_id), {})
+    return {"projeto": v, **_redes_view(clip)}
 
 
 @app.delete("/api/projects/{pid}/clips/{clip_id}")
@@ -1327,7 +1418,7 @@ def publish_add(data: dict = Body(...)):
     remotas = _pelo_online(nets)
     res = {"items": []}
     if remotas:
-        pedido = {**{k: data.get(k) for k in ("when", "at", "caption", "title", "privacy", "label")}, "nets": remotas}
+        pedido = {**{k: data.get(k) for k in ("when", "at", "caption", "title", "privacy", "label", "textos")}, "nets": remotas}
         jobs.submit("publicar-online", pid, lambda pr: online.publicar(pid, file, pedido, pr), queue="download",
                     label="Enviando para publicar pelo online")
         res["online"] = remotas
@@ -1392,6 +1483,7 @@ def _enfileirar(pid: str, file: str, data: dict) -> list[dict]:
     if off:
         raise HTTPException(400, "Conecte antes: " + ", ".join(off))
     mode = data.get("when") or "slot"
+    textos = data.get("textos") if isinstance(data.get("textos"), dict) else {}  # v1.6: texto próprio de cada rede
     items = []
     for n in nets:
         if mode == "now":
@@ -1400,8 +1492,11 @@ def _enfileirar(pid: str, file: str, data: dict) -> list[dict]:
             when = float(data.get("at") or time.time())
         else:
             when = publish.next_slot(n)
-        items.append(publish.new_item(pid, file, n, when, str(data.get("caption") or "")[:2200],
-                                      str(data.get("title") or "")[:100], data.get("privacy") or "public",
+        tx = textos.get(n) if isinstance(textos.get(n), dict) else {}
+        caption = tx.get("caption") if tx.get("caption") is not None else data.get("caption")
+        title = tx.get("title") or data.get("title")
+        items.append(publish.new_item(pid, file, n, when, str(caption or "")[:2200],
+                                      str(title or "")[:100], data.get("privacy") or "public",
                                       str(data.get("label", "") or "")[:120]))
     publish.add(items)
     return items
