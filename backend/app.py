@@ -17,11 +17,11 @@ from fastapi import Body, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from .core import bancos, destinos, importer, jobs, legal, montagem, online, pacote, pipeline, publish, store, trilhas
+from .core import bancos, contas, destinos, importer, jobs, legal, montagem, online, pacote, pipeline, publish, store, trilhas
 from .engine import avaliacao, capitulos, edits, frames, platforms, redes, reframe, socials, subtitles, transcribe
 from .engine import ffmpeg_tools as ff
 
-VERSION = "1.6.0"
+VERSION = "1.7.0"
 FRONT = store.ROOT / "frontend"
 PASSWORD = os.environ.get("APP_PASSWORD", "")
 SECRET = os.environ.get("APP_SECRET") or secrets.token_hex(16)
@@ -47,7 +47,7 @@ def _start_scheduler():
 
 # Senha: na versão online vem do instalador (APP_PASSWORD); no PC é opcional, criada em Configurações.
 INTERNO = secrets.token_hex(16)  # a janela do PC (mesmo processo) usa este código para baixar arquivos
-_LIVRES = ("/api/login", "/api/status", "/api/meta")
+_LIVRES = ("/api/login", "/api/logout", "/api/status", "/api/meta")
 _RE_OAUTH = re.compile(r"^/api/oauth/[a-z]+/(start|callback)$")  # o login das redes abre no navegador
 
 
@@ -73,17 +73,95 @@ async def sem_cache_da_tela(request: Request, call_next):
     return resp
 
 
+# ---------- contas (v1.7): quem pode o quê ----------
+# Só o dono (senha do instalador) e os administradores mexem nisso; a equipe e os clientes recebem 403.
+_SO_DONO = [
+    ("PUT", re.compile(r"^/api/settings$")), ("POST", re.compile(r"^/api/settings/test-ai$")),
+    ("*", re.compile(r"^/api/app/logo$"), ("POST", "DELETE")), ("*", re.compile(r"^/api/brand/"), ("POST", "DELETE")),
+    ("*", re.compile(r"^/api/musicas"), ("POST", "DELETE")), ("PUT", re.compile(r"^/api/defaults$")),
+    ("POST", re.compile(r"^/api/maintenance/")), ("*", re.compile(r"^/api/sync/")), ("*", re.compile(r"^/api/online/")),
+    ("*", re.compile(r"^/api/security/")), ("PUT", re.compile(r"^/api/publish/config$")),
+    ("*", re.compile(r"^/api/publish/destinos"), ("POST", "DELETE", "PUT")),
+    ("*", re.compile(r"^/api/publish/(page|account|online-login)")), ("POST", re.compile(r"^/api/oauth/[a-z]+/ticket$")),
+    ("POST", re.compile(r"^/api/trilhas/[^/]+/guardar$")), ("*", re.compile(r"^/api/usuarios")),
+    ("POST", re.compile(r"^/api/publish/receber$")),
+]
+_RE_PROJ = re.compile(r"^/api/(?:projects|jobs)/([0-9a-f]{12})(?:/|$)")
+_DONO_PROJ: dict[str, tuple[float, str]] = {}  # pid -> (quando leu, dono), para não abrir o project.json a cada pedido
+
+
+def _bate(regra: tuple, metodo: str, path: str) -> bool:
+    m, rx = regra[0], regra[1]
+    if not rx.match(path):
+        return False
+    if m == "*":
+        return len(regra) < 3 or metodo in regra[2]
+    return metodo == m
+
+
+def _dono_do_projeto(pid: str) -> str | None:
+    hit = _DONO_PROJ.get(pid)
+    if hit and time.time() - hit[0] < 30:
+        return hit[1]
+    try:
+        dono = contas.dono_do_projeto(store.load(pid))
+    except Exception:
+        return None
+    _DONO_PROJ[pid] = (time.time(), dono)
+    return dono
+
+
+def _quem(request: Request) -> dict | None:
+    """Quem está pedindo: DONO (senha do instalador, programa do PC, janela do PC), uma pessoa com conta, ou None."""
+    if not _senha_base():
+        return contas.DONO  # programa do PC sem senha
+    interno = request.headers.get("x-vox-interno", "")
+    if (interno and _local(request) and hmac.compare_digest(interno, INTERNO)) \
+            or hmac.compare_digest(request.cookies.get("editor_auth", ""), _token()):
+        return contas.DONO
+    if PASSWORD:
+        return contas.da_sessao(request.cookies.get("vox_sessao", ""), SECRET)
+    return None
+
+
+def _negado(msg: str, code: int = 403) -> JSONResponse:
+    return JSONResponse({"detail": msg}, status_code=code)
+
+
 @app.middleware("http")
 async def auth(request: Request, call_next):
     path = request.url.path
-    if path.startswith("/api/") and path not in _LIVRES and not _RE_OAUTH.match(path) \
-            and not path.startswith("/api/publico/") and _senha_base():  # /api/publico: link assinado do webhook
-        interno = request.headers.get("x-vox-interno", "")
-        ok = (interno and _local(request) and hmac.compare_digest(interno, INTERNO)) \
-            or hmac.compare_digest(request.cookies.get("editor_auth", ""), _token())
-        if not ok:
-            return JSONResponse({"detail": "login necessário"}, status_code=401)
-    return await call_next(request)
+    if not path.startswith("/api/") or path in _LIVRES or _RE_OAUTH.match(path) or path.startswith("/api/publico/"):
+        u = _quem(request) if path.startswith("/api/oauth/") else None  # /api/publico: link assinado do webhook
+        tok = contas.atual.set(u)
+        try:
+            return await call_next(request)
+        finally:
+            contas.atual.reset(tok)
+    u = _quem(request)
+    if u is None:
+        return _negado("login necessário", 401)
+    papel, metodo = u["papel"], request.method
+    if papel not in ("dono", "admin"):
+        if any(_bate(r, metodo, path) for r in _SO_DONO):
+            return _negado("Só o responsável pela conta do VOX Editor pode mudar isso.")
+        if papel == "cliente":
+            if path == "/api/publish/queue" and metodo == "GET":
+                return JSONResponse([])
+            if path == "/api/publish/status":
+                return JSONResponse({"bloqueado": True, "networks": {}, "destinos": []})
+            if path.startswith("/api/publish/"):
+                return _negado("Publicar nas redes fica com o responsável pela conta. Baixe o vídeo em Exportados.")
+            m = _RE_PROJ.match(path)
+            if m:
+                dono = _dono_do_projeto(m.group(1))
+                if dono is not None and dono != u["id"]:
+                    return _negado("Projeto não encontrado", 404)
+    tok = contas.atual.set(u)
+    try:
+        return await call_next(request)
+    finally:
+        contas.atual.reset(tok)
 
 
 def _cookie(r: Response) -> Response:
@@ -168,7 +246,7 @@ def status():
     return {"version": VERSION, "ffmpeg": ff_ok, "encoders": encs,
             "encoder": ff.best_encoder() if ff_ok else None, "local_transcription": transcribe.local_available(),
             "gpu_transcription": transcribe._cuda_available(), "login_required": bool(_senha_base()),
-            "online_mode": bool(PASSWORD),
+            "online_mode": bool(PASSWORD), "contas": bool(PASSWORD),
             "name": store.load_config()["app"].get("name", "Editor IA"),
             "tagline": store.load_config()["app"].get("tagline", ""),
             "accent": store.load_config()["app"].get("accent", "#FF8A3D"),
@@ -197,6 +275,23 @@ def login(request: Request, data: dict = Body(...)):
         espera = int(900 - (agora - falhas[0])) // 60 + 1
         raise HTTPException(429, f"Muitas tentativas erradas. Tente de novo em {espera} min.")
     pw = str(data.get("password", ""))
+    email = str(data.get("email", "") or "").strip()
+    if email and PASSWORD:  # v1.7: pessoa com conta (equipe ou cliente) entra com e-mail e senha
+        try:
+            u = contas.autenticar(email, pw)
+        except PermissionError as e:
+            raise HTTPException(403, str(e))
+        if not u:
+            falhas.append(agora)
+            _FALHAS[ip] = falhas
+            time.sleep(1)
+            raise HTTPException(401, "E-mail ou senha incorretos")
+        _FALHAS.pop(ip, None)
+        r = JSONResponse({"ok": True, "papel": u["papel"]})
+        r.delete_cookie("editor_auth")
+        r.set_cookie("vox_sessao", contas.token(u, SECRET), httponly=True, samesite="lax", secure=HTTPS,
+                     max_age=60 * 60 * 24 * 30)
+        return r
     certo = hmac.compare_digest(pw, PASSWORD) if PASSWORD else store.check_password(pw)
     if not certo:
         falhas.append(agora)
@@ -204,7 +299,110 @@ def login(request: Request, data: dict = Body(...)):
         time.sleep(1)
         raise HTTPException(401, "Senha incorreta")
     _FALHAS.pop(ip, None)
-    return _cookie(JSONResponse({"ok": True}))
+    r = _cookie(JSONResponse({"ok": True, "papel": "dono"}))
+    r.delete_cookie("vox_sessao")
+    return r
+
+
+@app.post("/api/logout")
+def logout():
+    r = JSONResponse({"ok": True})
+    r.delete_cookie("editor_auth")
+    r.delete_cookie("vox_sessao")
+    return r
+
+
+# ---------- contas: a própria conta e o cadastro de pessoas (v1.7) ----------
+
+def _eu_view() -> dict:
+    u = contas.eu() or contas.DONO
+    out = {"id": u["id"], "nome": u["nome"], "email": u.get("email", ""), "papel": u["papel"],
+           "papel_nome": contas.NOMES_PAPEIS.get(u["papel"], u["papel"]), "contas": bool(PASSWORD),
+           "pode_publicar": contas.pode_publicar(), "manda_em_tudo": contas.manda_em_tudo(),
+           "login": bool(_senha_base())}
+    if u["papel"] != "dono":
+        out["uso"] = contas.uso(contas._buscar(u["id"]) or u)
+    return out
+
+
+@app.get("/api/eu")
+def eu():
+    return _eu_view()
+
+
+@app.post("/api/eu/senha")
+def eu_senha(data: dict = Body(...)):
+    u = contas.eu()
+    if not u or u["papel"] == "dono":
+        raise HTTPException(400, "A senha do dono é a que foi definida na instalação da VPS.")
+    try:
+        contas.trocar_senha(u["id"], str(data.get("atual", "")), str(data.get("nova", "")))
+    except PermissionError as e:
+        time.sleep(1)
+        raise HTTPException(401, str(e))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    full = contas._buscar(u["id"])
+    r = JSONResponse({"ok": True})  # a sessão antiga caiu com a troca: entrega uma nova
+    r.set_cookie("vox_sessao", contas.token(full, SECRET), httponly=True, samesite="lax", secure=HTTPS,
+                 max_age=60 * 60 * 24 * 30)
+    return r
+
+
+def _so_online_contas():
+    if not PASSWORD:
+        raise HTTPException(400, "As contas de pessoas são da versão online.")
+
+
+@app.get("/api/usuarios")
+def usuarios():
+    _so_online_contas()
+    projetos: dict[str, int] = {}
+    for p in store.list_projects(todos=True):
+        projetos[p.get("owner") or ""] = projetos.get(p.get("owner") or "", 0) + 1
+    lista = []
+    for u in contas.listar():
+        lista.append({**u, "papel_nome": contas.NOMES_PAPEIS.get(u["papel"], u["papel"]), "uso": contas.uso(u),
+                      "projetos": projetos.get(u["id"], 0)})
+    return {"usuarios": lista, "projetos_do_dono": projetos.get("", 0)}
+
+
+@app.post("/api/usuarios")
+def usuario_criar(data: dict = Body(...)):
+    _so_online_contas()
+    try:
+        return contas.criar(data)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@app.put("/api/usuarios/{uid}")
+def usuario_editar(uid: str, data: dict = Body(...)):
+    _so_online_contas()
+    try:
+        return contas.editar(uid, data)
+    except KeyError as e:
+        raise HTTPException(404, str(e))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@app.delete("/api/usuarios/{uid}")
+def usuario_remover(uid: str, projetos: str = "manter"):
+    """Remove a conta. Os projetos da pessoa passam para o dono (projetos=manter) ou são apagados (projetos=apagar)."""
+    _so_online_contas()
+    if not contas._buscar(uid):
+        raise HTTPException(404, "Conta não encontrada.")
+    for p in store.list_projects(todos=True):
+        if p.get("owner") == uid:
+            if projetos == "apagar":
+                store.delete_project(p["id"])
+            else:
+                store.update(p["id"], lambda x: x.pop("owner", None))
+            _DONO_PROJ.pop(p["id"], None)
+    contas.remover(uid)
+    contas.esquecer_espaco(uid)
+    return {"ok": True}
 
 
 @app.post("/api/security/password")
@@ -225,7 +423,15 @@ def set_pc_password(data: dict = Body(...)):
 
 @app.get("/api/settings")
 def get_settings():
-    return store.public_config(store.load_config())
+    cfg = store.public_config(store.load_config())
+    if not contas.manda_em_tudo():  # equipe e clientes não precisam ver chaves, destinos nem os dados das páginas
+        for sec in ("online", "legal", "security"):
+            cfg.pop(sec, None)
+        if not contas.pode_publicar():
+            cfg["publish"] = {}
+        else:
+            cfg["publish"] = {k: v for k, v in (cfg.get("publish") or {}).items() if k in ("slots", "destinos")}
+    return cfg
 
 
 @app.put("/api/settings")
@@ -357,8 +563,15 @@ def dashboard():
         free = _sh.disk_usage(str(store.DATA)).free
     except OSError:
         free = 0
+    usado = store.folder_size(store.PROJECTS)
+    u = contas.eu()
+    if u and u["papel"] != "dono":  # v1.7: a pessoa vê o próprio espaço e o que resta do limite dela
+        usado = contas.espaco_usado(u["id"])
+        livre = contas.espaco_livre_bytes()
+        if livre is not None:
+            free = int(livre)
     return {"projects": len(ps), "seconds_in": round(total_in), "removed": round(removed), "clips": clips,
-            "renders": renders, "storage": store.folder_size(store.PROJECTS), "free": free}
+            "renders": renders, "storage": usado, "free": free}
 
 
 @app.get("/api/atividade")
@@ -366,7 +579,10 @@ def atividade():
     """Tudo o que está acontecendo agora, para a barra do topo: análises, exportações, downloads e as próximas postagens."""
     nomes = {p["id"]: p for p in store.list_projects()}
     trabalhos = []
+    ve_tudo = contas.ve_tudo()
     for j in jobs.atividade():
+        if not ve_tudo and j["project"] not in nomes:
+            continue  # v1.7: cliente só vê o andamento dos próprios projetos
         p = nomes.get(j["project"]) or {}
         trabalhos.append({"id": j["id"], "kind": j["kind"], "label": j.get("label") or "", "status": j["status"],
                           "pct": j["pct"], "msg": j["msg"], "error": j.get("error"), "project": j["project"],
@@ -375,7 +591,8 @@ def atividade():
                   for p in nomes.values() if p["status"] in ("enviando", "baixando", "processando", "na fila")]
     proximas = []
     try:
-        for it in sorted((x for x in publish.queue() if x.get("status") in ("agendado", "publicando")),
+        for it in sorted((x for x in (publish.queue() if contas.pode_publicar() else [])
+                          if x.get("status") in ("agendado", "publicando")),
                          key=lambda x: x.get("when", 0))[:6]:
             p = nomes.get(it.get("project")) or {}
             proximas.append({"id": it["id"], "net": it["net"], "when": it.get("when", 0), "status": it["status"],
@@ -435,6 +652,16 @@ def app_logo_get():
     return FileResponse(f, media_type="image/png", headers={"Cache-Control": "no-cache"})
 
 
+def _limites(minutos: bool = True) -> None:
+    """v1.7: confere o espaço e os minutos do mês da pessoa antes de receber vídeo novo."""
+    try:
+        contas.conferir_espaco()
+        if minutos:
+            contas.conferir_minutos()
+    except PermissionError as e:
+        raise HTTPException(403, str(e))
+
+
 @app.post("/api/projects")
 async def upload(request: Request):
     """Recebe o arquivo em fluxo contínuo (suporta vários GB sem usar memória)."""
@@ -446,6 +673,8 @@ async def upload(request: Request):
         pass
     name = re.sub(r"[\\/:*?\"<>|]+", "_", name).strip() or "video.mp4"
     ext = Path(name).suffix.lower() or ".mp4"
+    _limites()
+    livre = contas.espaco_livre_bytes()
     proj = store.new_project(name)
     folder = store.pdir(proj["id"])
     dest = folder / f"original{ext}"
@@ -456,6 +685,8 @@ async def upload(request: Request):
                 size += len(chunk)
                 if size > limit:
                     raise HTTPException(413, f"Arquivo maior que {MAX_UPLOAD_GB:g} GB")
+                if livre is not None and size > livre:
+                    raise HTTPException(413, "Esse vídeo passa do espaço que ainda resta na sua conta.")
                 fh.write(chunk)
     except BaseException:
         store.delete_project(proj["id"])
@@ -466,25 +697,31 @@ async def upload(request: Request):
     store.update(proj["id"], lambda p: p.update(source=dest.name, size=size, status="na fila",
                                                 progress={"pct": 0, "msg": "Na fila para análise…"}))
     pid = proj["id"]
-
-    def work(progress):
-        try:
-            return pipeline.analyze(pid, progress)
-        except Exception as e:
-            pipeline._set(pid, "erro", None, str(e))
-            raise
-
-    jobs.submit("analise", pid, work, label="Análise")
+    jobs.submit("analise", pid, _trabalho_analise(pid), label="Análise")
     return view(store.load(pid))
 
 
-def _start_analysis(pid: str) -> None:
+def _trabalho_analise(pid: str):
+    """A análise em segundo plano. v1.7: na primeira análise que dá certo, os minutos contam no mês do dono do projeto."""
     def work(progress):
         try:
-            return pipeline.analyze(pid, progress)
+            res = pipeline.analyze(pid, progress)
         except Exception as e:
             pipeline._set(pid, "erro", None, str(e))
             raise
+        try:
+            proj = store.load(pid)
+            if proj.get("owner") and not proj.get("minutos_contados"):
+                contas.somar_minutos(proj["owner"], float((proj.get("media") or {}).get("duration") or 0) / 60)
+                store.update(pid, lambda p: p.update(minutos_contados=True))
+        except Exception:
+            pass
+        return res
+    return work
+
+
+def _start_analysis(pid: str) -> None:
+    work = _trabalho_analise(pid)
     store.update(pid, lambda p: p.update(status="na fila", progress={"pct": 0, "msg": "Na fila para análise…"}))
     jobs.submit("analise", pid, work, label="Análise")
 
@@ -517,6 +754,7 @@ def import_link(data: dict = Body(...)):
         url = importer.clean_url(data.get("url", ""))
     except ValueError as e:
         raise HTTPException(400, str(e))
+    _limites()
     proj = store.new_project("Vídeo do link")
     pid = proj["id"]
     store.update(pid, lambda p: p.update(status="baixando", link=url, progress={"pct": 0, "msg": "Conectando ao site do vídeo…"}))
@@ -559,6 +797,8 @@ def baixar_pacote(pid: str):
 @app.post("/api/projects/importar-pacote")
 async def importar_pacote(request: Request):
     """Recebe um .vox (do botão "Importar projeto do PC" ou do "Enviar para o online") e abre como estava."""
+    _limites(minutos=False)
+    dono = contas.id_atual()
     tmp = store.DATA / f"_recebendo-{secrets.token_hex(6)}.vox"
     size, limit = 0, (MAX_UPLOAD_GB + 2) * 1024 ** 3
     try:
@@ -577,6 +817,11 @@ async def importar_pacote(request: Request):
             raise HTTPException(400, str(e))
     finally:
         tmp.unlink(missing_ok=True)
+    def _carimbo(p):  # o pacote pode ter vindo com o dono de outra instalação: fica com quem importou
+        p.pop("owner", None)
+        if dono:
+            p["owner"] = dono
+    proj = store.update(proj["id"], _carimbo)
     return view(proj)
 
 
@@ -672,15 +917,7 @@ def reprocess(pid: str):
         _import_job(pid, "download", lambda step: importer.download(pid, url, step, MAX_UPLOAD_GB))
         return view(store.load(pid))
     store.update(pid, lambda p: p.update(status="na fila", progress={"pct": 0, "msg": "Na fila para análise…"}))
-
-    def work(progress):
-        try:
-            return pipeline.analyze(pid, progress)
-        except Exception as e:
-            pipeline._set(pid, "erro", None, str(e))
-            raise
-
-    jobs.submit("analise", pid, work, label="Nova análise")
+    jobs.submit("analise", pid, _trabalho_analise(pid), label="Nova análise")
     return view(store.load(pid))
 
 
@@ -1281,7 +1518,7 @@ def oauth_ticket(app_name: str, request: Request, data: dict = Body(default={}))
 def oauth_start(app_name: str, request: Request, desk: str = "", ticket: str = ""):
     # Começar um login troca a conta conectada: só quem está logado no editor (ou tem um link assinado) pode.
     if _senha_base() and not (hmac.compare_digest(request.cookies.get("editor_auth", ""), _token())
-                              or _ticket_ok(app_name, ticket)):
+                              or (contas.eu() or {}).get("papel") == "admin" or _ticket_ok(app_name, ticket)):
         return Response(_DONE_PAGE.format(title="Link expirado", color="#f87171",
                                           msg="Este link de login vale por 10 minutos. Volte ao VOX Editor e clique "
                                               "em Conectar de novo."), media_type="text/html", status_code=403)
@@ -1442,7 +1679,7 @@ async def publish_receber(request: Request):
     nome = re.sub(r"[^\w.\- ]+", "_", unquote(request.headers.get("x-filename", "video.mp4")))[:120] or "video.mp4"
     if not nome.lower().endswith((".mp4", ".mov", ".m4a")):
         nome += ".mp4"
-    proj = next((p for p in store.list_projects() if p.get("recebidos")), None)
+    proj = next((p for p in store.list_projects(todos=True) if p.get("recebidos")), None)
     if not proj:  # projeto de montagem em branco que guarda os vídeos que chegam do PC (aparecem em Exportados)
         proj = montagem.projeto_em_branco("Vídeos enviados do PC", "9:16")
         store.update(proj["id"], lambda p: p.update(recebidos=True))
@@ -1652,6 +1889,7 @@ def trilhas_buscar(q: str = "", humor: str = "", pagina: int = 1):
 def trilha_no_projeto(pid: str, tid: str):
     """Baixa a trilha livre para as mídias da montagem (com o crédito guardado junto)."""
     _404(lambda: store.load(pid))
+    _limites(minutos=False)
     try:
         arq, f = trilhas.baixar(tid, montagem.pasta_midias(pid))
         return montagem.adicionar_midia(pid, arq, f"{f['title'] or 'Música'} — {f['creator'] or 'autor'}{arq.suffix}",
@@ -1699,6 +1937,7 @@ def trilha_guardar(tid: str):
 @app.post("/api/projects/{pid}/midias")
 async def montagem_upload(pid: str, request: Request):
     _404(lambda: store.load(pid))
+    _limites(minutos=False)
     from urllib.parse import unquote
     nome = unquote(request.headers.get("x-filename", "arquivo"))
     nome = re.sub(r"[\\/:*?\"<>|]+", "_", nome).strip() or "arquivo"
@@ -1779,6 +2018,7 @@ def bancos_buscar(fonte: str = "todos", tipo: str = "video", q: str = "", pagina
 def banco_no_projeto(pid: str, bid: str):
     """Baixa o vídeo/foto do banco grátis para as mídias da montagem (em segundo plano, com progresso)."""
     _404(lambda: store.load(pid))
+    _limites(minutos=False)
     try:
         info = bancos.item(bid)
     except FileNotFoundError as e:

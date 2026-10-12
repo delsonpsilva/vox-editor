@@ -16,6 +16,11 @@
 <section id="view-login" class="view hidden">
   <form id="login-form" class="login-card">
     <div class="brand big"><span class="logo app-logo"></span><span class="app-name">Editor IA</span></div>
+    <div id="login-email-box" class="hidden login-email">
+      <label for="login-email">E-mail</label>
+      <input id="login-email" type="email" autocomplete="username" placeholder="Quem tem conta coloca o e-mail aqui">
+      <p class="hint">O responsável pelo sistema deixa o e-mail vazio e entra só com a senha.</p>
+    </div>
     <label for="login-pass">Senha de acesso</label>
     <input id="login-pass" type="password" autocomplete="current-password" required>
     <button class="btn primary" type="submit">Entrar</button>
@@ -1051,5 +1056,6 @@
 <script src="edicao.js"></script>
 <script src="cortes.js"></script>
 <script src="editor-novo.js"></script>
+<script src="contas.js"></script>
 </body>
 </html>

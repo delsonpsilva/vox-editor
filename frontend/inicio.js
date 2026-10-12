@@ -2,7 +2,8 @@
    Usa as funções do app.js ($, $$, api, esc, toast, fmt, fmtHours, fmtDur, S, upload, importarVox...). */
 (function () {
   const TITULOS = { inicio: "Início", projetos: "Projetos", exportados: "Exportados", publicacoes: "Publicações",
-    modelos: "Modelos", redes: "Redes sociais", marca: "Marca", ia: "Inteligência artificial" };
+    modelos: "Modelos", redes: "Redes sociais", marca: "Marca", ia: "Inteligência artificial",
+    usuarios: "Contas", conta: "Minha conta" };
   const KIND = { analise: "Análise", render: "Exportação", download: "Download", publicar: "Publicação", "publicar-online": "Envio",
     semfundo: "Remover fundo", previa: "Prévia", banco: "Banco grátis", limpeza: "Limpeza com IA", pacote: "Pacote",
     online: "Envio para o online", trazer: "Trazer do online", montagem: "Exportação da montagem" };

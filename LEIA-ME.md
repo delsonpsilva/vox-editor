@@ -1,4 +1,23 @@
-# VOX Editor — edição de vídeo com cortes inteligentes e montagem manual (versão 1.6)
+# VOX Editor — edição de vídeo com cortes inteligentes e montagem manual (versão 1.7)
+
+## Novidades da versão 1.7 — Super Pacote 1: contas da equipe e dos clientes
+
+- **Contas de pessoas na versão online** (menu **Contas**, só para o responsável): cada pessoa entra com o
+  próprio **e-mail e senha**. O responsável continua entrando só com a senha da instalação (e-mail vazio).
+- **Quatro tipos de acesso:**
+  - **Administrador**: faz tudo, como o responsável (configurações, redes, marca e contas).
+  - **Equipe**: vê e edita todos os projetos e publica nas redes já conectadas. Não mexe em configurações.
+  - **Cliente**: vê só os próprios projetos. Edita, corta, monta e baixa os vídeos. Não publica e não mexe em configurações.
+- **Limites por pessoa:** espaço (GB) e minutos de vídeo analisados por mês (0 = sem limite). Quando acaba,
+  o envio de vídeo novo é bloqueado com um aviso claro; os minutos renovam no dia 1º.
+- **Uso de cada pessoa** na tela Contas: projetos, espaço, minutos do mês e último acesso.
+- **Nova conta com senha gerada** e o botão **Copiar dados de acesso** (endereço, e-mail e senha) para mandar
+  pelo WhatsApp. **Bloquear/Liberar** derruba o acesso na hora. **Remover** pergunta se você fica com os
+  projetos da pessoa ou se apaga junto.
+- **Minha conta** (para quem tem conta): uso, troca de senha e **Sair**. Botão **Sair** também no menu.
+- As contas ficam no banco `dados/vox.db` (senhas só em "hash"). O `sudo vox-atualizar` guarda uma cópia
+  dele antes de cada atualização. No programa do PC nada muda: continua com uma senha só (ou nenhuma).
+
 
 ## Novidades da versão 1.6 — a cara nova dentro do editor e a nota de cada corte
 

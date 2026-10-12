@@ -1,5 +1,5 @@
-VOX Editor 1.6.0 — Cara nova dentro do editor + nota de cada corte e textos por rede
-====================================================================================
+VOX Editor 1.7.0 — Super Pacote 1: contas da equipe e dos clientes
+====================================================================
 (Este pacote já inclui tudo das versões anteriores. Pode extrair por cima.)
 
 NO PC (Windows)
@@ -7,34 +7,28 @@ NO PC (Windows)
 2. Extraia este .zip DENTRO da pasta C:\editor-ia (onde ficam INICIAR.bat e PUBLICAR.bat).
    Quando o Windows perguntar, escolha "Substituir os arquivos no destino".
    (Não precisa rodar o ATUALIZAR.bat: não há componente novo.)
-3. Abra o programa. No canto de baixo, à esquerda, deve aparecer "versão 1.6.0".
+3. Abra o programa. No canto de baixo, à esquerda, deve aparecer "versão 1.7.0".
    Se a tela não mudar: feche o programa e dê dois cliques no LIMPAR-CACHE-DA-TELA.bat.
 4. Dois cliques no PUBLICAR.bat.
 
 NA VPS
 5. sudo vox-atualizar
 
+DEPOIS DE ATUALIZAR (no editor online, editor.voxapps.app)
+6. Entre como sempre: deixe o e-mail VAZIO e coloque a sua senha.
+7. No menu, clique em "Contas" -> "+ Nova conta". Coloque nome, e-mail, o tipo
+   (Administrador, Equipe ou Cliente) e, se quiser, os limites. A senha já vem gerada.
+8. Clique em "Copiar dados de acesso" e mande para a pessoa.
+
 O QUE MUDOU
-- Editor com a cara nova (abas Edição, Cortes e Montagem):
-  - Menu lateral da tela principal, só com os ícones, à esquerda do editor: vai para Início, Exportados,
-    Publicações, Redes sociais etc. sem precisar voltar.
-  - Barra do topo nova: "Projetos > nome do projeto" (clique em Projetos para voltar), abas com ícones,
-    busca rápida (Ctrl+K), Atividade (andamento das exportações) e Configurações.
-  - Painéis e cartões no mesmo visual da tela inicial. No celular a barra fica compacta.
-- Nota de cada corte (aba Cortes):
-  - Cada corte mostra a nota (0 a 100) no canto da imagem e os motivos embaixo do título:
-    "gancho forte", "pergunta que prende", "ideia completa", "frase marcante", "ritmo bom"...
-    e os alertas em amarelo: "começa no meio de uma ideia", "termina no meio da frase", "muitas pausas".
-  - Ao lado da prévia: a nota por critério (gancho, ideia completa, emoção, ritmo, duração) e a explicação.
-  - Botão "Melhor nota" (acima dos cortes) mostra os melhores primeiro.
-  - A nota é feita pelo próprio programa (não gasta API). Com o Claude ligado, entra também a nota da IA.
-- Texto para cada rede (aba Cortes, ao lado da prévia):
-  - YouTube (título + descrição), Instagram, TikTok e Facebook, cada um do seu jeito, com hashtags do assunto.
-  - Edite à vontade (salva sozinho), "Copiar texto pronto", "Reescrever com IA" (centavos) ou
-    "Voltar ao automático".
-  - "Hashtags fixas da marca": coloque uma vez (ex.: #suaigreja) e elas vão no fim de todos os textos.
-  - Os cortes gerados com o Claude ligado já vêm com o título e as hashtags de cada rede escritos pela IA.
-- Publicar: ao publicar um corte, o diálogo mostra abas por rede e cada uma sai com o próprio texto.
-  Para usar um texto só, marque "Mesmo texto em todas".
+- Contas de pessoas na versão online: cada um entra com o próprio e-mail e senha.
+  - Administrador: faz tudo, como você.
+  - Equipe: vê e edita todos os projetos e publica nas redes já conectadas. Não mexe em configurações.
+  - Cliente: vê só os próprios projetos. Edita, corta, monta e baixa. Não publica.
+- Limites por pessoa: espaço (GB) e minutos de vídeo por mês. Uso de cada pessoa na tela Contas.
+- Bloquear/Liberar na hora, trocar a senha de alguém (Editar) e Remover (fica com os projetos ou apaga).
+- "Minha conta" para cada pessoa: uso, trocar a senha e Sair.
+- O sudo vox-atualizar agora guarda também a cópia das contas (vox.db) antes de atualizar.
+- No programa do PC nada muda.
 
 Seus projetos, vídeos e configurações (pasta "dados") não são tocados.

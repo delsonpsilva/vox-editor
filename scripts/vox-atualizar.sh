@@ -47,8 +47,8 @@ esperar_versao() {  # espera o editor responder com a versão esperada (até 3 m
 backup() {
   mkdir -p "$BASE_DIR/backups"
   local arq="$BASE_DIR/backups/dados-$(date +%Y%m%d-%H%M%S).tar.gz"
-  # configurações, contas das redes, fila de publicações, marca e os arquivos .json dos projetos (sem os vídeos)
-  ( cd "$DADOS" && find . \( -name '*.json' -o -path './marca/*' \) -type f -print0 \
+  # configurações, contas das redes, contas de pessoas (vox.db), fila de publicações, marca e os .json dos projetos (sem os vídeos)
+  ( cd "$DADOS" && find . \( -name '*.json' -o -name 'vox.db' -o -path './marca/*' \) -type f -print0 \
       | tar --null -czf "$arq" -T - ) 2>/dev/null || true
   # guarda só as 10 cópias mais recentes
   ls -1t "$BASE_DIR"/backups/dados-*.tar.gz 2>/dev/null | tail -n +11 | xargs -r rm -f

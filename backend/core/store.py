@@ -161,6 +161,9 @@ def new_project(name: str) -> dict:
             "progress": {"pct": 0, "msg": "Recebendo arquivo…"}, "media": {}, "words": [], "segments": [],
             "analysis": {}, "settings": json.loads(json.dumps(load_config().get("defaults") or {})),
             "overrides": {"restored": [], "manual": []}, "clips": [], "renders": []}
+    from . import contas  # v1.7: o projeto fica com quem criou (cliente/equipe); vazio = dono do sistema
+    if contas.id_atual():
+        proj["owner"] = contas.id_atual()
     save(proj)
     return proj
 
@@ -190,12 +193,17 @@ def update(pid: str, fn) -> dict:
         return proj
 
 
-def list_projects() -> list[dict]:
+def list_projects(todos: bool = False) -> list[dict]:
+    """Projetos que a pessoa atual pode ver (cliente: só os dele). todos=True ignora a pessoa (uso do sistema)."""
+    from . import contas
+    filtrar = not todos and not contas.ve_tudo()
     out = []
     for f in PROJECTS.glob("*/project.json"):
         try:
             p = json.loads(f.read_text(encoding="utf-8"))
-            out.append({"id": p["id"], "name": p["name"], "created": p["created"], "status": p["status"],
+            if filtrar and not contas.pode_ver(p):
+                continue
+            out.append({"owner": p.get("owner") or "","id": p["id"], "name": p["name"], "created": p["created"], "status": p["status"],
                         "progress": p.get("progress"), "duration": p.get("media", {}).get("duration", 0),
                         "final": (p.get("stats") or {}).get("final"), "updated": f.stat().st_mtime,
                         "has_video": bool(p.get("media", {}).get("has_video")),

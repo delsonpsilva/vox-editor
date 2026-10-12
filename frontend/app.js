@@ -50,9 +50,11 @@ function show(view) {
 async function boot() {
   try { S.status = await api("GET", "/api/status"); } catch (e) { S.status = {}; }
   applyAppIdentity(); applyMode();
+  if (window.V17) V17.preparaLogin(S.status);
   if (S.status.login_required) {
     try { await api("GET", "/api/projects"); } catch (_) { show("login"); return; }
   }
+  if (window.V17) await V17.boot();  // v1.7: quem entrou (dono, administrador, equipe ou cliente) e o que pode ver
   try { S.meta = await api("GET", "/api/meta"); S.cfg = await api("GET", "/api/settings"); } catch (_) {}
   updateIABadge();
   markReady();
@@ -62,7 +64,7 @@ async function boot() {
 function route() {
   const m = location.hash.match(/^#\/p\/([0-9a-f]+)(\/cortes|\/montagem)?/);
   if (m) { S.mode = m[2] === "/cortes" ? "studio" : m[2] === "/montagem" ? "montage" : "edit"; openProject(m[1]); return; }
-  const pg = (location.hash.match(/^#\/(projetos|exportados|marca|publicacoes|modelos|redes|ia)/) || [])[1] || "inicio";
+  const pg = (location.hash.match(/^#\/(projetos|exportados|marca|publicacoes|modelos|redes|ia|usuarios|conta)/) || [])[1] || "inicio";
   goHome(pg);
 }
 window.addEventListener("hashchange", () => READY.then(route));
@@ -92,6 +94,7 @@ async function goHome(page = "inicio") {
   if (page === "publicacoes") renderQueue();
   if (page === "modelos") renderModelos();
   if (page === "redes") renderRedes();
+  if (window.V17) V17.onHome(page);
   if (page === "ia" && !(S.prevPage === "ia" && $("#ia-form").dataset.loaded)) renderIA();
   if (page !== "ia") delete $("#ia-form").dataset.loaded;
   refreshQueueCount();
@@ -2488,8 +2491,9 @@ function setupV09() {
 
 $("#login-form").addEventListener("submit", async (e) => {
   e.preventDefault();
-  try { await api("POST", "/api/login", { password: $("#login-pass").value }); $("#login-err").textContent = ""; boot(); }
-  catch (err) { $("#login-err").textContent = /Muitas tentativas/.test(err.message) ? err.message : "Senha incorreta"; }
+  const email = ($("#login-email") || {}).value || "";
+  try { await api("POST", "/api/login", { email: email.trim(), password: $("#login-pass").value }); $("#login-err").textContent = ""; $("#login-pass").value = ""; boot(); }
+  catch (err) { $("#login-err").textContent = /Muitas tentativas|bloqueada/.test(err.message) ? err.message : (email.trim() ? "E-mail ou senha incorretos" : "Senha incorreta"); }
 });
 
 setupDesktop(); setupUpload(); setupHome(); setupPublish(); setupRedes(); setupModelos(); setupEditor(); setupTranscript(); setupTimeline(); setupSettings(); setupStudio(); setupStyles(); setupFrames(); setupV09();

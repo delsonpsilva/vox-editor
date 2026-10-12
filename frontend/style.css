@@ -1353,3 +1353,52 @@ kbd{font-family:var(--font);font-size:11px;color:var(--muted);background:var(--p
 }
 /* textos centralizados (.hint.center) não herdam o layout da coluna central do editor (subiam para o topo em telas médias) */
 p.hint.center,p.center{display:block;padding:0;overflow:visible;order:0;gap:0}
+
+/* ---------- v1.7: contas de pessoas (equipe e clientes) ---------- */
+.login-email{display:flex;flex-direction:column;gap:6px}
+.login-email .hint{margin:0 0 4px}
+/* o que cada tipo de conta não vê (o servidor também bloqueia) */
+body.v17-restrito [data-open-settings],body.v17-restrito #btn-clean,
+body.v17-restrito a[data-page="modelos"],body.v17-restrito a[data-page="marca"],body.v17-restrito a[data-page="ia"],
+body.v17-restrito a[data-page="redes"],body.v17-restrito #btn-frames-brand{display:none!important}
+body.papel-cliente a[data-page="publicacoes"],body.papel-cliente [data-pub],body.papel-cliente [data-pubr],
+body.papel-cliente [data-qnow]{display:none!important}
+.side-nav .v17-sair{margin-top:4px}
+.v17-tipos{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.v17-tipo{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:4px}
+.v17-tipo b{font-size:14px}
+.v17-tipo span{font-size:12.5px;color:var(--muted);line-height:1.45}
+.v17-tab{display:flex;flex-direction:column}
+.v17-lin{display:grid;grid-template-columns:minmax(150px,2fr) 118px 62px minmax(96px,1.2fr) minmax(96px,1.2fr) 112px 214px;gap:10px;align-items:center;
+  padding:12px 4px;border-top:1px solid var(--line);font-size:13px}
+.v17-cab{border-top:0;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding-top:2px}
+.v17-pessoa{display:flex;flex-direction:column;gap:2px;min-width:0}
+.v17-pessoa em{font-style:normal;color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.v17-pessoa .v17-obs{color:var(--dim)}
+.v17-bloq{opacity:.6}
+.v17-chip-bloq{background:rgba(248,113,113,.15);color:#fca5a5}
+.v17-p-admin{background:var(--accent-soft);color:var(--accent-2)}
+.v17-p-equipe{background:rgba(96,165,250,.15);color:#93c5fd}
+.v17-acoes{display:flex;gap:4px;justify-content:flex-end;flex-wrap:wrap}
+.v17-acoes .btn{padding:0 10px}
+.pane .v17-form{padding:0}
+.v17-uso{display:flex;flex-direction:column;gap:5px;font-size:12.5px}
+.v17-uso em{font-style:normal;color:var(--dim);font-size:11.5px}
+.v17-bar{display:block;height:6px;border-radius:4px;background:var(--card2);overflow:hidden}
+.v17-bar b{display:block;height:100%;background:var(--accent);border-radius:4px}
+.v17-bar b.cheio{background:#f87171}
+.v17-form{display:flex;flex-direction:column;gap:12px;padding:18px}
+.v17-check{display:flex;align-items:center;gap:8px;font-size:13px}
+.v17-pre{background:var(--card2);border:1px solid var(--line2);border-radius:10px;padding:12px;font-family:var(--mono);font-size:13px;white-space:pre-wrap;user-select:all}
+@media (max-width:1280px){
+  .v17-cab{display:none}
+  .v17-lin{grid-template-columns:repeat(auto-fit,minmax(130px,1fr));padding:14px 4px}
+  .v17-pessoa,.v17-acoes{grid-column:1/-1}
+  .v17-acoes{justify-content:flex-start}
+  .v17-lin [data-l]::before{content:attr(data-l);display:block;font-size:11px;color:var(--dim);margin-bottom:3px}
+}
+input[type=email]{border-radius:8px;border:1px solid var(--line2);background:var(--card2);color:var(--text);padding:0 10px;font:inherit;font-size:13px;width:100%;height:36px}
+body.v17-restrito .hs-block:has(.shortcuts){display:none}
+body.papel-cliente .hs-block:has(#home-next){display:none}
+body.v17-restrito .shortcuts a[href="#/modelos"],body.v17-restrito .shortcuts a[href="#/marca"],
+body.v17-restrito .shortcuts a[href="#/redes"],body.v17-restrito .shortcuts a[href="#/ia"]{display:none}
