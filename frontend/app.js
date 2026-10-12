@@ -2303,7 +2303,7 @@ function fillSecurity(cfg) {
     ? "A senha está ligada: o programa pede a senha ao abrir."
     : "Sem senha: qualquer pessoa que usar este computador abre o editor. Crie uma senha para proteger seus projetos e contas.";
   $("#pw-cur-wrap").classList.toggle("hidden", !set);
-  $("#pw-remove").classList.toggle("hidden", !set);
+  $("#pw-remove").classList.add("hidden");  // v1.7: o admin sempre tem senha
   ["#pw-cur", "#pw-new", "#pw-new2"].forEach((k) => ($(k).value = ""));
   const on = cfg.online || {};
   $("#on-url").value = on.url || "";
@@ -2315,7 +2315,7 @@ function fillSecurity(cfg) {
 async function salvarSenha(remover) {
   const cur = $("#pw-cur").value, nova = remover ? "" : $("#pw-new").value;
   if (!remover) {
-    if (nova.length < 4) { toast("A senha precisa ter pelo menos 4 caracteres.", true); return; }
+    if (nova.length < 6) { toast("A senha precisa ter pelo menos 6 caracteres.", true); return; }
     if (nova !== $("#pw-new2").value) { toast("As duas senhas novas não conferem.", true); return; }
   } else if (!confirm("Tirar a senha? Qualquer pessoa neste computador vai poder abrir o editor.")) return;
   try {
@@ -2491,7 +2491,8 @@ function setupV09() {
 
 $("#login-form").addEventListener("submit", async (e) => {
   e.preventDefault();
-  const email = ($("#login-email") || {}).value || "";
+  let email = (($("#login-email") || {}).value || "").trim();
+  if (/^admin$/i.test(email)) email = "";
   try { await api("POST", "/api/login", { email: email.trim(), password: $("#login-pass").value }); $("#login-err").textContent = ""; $("#login-pass").value = ""; boot(); }
   catch (err) { $("#login-err").textContent = /Muitas tentativas|bloqueada/.test(err.message) ? err.message : (email.trim() ? "E-mail ou senha incorretos" : "Senha incorreta"); }
 });

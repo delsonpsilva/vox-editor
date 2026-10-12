@@ -34,6 +34,9 @@ app = FastAPI(title="Editor IA", version=VERSION)
 
 @app.on_event("startup")
 def _start_scheduler():
+    if not PASSWORD and not store.password_hash():  # v1.7: o programa do PC nunca fica sem senha
+        store.set_password(SENHA_PADRAO)
+        store.marcar_troca_de_senha(True)
     publish.start()  # fila de autopostagem roda em segundo plano enquanto o programa estiver aberto
     # trabalhos que estavam no meio quando o programa foi fechado ficam com aviso e botão "Tentar novamente"
     for p in store.list_projects():
@@ -51,8 +54,18 @@ _LIVRES = ("/api/login", "/api/logout", "/api/status", "/api/meta")
 _RE_OAUTH = re.compile(r"^/api/oauth/[a-z]+/(start|callback)$")  # o login das redes abre no navegador
 
 
+SENHA_PADRAO = "admin123"  # v1.7: senha inicial do admin no PC; o programa pede para trocar no primeiro acesso
+
+
 def _senha_base() -> str:
-    return PASSWORD or store.password_hash()
+    # a senha trocada pelo painel (guardada só em "hash") vale mais que a do instalador da VPS
+    return store.password_hash() or PASSWORD
+
+
+def _senha_dono_confere(pw: str) -> bool:
+    if store.password_hash():
+        return store.check_password(pw)
+    return bool(PASSWORD) and hmac.compare_digest(pw, PASSWORD)
 
 
 def _token() -> str:
@@ -276,6 +289,8 @@ def login(request: Request, data: dict = Body(...)):
         raise HTTPException(429, f"Muitas tentativas erradas. Tente de novo em {espera} min.")
     pw = str(data.get("password", ""))
     email = str(data.get("email", "") or "").strip()
+    if email.lower() in ("admin", "administrador", "dono"):
+        email = ""  # o responsável entra como "admin" (ou com o usuário vazio)
     if email and PASSWORD:  # v1.7: pessoa com conta (equipe ou cliente) entra com e-mail e senha
         try:
             u = contas.autenticar(email, pw)
@@ -292,7 +307,7 @@ def login(request: Request, data: dict = Body(...)):
         r.set_cookie("vox_sessao", contas.token(u, SECRET), httponly=True, samesite="lax", secure=HTTPS,
                      max_age=60 * 60 * 24 * 30)
         return r
-    certo = hmac.compare_digest(pw, PASSWORD) if PASSWORD else store.check_password(pw)
+    certo = _senha_dono_confere(pw)
     if not certo:
         falhas.append(agora)
         _FALHAS[ip] = falhas
@@ -319,7 +334,8 @@ def _eu_view() -> dict:
     out = {"id": u["id"], "nome": u["nome"], "email": u.get("email", ""), "papel": u["papel"],
            "papel_nome": contas.NOMES_PAPEIS.get(u["papel"], u["papel"]), "contas": bool(PASSWORD),
            "pode_publicar": contas.pode_publicar(), "manda_em_tudo": contas.manda_em_tudo(),
-           "login": bool(_senha_base())}
+           "login": bool(_senha_base()),
+           "trocar_senha": u["papel"] == "dono" and store.precisa_trocar_senha()}
     if u["papel"] != "dono":
         out["uso"] = contas.uso(contas._buscar(u["id"]) or u)
     return out
@@ -407,15 +423,21 @@ def usuario_remover(uid: str, projetos: str = "manter"):
 
 @app.post("/api/security/password")
 def set_pc_password(data: dict = Body(...)):
-    """Cria, troca ou tira a senha do programa do PC. Na versão online a senha vem do instalador."""
-    if PASSWORD:
-        raise HTTPException(400, "Na versão online, a senha é definida pelo instalador da VPS.")
+    """Troca a senha do admin (o responsável), no PC e no online. No primeiro acesso com a senha padrão,
+    não precisa da atual. No online a senha nunca fica vazia; no PC, vazio tira a senha."""
     atual, nova = str(data.get("current", "")), str(data.get("new", ""))
-    if store.password_hash() and not store.check_password(atual):
+    if (contas.eu() or contas.DONO)["papel"] != "dono":
+        raise HTTPException(403, "Só o admin troca a senha do admin.")
+    primeira = store.precisa_trocar_senha()
+    if _senha_base() and not primeira and not _senha_dono_confere(atual):
         time.sleep(1)
         raise HTTPException(401, "A senha atual não confere.")
-    if nova and len(nova) < 4:
-        raise HTTPException(400, "A senha precisa ter pelo menos 4 caracteres.")
+    if PASSWORD and not nova:
+        raise HTTPException(400, "Na versão online o admin precisa de senha.")
+    if nova and len(nova) < 6:
+        raise HTTPException(400, "A senha precisa ter pelo menos 6 caracteres.")
+    if nova and nova == SENHA_PADRAO:
+        raise HTTPException(400, "Escolha uma senha diferente da senha padrão.")
     store.set_password(nova)
     r = JSONResponse({"ok": True, "password_set": bool(nova)})
     return _cookie(r) if nova else r

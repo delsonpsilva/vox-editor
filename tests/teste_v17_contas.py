@@ -180,6 +180,25 @@ contas._cache.clear()
 check(ana.get("/api/projects").status_code == 401, "sessão da conta removida cai")
 check(len(dono.get("/api/usuarios").json()["usuarios"]) == 3, "sobram 3 contas")
 
+# admin troca a própria senha no online (a do instalador deixa de valer)
+r = dono.post("/api/security/password", json={"current": "errada", "new": "novaDono123"})
+check(r.status_code == 401, "online: trocar a senha do admin exige a atual")
+r = dono.post("/api/security/password", json={"current": "senha-dono", "new": ""})
+check(r.status_code == 400, "online: o admin não fica sem senha")
+r = dono.post("/api/security/password", json={"current": "senha-dono", "new": "novaDono123"})
+check(r.status_code == 200, "online: admin troca a senha pelo painel")
+A._FALHAS.clear()
+t = TestClient(A.app)
+check(t.post("/api/login", json={"email": "admin", "password": "senha-dono"}).status_code == 401, "senha do instalador não vale mais")
+A._FALHAS.clear()
+check(t.post("/api/login", json={"email": "admin", "password": "novaDono123"}).status_code == 200, "admin entra com a senha nova")
+check(t.post("/api/login", json={"password": "novaDono123"}).status_code == 200, "PC ligado ao online (sem usuário) também entra")
+edu2 = TestClient(A.app)
+edu2.post("/api/login", json={"email": "edu@teste.com", "password": "edu12345"})
+check(edu2.post("/api/security/password", json={"current": "novaDono123", "new": "x1234567"}).status_code == 403,
+      "equipe não troca a senha do admin")
+dono = t
+
 # sair
 check(dono.post("/api/logout").status_code == 200 and dono.get("/api/projects").status_code == 401, "Sair encerra a sessão")
 

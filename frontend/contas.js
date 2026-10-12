@@ -136,6 +136,7 @@
     montar();
     try { C.eu = await api("GET", "/api/eu"); } catch (_) { C.eu = null; }
     aplicar();
+    if (C.eu && C.eu.trocar_senha) pedirSenhaNova();
     return C.eu;
   }
 
@@ -146,7 +147,7 @@
     const chefe = eu.papel === "dono" || eu.papel === "admin";
     b.classList.toggle("v17-restrito", !chefe);
     $$(".v17-so-chefe").forEach((el) => el.classList.toggle("hidden", !(chefe && eu.contas)));
-    $$(".v17-so-pessoa").forEach((el) => el.classList.toggle("hidden", eu.papel === "dono"));
+    $$(".v17-so-pessoa").forEach((el) => el.classList.toggle("hidden", !eu.login));
     $$(".v17-sair").forEach((el) => el.classList.toggle("hidden", !eu.login));
     // títulos de grupo do menu que ficaram sem nenhum item visível
     $$(".side-nav .nav-group").forEach((g) => {
@@ -273,7 +274,7 @@
   async function renderConta() {
     try { C.eu = await api("GET", "/api/eu"); } catch (_) {}
     const eu = C.eu || {};
-    $("#v17-conta-sub").textContent = eu.papel === "dono" ? "Você é o responsável por este VOX Editor." : `${eu.nome} · ${eu.email} · ${eu.papel_nome}`;
+    $("#v17-conta-sub").textContent = eu.papel === "dono" ? "Usuário: admin · responsável por este VOX Editor." : `${eu.nome} · ${eu.email} · ${eu.papel_nome}`;
     const uso = eu.uso;
     $("#v17-conta-uso").innerHTML = uso ? `
       <h2>Seu uso</h2>
@@ -282,8 +283,8 @@
         <div><p class="hint">Vídeo analisado neste mês</p>${barra(uso.minutos_mes, uso.limite_min, "min")}</div>
       </div>
       <p class="hint">${TIPOS[eu.papel] ? esc(TIPOS[eu.papel][1]) : ""} Os minutos voltam a zero no dia 1º de cada mês. Para aumentar, fale com o responsável.</p>`
-      : `<h2>Seu acesso</h2><p class="hint">Você entra com a senha definida na instalação da VPS e pode tudo. As contas da equipe e dos clientes ficam em Contas.</p>`;
-    $("#v17-conta-senha").classList.toggle("hidden", eu.papel === "dono");
+      : `<h2>Seu acesso</h2><p class="hint">Você é o <b>admin</b>: entra com o usuário admin e a sua senha, e pode tudo.${eu.contas ? " As contas da equipe e dos clientes ficam em Contas." : ""}</p>`;
+    $("#v17-conta-senha").classList.remove("hidden");
   }
 
   async function trocarSenha(e) {
@@ -291,7 +292,8 @@
     const f = e.target, msg = $("#v17-senha-msg");
     if (f.nova.value !== f.nova2.value) { msg.className = "err"; msg.textContent = "As duas senhas novas não são iguais."; return; }
     try {
-      await api("POST", "/api/eu/senha", { atual: f.atual.value, nova: f.nova.value });
+      if ((C.eu || {}).papel === "dono") await api("POST", "/api/security/password", { current: f.atual.value, new: f.nova.value });
+      else await api("POST", "/api/eu/senha", { atual: f.atual.value, nova: f.nova.value });
       f.reset(); msg.className = "hint ok"; msg.textContent = "Senha trocada.";
     } catch (err) { msg.className = "err"; msg.textContent = err.message; }
   }
@@ -309,9 +311,40 @@
     if (page === "conta") renderConta();
   }
 
-  function preparaLogin(st) {
-    const box = $("#login-email-box");
-    if (box) box.classList.toggle("hidden", !(st && st.contas));
+  function preparaLogin() {
+    const u = $("#login-email");
+    if (u && !u.value) u.value = "admin";
+  }
+
+  /* primeiro acesso com a senha padrão: pede uma senha nova antes de qualquer coisa */
+  function pedirSenhaNova() {
+    if (!$("#v17-primeira")) {
+      document.body.insertAdjacentHTML("beforeend", `
+        <dialog id="v17-primeira">
+          <form id="v17-form-primeira" class="settings v17-form">
+            <h2>Crie a sua senha</h2>
+            <p>Você entrou com a senha padrão. Para proteger seus projetos, crie agora uma senha só sua.
+              Daqui em diante, entre com o usuário <b>admin</b> e esta senha.</p>
+            <label class="field">Senha nova (mínimo 6)<input type="password" name="nova" minlength="6" autocomplete="new-password" required></label>
+            <label class="field">Repita a senha nova<input type="password" name="nova2" minlength="6" autocomplete="new-password" required></label>
+            <p class="err" id="v17-primeira-err"></p>
+            <div class="row end"><button class="btn primary" type="submit">Salvar a senha</button></div>
+          </form>
+        </dialog>`);
+      const dlg = $("#v17-primeira");
+      dlg.addEventListener("cancel", (e) => e.preventDefault());  // não fecha com Esc
+      $("#v17-form-primeira").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const f = e.target, err = $("#v17-primeira-err");
+        if (f.nova.value !== f.nova2.value) { err.textContent = "As duas senhas não são iguais."; return; }
+        try {
+          await api("POST", "/api/security/password", { current: "", new: f.nova.value });
+          dlg.close(); toast("Senha criada. Use admin e esta senha para entrar.");
+          if (C.eu) C.eu.trocar_senha = false;
+        } catch (er) { err.textContent = er.message; }
+      });
+    }
+    if (!$("#v17-primeira").open) $("#v17-primeira").showModal();
   }
 
   window.V17 = { boot, aplicar, onHome, preparaLogin, eu: () => C.eu };

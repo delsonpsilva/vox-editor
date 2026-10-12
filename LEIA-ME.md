@@ -2,6 +2,13 @@
 
 ## Novidades da versão 1.7 — Super Pacote 1: contas da equipe e dos clientes
 
+- **Entrada do admin, no PC e no online:** a tela de entrada tem **Usuário** e **Senha**. O responsável entra
+  com o usuário **admin**. No programa do PC, a senha inicial é **admin123** e, no primeiro acesso, ele pede para
+  criar uma senha só sua. No online, a senha do admin continua sendo a da instalação da VPS até você trocar.
+- **Trocar a senha do admin pelo painel:** menu **Minha conta** (no PC e no online). Se trocar a do online,
+  atualize também em Configurações → Versão online, no PC.
+- **Esqueceu a senha do PC?** Dois cliques no **ESQUECI-A-SENHA.bat**: ela volta para admin123.
+
 - **Contas de pessoas na versão online** (menu **Contas**, só para o responsável): cada pessoa entra com o
   próprio **e-mail e senha**. O responsável continua entrando só com a senha da instalação (e-mail vazio).
 - **Quatro tipos de acesso:**

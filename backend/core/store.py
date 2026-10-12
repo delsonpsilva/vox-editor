@@ -147,6 +147,22 @@ def set_password(new: str) -> None:
     _write_json(CONFIG_FILE, cfg)
 
 
+def marcar_troca_de_senha(sim: bool) -> None:
+    """v1.7: a senha atual é a padrão e precisa ser trocada no próximo acesso."""
+    cfg = load_config()
+    sec = cfg.get("security") or {}
+    if sim:
+        sec["trocar"] = True
+    else:
+        sec.pop("trocar", None)
+    cfg["security"] = sec
+    _write_json(CONFIG_FILE, cfg)
+
+
+def precisa_trocar_senha() -> bool:
+    return bool((load_config().get("security") or {}).get("trocar"))
+
+
 def pdir(pid: str) -> Path:
     if not pid or any(c not in "0123456789abcdef" for c in pid):
         raise FileNotFoundError("Projeto inválido")
