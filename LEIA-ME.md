@@ -1,4 +1,20 @@
-# VOX Editor — edição de vídeo com cortes inteligentes e montagem manual (versão 1.9)
+# VOX Editor — edição de vídeo com cortes inteligentes e montagem manual (versão 1.9.1)
+
+## Novidades da versão 1.9.1 — História → Vídeo mais completo
+
+- **Microfone liberado na janela do programa**: a narração ao vivo funciona direto no VOX Editor. Se o Windows
+  bloquear, aparece um passo a passo e o botão "Abrir configurações do microfone".
+- **Imagens sem chave nenhuma**: sem a chave do Pexels, as fotos vêm do Openverse (livres para uso comercial, com o
+  crédito guardado). Fundo colorido só quando nada é encontrado — e o programa avisa quantas cenas ficaram assim.
+- **Imagens criadas por IA (Gemini)**: cada cena ganha uma imagem nova, no estilo escolhido (foto realista, época
+  bíblica, pintura, livro infantil ou animação 3D). O Google cobra centavos por imagem e exige faturamento ativo;
+  se não der, a cena usa foto grátis e o programa explica o motivo.
+- **Vídeos curtos do banco** entram em câmera lenta para cobrir a cena inteira.
+- **Música automática**: uma faixa livre que combina com a história (oração, épico, alegre, suspense...), baixinha
+  e abaixando na fala. O crédito fica guardado no projeto.
+- **"Deixar completo"**: as chaves grátis do Pexels e do Gemini são coladas na própria tela da História. A do
+  Gemini também liga a IA do programa (cenas, títulos, gráficos e o clima da música), se ainda não houver outra.
+- Ao terminar, o resumo mostra quantas imagens, vídeos e se entrou música, com os avisos do que faltou.
 
 ## Novidades da versão 1.9 — História → Vídeo
 

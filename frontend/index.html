@@ -233,6 +233,18 @@
                 </div>
                 <div class="hs-nivel" aria-hidden="true"><i id="hs-nivel"></i></div>
               </div>
+              <div class="hs-mic-ajuda hidden" id="hs-mic-ajuda">
+                <b>O microfone não liberou</b>
+                <ol>
+                  <li>Feche o VOX Editor e abra de novo (a versão 1.9.1 já libera o microfone na janela do programa).</li>
+                  <li>No Windows, abra <b>Configurações → Privacidade e segurança → Microfone</b> e ligue
+                    <b>"Acesso ao microfone"</b> e <b>"Permitir que aplicativos da área de trabalho acessem o microfone"</b>.</li>
+                  <li>Confira se o microfone está conectado e escolhido como padrão (ícone de som, perto do relógio).</li>
+                </ol>
+                <div class="row"><button type="button" class="btn small pc-only" id="hs-mic-config">Abrir configurações do microfone</button>
+                  <button type="button" class="btn small" id="hs-mic-tentar">Tentar de novo</button></div>
+                <p class="hint" id="hs-mic-erro"></p>
+              </div>
               <p class="hint" id="hs-vivo-msg">A fala é transcrita no seu computador, de poucos em poucos segundos. Cada trecho ganha uma imagem na hora.</p>
               <div class="hs-transc" id="hs-transc" aria-live="polite"></div>
             </section>
@@ -255,15 +267,32 @@
             <label class="field" data-so="texto"><span class="lbl">Velocidade da voz <b id="hs-vel-v">normal</b></span>
               <input type="range" id="hs-vel" min="-30" max="30" step="5" value="0"></label>
             <label class="field">Imagens das cenas <select id="hs-visual">
-              <option value="fotos">Fotos dos bancos grátis</option>
-              <option value="videos">Vídeos dos bancos grátis</option>
+              <option value="fotos">Fotos grátis (bancos de imagens)</option>
+              <option value="videos">Vídeos grátis (precisa da chave do Pexels)</option>
+              <option value="ia">Imagens criadas por IA (Gemini)</option>
               <option value="cores">Fundos coloridos (sem internet)</option></select></label>
-            <p class="hint hidden" id="hs-sem-banco">Para fotos e vídeos, coloque a chave grátis do Pexels ou do Pixabay em <a href="#/ia">Inteligência artificial</a>. Sem chave, as cenas usam fundos coloridos.</p>
-            <label class="field">Música de fundo <select id="hs-musica"><option value="">Sem música</option></select></label>
+            <label class="field hidden" id="hs-estilo-box">Estilo das imagens <select id="hs-estilo"></select></label>
+            <p class="hint hidden" id="hs-visual-msg"></p>
+            <label class="field">Música de fundo <select id="hs-musica"><option value="__auto__">Automática (biblioteca livre, combina com a história)</option><option value="">Sem música</option></select></label>
             <label class="hs-check"><input type="checkbox" id="hs-legenda" checked> Legenda na tela</label>
             <label class="hs-check"><input type="checkbox" id="hs-ia" checked> <span>Usar a IA para escolher as cenas, títulos e gráficos <em class="hint" id="hs-ia-msg"></em></span></label>
             <button type="button" class="btn primary big" id="hs-criar">Criar o vídeo</button>
             <p class="hint">O vídeo abre na Montagem: troque imagens, mexa nos textos e exporte quando quiser.</p>
+            <details class="hs-chaves" id="hs-chaves">
+              <summary><b>Deixar completo</b> <span class="hint" id="hs-chaves-res"></span></summary>
+              <p class="hint">Duas chaves grátis destravam tudo. Cada uma leva 1 minuto para pegar.</p>
+              <div class="hs-chave">
+                <div class="row between"><b>Pexels</b><span class="hs-ok" id="hs-ok-pexels"></span></div>
+                <span class="hint">Fotos e vídeos profissionais para as cenas. <a href="https://www.pexels.com/api/" target="_blank" rel="noopener">Pegar a chave grátis</a></span>
+                <input id="hs-k-pexels" type="password" autocomplete="off" placeholder="Cole aqui a chave do Pexels">
+              </div>
+              <div class="hs-chave">
+                <div class="row between"><b>Gemini (Google)</b><span class="hs-ok" id="hs-ok-gemini"></span></div>
+                <span class="hint">IA que escolhe as cenas, títulos, gráficos e a música. <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Pegar a chave grátis</a>. Criar imagens com ela exige faturamento ativo no Google.</span>
+                <input id="hs-k-gemini" type="password" autocomplete="off" placeholder="Cole aqui a chave do Gemini">
+              </div>
+              <div class="row"><button type="button" class="btn primary" id="hs-k-salvar">Salvar chaves</button><span class="hint" id="hs-k-msg"></span></div>
+            </details>
           </aside>
         </div>
       </section>

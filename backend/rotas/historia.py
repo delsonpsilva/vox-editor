@@ -123,3 +123,26 @@ def historia_terminar(pid: str, data: dict = Body(default={})):
 @router.post("/api/historia/previa")
 def historia_previa(data: dict = Body(...)):
     return historia.previa_cena(str(data.get("texto") or "")[:2000], data.get("formato") or "9:16")
+
+
+@router.post("/api/historia/chaves")
+def historia_chaves(data: dict = Body(...)):
+    """Chaves grátis (Pexels, Pixabay, Gemini) digitadas na própria tela da História."""
+    return historia.salvar_chaves(data)
+
+
+@router.post("/api/historia/testar-gemini")
+def historia_testar_gemini():
+    return historia.testar_gemini()
+
+
+@router.post("/api/historia/microfone/config")
+def historia_config_microfone(request: Request):
+    """Abre a tela do Windows onde se libera o microfone para os programas (só no PC)."""
+    if os.name != "nt" or not _local(request):
+        raise HTTPException(400, "Isso só funciona no programa do PC.")
+    try:
+        os.startfile("ms-settings:privacy-microphone")  # type: ignore[attr-defined]
+    except Exception as e:
+        raise HTTPException(400, f"Não consegui abrir as configurações: {str(e)[:120]}")
+    return {"ok": True}

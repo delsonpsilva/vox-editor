@@ -1432,7 +1432,7 @@ body.v17-restrito .shortcuts a[href="#/redes"],body.v17-restrito .shortcuts a[hr
 .hs-main{display:flex;flex-direction:column;gap:14px;min-width:0}
 #pg-historia textarea{padding:12px;line-height:1.55;resize:vertical;min-height:260px;font-size:14px}
 #pg-historia input:not([type]){height:38px}
-.hs-opcoes{position:sticky;top:16px}
+.hs-opcoes{}
 .hs-opcoes h2{font-size:16px}
 .hs-opcoes select{height:38px}
 .hs-check{display:flex;gap:8px;align-items:flex-start;font-size:13px;color:var(--text);cursor:pointer}
@@ -1466,3 +1466,16 @@ body.v17-restrito .shortcuts a[href="#/redes"],body.v17-restrito .shortcuts a[hr
   .hs-opcoes{position:static}
   .hs-palco{height:min(60vh,460px)}
 }
+.hs-chaves{border-top:1px solid var(--line);padding-top:12px}
+.hs-chaves summary{cursor:pointer;font-size:14px;list-style:none}
+.hs-chaves summary::-webkit-details-marker{display:none}
+.hs-chaves summary::before{content:"▸ ";color:var(--muted)}
+.hs-chaves[open] summary::before{content:"▾ "}
+.hs-chaves[open]{display:flex;flex-direction:column;gap:10px}
+.hs-chave{display:flex;flex-direction:column;gap:6px;background:var(--card);border-radius:10px;padding:10px}
+.hs-chave input{height:36px}
+.hs-ok{font-size:11px;color:var(--man)}
+.hs-ok.on{color:var(--ok)}
+.hs-mic-ajuda{background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.35);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;font-size:13px}
+.hs-mic-ajuda ol{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px;color:var(--muted)}
+.hs-mic-ajuda ol b{color:var(--text)}

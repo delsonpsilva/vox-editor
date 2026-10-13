@@ -1,9 +1,10 @@
 "use strict";
-/* v1.9 — História → Vídeo: texto, áudio gravado ou narração ao vivo viram uma Montagem pronta. */
+/* v1.9.1 — História → Vídeo: texto, áudio gravado ou narração ao vivo viram uma Montagem pronta. */
 (function () {
   const H = { modo: "texto", formato: "9:16", st: null, ocupado: false, vivo: null };
   const opcoes = () => ({
     formato: H.formato, voz: $("#hs-voz").value || "francisca", visual: $("#hs-visual").value,
+    estilo: $("#hs-estilo").value || "realista",
     legenda: $("#hs-legenda").checked, usar_ia: $("#hs-ia").checked && !$("#hs-ia").disabled,
     musica: $("#hs-musica").value, velocidade: +$("#hs-vel").value,
   });
@@ -14,14 +15,53 @@
     const st = H.st, voz = $("#hs-voz"), atual = voz.value;
     voz.innerHTML = st.vozes.map((v) => `<option value="${esc(v.id)}"${v.ok ? "" : " disabled"}>${esc(v.nome)}${v.ok ? "" : " — indisponível aqui"}</option>`).join("");
     voz.value = atual && st.vozes.some((v) => v.id === atual && v.ok) ? atual : (st.vozes.find((v) => v.ok) || {}).id || "nenhuma";
-    const mus = $("#hs-musica"), m0 = mus.value;
-    mus.innerHTML = `<option value="">Sem música</option>` + st.musicas.map((n) => `<option>${esc(n)}</option>`).join("");
-    if (st.musicas.includes(m0)) mus.value = m0;
-    $("#hs-sem-banco").classList.toggle("hidden", st.bancos);
-    if (!st.bancos && $("#hs-visual").value !== "cores") $("#hs-visual").value = "cores";
+    const mus = $("#hs-musica"), m0 = mus.value || "__auto__";
+    mus.innerHTML = `<option value="__auto__">Automática (biblioteca livre, combina com a história)</option><option value="">Sem música</option>` +
+      (st.musicas.length ? `<optgroup label="Minhas músicas">${st.musicas.map((n) => `<option>${esc(n)}</option>`).join("")}</optgroup>` : "");
+    mus.value = [...mus.options].some((o) => o.value === m0) ? m0 : "__auto__";
+    const es = $("#hs-estilo"), e0 = es.value || "realista";
+    es.innerHTML = Object.entries(st.estilos || {}).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join("");
+    es.value = e0;
     $("#hs-ia").disabled = !st.ia;
-    $("#hs-ia").checked = st.ia && $("#hs-ia").checked;
-    $("#hs-ia-msg").textContent = st.ia ? "" : "(ligue uma IA em Inteligência artificial; sem ela a divisão é automática e grátis)";
+    if (st.ia && !H.iaTocado) $("#hs-ia").checked = true;
+    if (!st.ia) $("#hs-ia").checked = false;
+    $("#hs-ia-msg").textContent = st.ia ? `(${st.ia_nome || "IA"} ligada)` : "— cole a chave grátis do Gemini em “Deixar completo”, aqui embaixo";
+    const ok = (b) => (b ? "✓ ligada" : "falta");
+    $("#hs-ok-pexels").textContent = ok(st.pexels); $("#hs-ok-pexels").classList.toggle("on", st.pexels);
+    $("#hs-ok-gemini").textContent = ok(st.gemini); $("#hs-ok-gemini").classList.toggle("on", st.gemini);
+    const faltam = [!st.pexels && "Pexels", !st.gemini && "Gemini"].filter(Boolean);
+    $("#hs-chaves-res").textContent = faltam.length ? `— falta: ${faltam.join(" e ")}` : "— tudo ligado ✓";
+    if (faltam.length && !H.abriuChaves) { $("#hs-chaves").open = true; H.abriuChaves = true; }
+    avisoVisual();
+  }
+
+  function avisoVisual() {
+    const st = H.st || {}, v = $("#hs-visual").value, el = $("#hs-visual-msg");
+    $("#hs-estilo-box").classList.toggle("hidden", v !== "ia");
+    let t = "";
+    if (v === "fotos" && !st.bancos) t = "Sem a chave do Pexels, as fotos vêm do Openverse (livres, mas variam de qualidade). Com a chave, ficam bem melhores.";
+    if (v === "videos" && !st.bancos) t = "Vídeos precisam da chave grátis do Pexels (ou Pixabay). Sem ela, as cenas usam fotos livres.";
+    if (v === "ia") t = st.gemini ? "Cada cena ganha uma imagem nova criada pela IA, no mesmo estilo. Leva uns 10 s por cena e o Google cobra centavos por imagem (precisa de faturamento ativo). Se não der, a cena usa foto grátis."
+      : "Cole a chave do Gemini em “Deixar completo”. Sem ela, as cenas usam fotos grátis.";
+    el.textContent = t; el.classList.toggle("hidden", !t);
+  }
+
+  async function salvarChaves() {
+    const d = { pexels: $("#hs-k-pexels").value.trim(), gemini: $("#hs-k-gemini").value.trim() };
+    if (!d.pexels && !d.gemini) { $("#hs-k-msg").textContent = "Cole pelo menos uma chave."; return; }
+    $("#hs-k-msg").textContent = "Salvando…";
+    try {
+      await api("POST", "/api/historia/chaves", d);
+      $("#hs-k-pexels").value = ""; $("#hs-k-gemini").value = "";
+      let msg = "Salvo!";
+      if (d.gemini) {
+        const t = await api("POST", "/api/historia/testar-gemini");
+        msg += " " + t.msg;
+      }
+      $("#hs-k-msg").textContent = msg;
+      H.iaTocado = false;
+      await carregar();
+    } catch (e) { $("#hs-k-msg").textContent = e.message; }
   }
 
   function trocaModo(m) {
@@ -61,9 +101,14 @@
         andamento(j.status === "na fila" ? "Na fila…" : "Montando o vídeo…", j.pct || 0, j.msg);
         if (j.status === "concluido") {
           const res = j.result || {};
-          andamento("Pronto!", 1, `${res.cenas} cena${res.cenas === 1 ? "" : "s"} · ${fmtDur(res.duracao)}${res.modo === "ia" ? " · cenas escolhidas pela IA" : ""}`);
+          const partes = [`${res.cenas} cena${res.cenas === 1 ? "" : "s"}`, fmtDur(res.duracao)];
+          if (res.fotos) partes.push(`${res.fotos} imagem${res.fotos === 1 ? "" : "ns"}`);
+          if (res.videos) partes.push(`${res.videos} vídeo${res.videos === 1 ? "" : "s"}`);
+          if (res.musica) partes.push("com música");
+          if (res.modo === "ia") partes.push("cenas pela IA");
+          andamento("Pronto!", 1, partes.join(" · ") + (res.aviso ? " — " + res.aviso : ""));
           if (res.aviso) toast(res.aviso, true); else toast("Vídeo montado! Abrindo na Montagem…");
-          setTimeout(() => { location.hash = "#/p/" + r.id + "/montagem"; }, res.aviso ? 1800 : 700);
+          setTimeout(() => { location.hash = "#/p/" + r.id + "/montagem"; }, res.aviso ? 5000 : 900);
           break;
         }
         if (j.status === "erro" || j.status === "cancelado") {
@@ -132,9 +177,16 @@
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 } });
     } catch (e) {
-      toast("Não consegui usar o microfone. Permita o acesso (e confira em Configurações do Windows → Privacidade → Microfone).", true);
+      const motivo = { NotAllowedError: "O acesso ao microfone foi bloqueado (pela janela do programa ou pelo Windows).",
+        NotFoundError: "Nenhum microfone foi encontrado. Confira se ele está conectado.",
+        NotReadableError: "O microfone está ocupado por outro programa (feche OBS, WhatsApp, chamadas) e tente de novo.",
+        SecurityError: "O acesso ao microfone foi bloqueado." }[e.name] || ("Erro do microfone: " + (e.message || e.name));
+      $("#hs-mic-erro").textContent = motivo;
+      $("#hs-mic-ajuda").classList.remove("hidden");
+      toast(motivo, true);
       return;
     }
+    $("#hs-mic-ajuda").classList.add("hidden");
     let r;
     try { r = await api("POST", "/api/historia/ao-vivo", { formato: H.formato, name: $("#hs-nome").value.trim() || "Narração ao vivo" }); }
     catch (e) { stream.getTracks().forEach((t) => t.stop()); toast(e.message, true); return; }
@@ -277,6 +329,11 @@
       $("#hs-arquivo-nome").textContent = f ? `${f.name} (${fmtSize(f.size)})` : "Escolha o áudio da narração";
     });
     $("#hs-criar").addEventListener("click", criar);
+    $("#hs-visual").addEventListener("change", avisoVisual);
+    $("#hs-ia").addEventListener("change", () => { H.iaTocado = true; });
+    $("#hs-k-salvar").addEventListener("click", salvarChaves);
+    $("#hs-mic-config").addEventListener("click", () => api("POST", "/api/historia/microfone/config").catch((e) => toast(e.message, true)));
+    $("#hs-mic-tentar").addEventListener("click", comecar);
     $("#hs-gravar").addEventListener("click", comecar);
     $("#hs-pausar").addEventListener("click", pausar);
     $("#hs-terminar").addEventListener("click", terminar);

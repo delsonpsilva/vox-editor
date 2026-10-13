@@ -77,7 +77,7 @@ _SO_DONO = [
     ("*", re.compile(r"^/api/security/")), ("PUT", re.compile(r"^/api/publish/config$")),
     ("*", re.compile(r"^/api/publish/destinos"), ("POST", "DELETE", "PUT")),
     ("*", re.compile(r"^/api/publish/(page|account|online-login)")), ("POST", re.compile(r"^/api/oauth/[a-z]+/ticket$")),
-    ("POST", re.compile(r"^/api/trilhas/[^/]+/guardar$")), ("*", re.compile(r"^/api/usuarios")),
+    ("POST", re.compile(r"^/api/trilhas/[^/]+/guardar$")), ("POST", re.compile(r"^/api/historia/(chaves|microfone)")), ("*", re.compile(r"^/api/usuarios")),
     ("POST", re.compile(r"^/api/publish/receber$")),
 ]
 

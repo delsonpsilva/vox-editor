@@ -1,30 +1,25 @@
-VOX Editor 1.9.0 — História → Vídeo (texto, áudio ou narração ao vivo viram vídeo)
-====================================================================================
+VOX Editor 1.9.1 — História → Vídeo mais completo (microfone, imagens, IA e música)
+==================================================================================
 (Este pacote já inclui tudo das versões anteriores.)
 
 NO PC (Windows)
 1. Feche o VOX Editor, se estiver aberto.
 2. Os arquivos novos já estão na pasta C:\editor-ia (ou extraia o .zip por cima, escolhendo "Substituir").
-3. Dois cliques no ATUALIZAR.bat (instala a voz grátis e o desenhista de gráficos — 1 a 2 minutos).
-4. Abra o programa. No canto de baixo, à esquerda, deve aparecer "versão 1.9.0" e no menu "História → Vídeo".
+   (Não precisa rodar o ATUALIZAR.bat: não há componente novo.)
+3. Abra o programa. Embaixo, à esquerda, deve aparecer "versão 1.9.1".
    Se a tela não mudar: feche o programa e dê dois cliques no LIMPAR-CACHE-DA-TELA.bat.
+4. Em História → Vídeo, abra "Deixar completo" e cole as duas chaves grátis:
+   - Pexels: https://www.pexels.com/api/  (crie a conta e copie a "API Key")
+   - Gemini: https://aistudio.google.com/apikey  (botão "Criar chave de API")
 5. Quando estiver tudo certo, dois cliques no PUBLICAR.bat.
 
 NA VPS
 6. sudo vox-atualizar
 
 TESTAR
-- Texto: cole uma história curta, escolha a voz Francisca e clique em Criar o vídeo. Abre na Montagem.
-- Ao vivo: aba "Narrar ao vivo" -> Começar a narrar -> fale umas 4 ou 5 frases -> Terminar e montar o vídeo.
-  Na primeira vez, se aparecer o pedido do microfone, clique em Permitir.
-- Para ter fotos de verdade nas cenas: chave grátis do Pexels ou do Pixabay em Inteligência artificial.
-
-O QUE MUDOU
-- Menu novo "História → Vídeo" (e no botão Novo): texto, áudio gravado ou narração ao vivo.
-- Vozes grátis em português (Francisca, Antônio, Thalita) e a voz do Windows sem internet.
-- Cenas automáticas (com IA: títulos de destaque e gráficos de barras quando a história tem números).
-- Fotos/vídeos dos bancos grátis sem repetir, zoom suave, transição, legenda, narração e música com abaixamento.
-- Tudo sai como uma Montagem comum, que dá para ajustar e exportar.
+- Texto com voz Francisca, imagens "Fotos grátis", música "Automática" e IA ligada.
+- Narrar ao vivo: o microfone agora libera sozinho na janela do programa. Se o Windows bloquear,
+  aparece o botão "Abrir configurações do microfone".
 
 SE ALGO FICAR ESTRANHO NA VPS
-- sudo vox-atualizar --voltar   (volta para a 1.8.0 em um minuto; seus dados não são tocados)
+- sudo vox-atualizar --voltar   (volta para a versão anterior em um minuto; seus dados não são tocados)

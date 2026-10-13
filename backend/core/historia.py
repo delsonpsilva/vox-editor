@@ -39,7 +39,12 @@ VOZES = {  # id -> (motor, voz, nome mostrado)
     "windows": ("sapi", "", "Voz do Windows (sem internet)"),
     "nenhuma": ("none", "", "Sem narração (só imagens e textos)"),
 }
-VISUAIS = {"fotos": "Fotos dos bancos grátis", "videos": "Vídeos dos bancos grátis", "cores": "Fundos coloridos"}
+VISUAIS = {"fotos": "Fotos grátis (Pexels, Pixabay e Openverse)", "videos": "Vídeos grátis (Pexels e Pixabay)",
+           "ia": "Imagens criadas por IA (Gemini)", "cores": "Fundos coloridos (sem internet)"}
+MUSICA_AUTO = "__auto__"
+UA = {"User-Agent": "VOXEditor/1.9 (editor de video; contato: suporte@voxapps.app)"}
+GEMINI = "https://generativelanguage.googleapis.com/v1beta"
+GEMINI_TEXTO = "gemini-flash-latest"
 MAX_TEXTO = 60_000
 
 STOP = set("""a o as os um uma uns umas de da do das dos em na no nas nos por pela pelo pelas pelos para pra pro
@@ -130,6 +135,26 @@ def cenas_por_regra(words: list[dict], fr: list[list[int]], formato: str) -> lis
             for a, b in cenas]
 
 
+HUMORES_IDS = ("inspirador", "oracao", "piano", "epico", "alegre", "acustico", "louvor", "orquestra", "lofi",
+               "corporativo", "suspense", "emocionante")
+
+
+def humor_por_regra(texto: str) -> str:
+    """Clima da música sem IA, pelas palavras da história."""
+    t = texto.lower()
+    def tem(*ps):
+        return sum(t.count(p) for p in ps)
+    if tem("deus", "jesus", "senhor", "oração", "orou", "oraram", "fé ", "igreja", "bíblia", "pastor", "graça") >= 2:
+        return "oracao"
+    if tem("tempestade", "medo", "escuro", "perigo", "noite", "morte", "guerra", "monstro") >= 2:
+        return "suspense"
+    if tem("alegria", "festa", "riu", "feliz", "brincar", "divertid") >= 2:
+        return "alegre"
+    if tem("empresa", "venda", "cliente", "mercado", "negócio", "lucro", "produto") >= 2:
+        return "corporativo"
+    return "emocionante" if tem("lágrima", "chorou", "saudade", "perdão", "abraço") else "inspirador"
+
+
 PROMPT_CENAS = """Você é diretor de vídeos narrados em português (histórias, devocionais, explicações) para {destino}.
 Abaixo está o texto, dividido em frases numeradas. Divida-o em CENAS, na ordem, cobrindo TODAS as frases sem pular
 nenhuma. Cada cena tem de 1 a 4 frases (mais ou menos {seg} segundos de fala) e muda quando muda a imagem que
@@ -138,31 +163,50 @@ combina com o que está sendo dito.
 Para cada cena informe:
 - "inicio" e "fim": número da primeira e da última frase da cena;
 - "busca": 2 a 4 palavras EM PORTUGUÊS descrevendo uma FOTO concreta que combine com a cena (pessoas, lugares,
-  objetos, paisagens, ações). Nada de nomes próprios nem ideias abstratas. Ex.: "pastor ovelhas campo", "mãe abraçando filho";
+  objetos, paisagens, ações). Nada de nomes próprios nem ideias abstratas. Ex.: "pastor ovelhas campo";
+- "busca_en": as mesmas palavras de busca, em inglês. Ex.: "shepherd sheep field";
+- "imagem": uma descrição EM INGLÊS, de 1 ou 2 frases, para um ilustrador desenhar a cena (quem aparece, onde,
+  o que faz, luz e clima), coerente com as outras cenas (mesmos personagens, mesma época e lugar);
 - "destaque": um título curto de até 5 palavras para aparecer na tela, SÓ nas cenas que pedem (começo, virada,
   frase marcante). Nas outras, "";
 - "grafico": só se a cena citar números comparáveis (porcentagens, quantidades, anos), no formato
   {{"titulo": "...", "rotulos": ["...", "..."], "valores": [10, 20]}}. Senão, null.
 
-Responda só com JSON (uma lista), sem nada antes ou depois:
-[{{"inicio": 0, "fim": 1, "busca": "...", "destaque": "...", "grafico": null}}]
+Escolha também o "humor" da música de fundo, um destes: {humores}.
+
+Responda só com JSON, sem nada antes ou depois:
+{{"humor": "inspirador", "cenas": [{{"inicio": 0, "fim": 1, "busca": "...", "busca_en": "...", "imagem": "...", "destaque": "...", "grafico": null}}]}}
 
 Frases:
 {frases}"""
 
 
-def cenas_por_ia(words: list[dict], fr: list[list[int]], formato: str, ai: dict) -> list[dict]:
+def _ler_json(raw: str):
+    for padrao in (r"\{.*\}", r"\[.*\]"):
+        m = re.search(padrao, raw, re.S)
+        if m:
+            try:
+                return json.loads(m.group(0))
+            except json.JSONDecodeError:
+                continue
+    raise RuntimeError("A IA não devolveu as cenas no formato esperado.")
+
+
+def cenas_por_ia(words: list[dict], fr: list[list[int]], formato: str, ai: dict) -> tuple[list[dict], str]:
     from ..engine.smartcuts import _call_llm
     linhas = "\n".join(f"[{k}] {_txt(words, a, b)}" for k, (a, b) in enumerate(fr))
     raw = _call_llm(PROMPT_CENAS.format(destino="Reels/Shorts/TikTok" if formato == "9:16" else "YouTube",
-                                        seg="6 a 9" if formato == "9:16" else "8 a 14", frases=linhas[:200_000]), ai)
-    m = re.search(r"\[.*\]", raw, re.S)
-    if not m:
-        raise RuntimeError("A IA não devolveu as cenas no formato esperado.")
-    lst = [x for x in json.loads(m.group(0)) if isinstance(x, dict)]
+                                        seg="6 a 9" if formato == "9:16" else "8 a 14", humores=", ".join(HUMORES_IDS),
+                                        frases=linhas[:200_000]), ai)
+    js = _ler_json(raw)
+    humor = ""
+    if isinstance(js, dict):
+        humor = str(js.get("humor") or "")
+        js = js.get("cenas") or []
+    lst = [x for x in js if isinstance(x, dict)] if isinstance(js, list) else []
     n = len(fr)
     cenas, prox = [], 0
-    for x in sorted(lst, key=lambda x: int(x.get("inicio") or 0)):
+    for x in sorted(lst, key=lambda x: int(x.get("inicio") or 0) if str(x.get("inicio") or 0).isdigit() else 0):
         try:
             fim = int(x.get("fim"))
         except (TypeError, ValueError):
@@ -170,9 +214,9 @@ def cenas_por_ia(words: list[dict], fr: list[list[int]], formato: str, ai: dict)
         fim = min(n - 1, fim)
         if fim < prox:
             continue
-        cenas.append({"i0": fr[prox][0], "i1": fr[fim][1],
-                      "busca": re.sub(r"\s+", " ", str(x.get("busca") or "")).strip()[:60],
-                      "destaque": re.sub(r"\s+", " ", str(x.get("destaque") or "")).strip()[:48],
+        limpa = lambda k, n_: re.sub(r"\s+", " ", str(x.get(k) or "")).strip()[:n_]  # noqa: E731
+        cenas.append({"i0": fr[prox][0], "i1": fr[fim][1], "busca": limpa("busca", 60), "busca_en": limpa("busca_en", 60),
+                      "imagem": limpa("imagem", 600), "destaque": limpa("destaque", 48),
                       "grafico": _grafico_limpo(x.get("grafico"))})
         prox = fim + 1
     if not cenas:
@@ -182,7 +226,8 @@ def cenas_por_ia(words: list[dict], fr: list[list[int]], formato: str, ai: dict)
     for c in cenas:
         if not c["busca"]:
             c["busca"] = palavras_chave(_txt(words, c["i0"], c["i1"]))
-    return cenas
+    texto = _txt(words, 0, len(words) - 1)
+    return cenas, humor if humor in HUMORES_IDS else humor_por_regra(texto)
 
 
 def _grafico_limpo(g) -> dict | None:
@@ -200,7 +245,8 @@ def _grafico_limpo(g) -> dict | None:
     return {"titulo": str(g.get("titulo") or "")[:60], "rotulos": rot, "valores": val}
 
 
-def planejar(words: list[dict], formato: str, usar_ia: bool, progress: Progresso = None) -> tuple[list[dict], str]:
+def planejar(words: list[dict], formato: str, usar_ia: bool, progress: Progresso = None) -> tuple[list[dict], str, str]:
+    """Cenas, como foram feitas ("ia" ou "local") e o humor da música."""
     fr = frases(words)
     if not fr:
         raise RuntimeError("Não há texto para virar vídeo.")
@@ -209,11 +255,12 @@ def planejar(words: list[dict], formato: str, usar_ia: bool, progress: Progresso
         if progress:
             progress(0.0, "A IA está dividindo a história em cenas…")
         try:
-            return cenas_por_ia(words, fr, formato, ai), "ia"
+            cenas, humor = cenas_por_ia(words, fr, formato, ai)
+            return cenas, "ia", humor
         except Exception as e:  # a IA nunca trava o vídeo: segue pela divisão local
             if progress:
                 progress(0.0, f"IA indisponível ({str(e)[:80]}). Dividindo as cenas sem IA…")
-    return cenas_por_regra(words, fr, formato), "local"
+    return cenas_por_regra(words, fr, formato), "local", humor_por_regra(_txt(words, 0, len(words) - 1))
 
 
 # ---------------------------------------------------------------- voz
@@ -294,28 +341,162 @@ def _fundo_cor(pid: str, k: int, W: int, H: int) -> dict:
     return montagem.adicionar_midia(pid, arq, f"Fundo {k + 1}.png")
 
 
-def visual_da_cena(pid: str, k: int, cena: dict, dur: float, formato: str, visual: str, usados: set) -> dict:
-    """Mídia de fundo da cena: vídeo ou foto do banco grátis (sem repetir), ou um fundo colorido."""
-    W, H = montagem.FORMATOS[formato]
-    if visual in ("fotos", "videos") and any(bancos.status().values()):
-        for tipo in (["video", "foto"] if visual == "videos" else ["foto"]):
+def _do_banco(pid: str, cena: dict, dur: float, formato: str, visual: str, usados: set) -> dict | None:
+    """Pexels/Pixabay (precisa de chave grátis). Vídeo mais curto que a cena entra em câmera lenta (até 0,55×)."""
+    if not any(bancos.status().values()):
+        return None
+    termos = [t for t in (cena.get("busca"), cena.get("busca_en")) if t]
+    for tipo in (["video", "foto"] if visual == "videos" else ["foto"]):
+        for termo in termos:
             try:
-                res = bancos.buscar("todos", tipo, cena["busca"], 1, _orient(formato))
+                res = bancos.buscar("todos", tipo, termo, 1, _orient(formato))
             except Exception:
                 continue
             for it in res.get("itens") or []:
-                if it["id"] in usados or (tipo == "video" and (it.get("dur") or 0) < dur + 0.5):
+                d_clip = float(it.get("dur") or 0)
+                if it["id"] in usados or (tipo == "video" and d_clip < dur * 0.55 + 0.3):
                     continue
                 try:
                     arq, info = bancos.baixar(it["id"], montagem.pasta_midias(pid))
-                    md = montagem.adicionar_midia(pid, arq, f"{cena['busca'][:60]} — {info['autor'] or info['fonte']}"
+                    md = montagem.adicionar_midia(pid, arq, f"{termo[:60]} — {info['autor'] or info['fonte']}"
                                                   f"{info['ext']}", {"credito": info["credito"],
                                                                      "licenca": bancos.FONTES[info["fonte"]],
                                                                      "banco": it["id"]})
-                    usados.add(it["id"])
-                    return md
                 except Exception:
                     continue
+                usados.add(it["id"])
+                if md["kind"] == "video":
+                    real = float(md.get("duration") or d_clip)
+                    md = {**md, "_speed": 1.0 if real >= dur + 0.3 else max(0.55, round((real - 0.2) / dur, 3))}
+                return md
+    return None
+
+
+OPENVERSE = "https://api.openverse.org/v1/images/"
+
+
+def _openverse(pid: str, cena: dict, formato: str, usados: set) -> dict | None:
+    """Fotos livres sem chave nenhuma (Openverse: Flickr, Wikimedia e outros, só licenças de uso comercial)."""
+    import httpx
+    o = _orient(formato)
+    for termo in [t for t in (cena.get("busca_en"), cena.get("busca")) if t]:
+        try:
+            r = httpx.get(OPENVERSE, params={"q": termo, "license_type": "commercial,modification", "page_size": 20,
+                                             "mature": "false", "size": "large",
+                                             "aspect_ratio": {"portrait": "tall", "landscape": "wide"}.get(o, "square")},
+                          headers=UA, timeout=15.0, follow_redirects=True)
+            if r.status_code != 200:
+                continue
+            itens = r.json().get("results") or []
+        except Exception:
+            continue
+        for it in itens:
+            iid, url = "ov-" + str(it.get("id") or ""), it.get("url") or ""
+            if iid in usados or not url.startswith("https://"):
+                continue
+            arq = montagem.pasta_midias(pid) / f"{iid[:40]}.jpg"
+            try:
+                with httpx.stream("GET", url, headers=UA, timeout=httpx.Timeout(15.0, read=60.0),
+                                  follow_redirects=True) as rr:
+                    if rr.status_code != 200:
+                        continue
+                    dados = b""
+                    for b in rr.iter_bytes(256 * 1024):
+                        dados += b
+                        if len(dados) > 15 * 1024 * 1024:
+                            raise RuntimeError("grande demais")
+                import cv2
+                img = cv2.imdecode(np.frombuffer(dados, np.uint8), cv2.IMREAD_COLOR)
+                if img is None or min(img.shape[:2]) < 400:
+                    continue
+                cv2.imwrite(str(arq), img, [cv2.IMWRITE_JPEG_QUALITY, 92])
+                autor = re.sub(r"\s+", " ", str(it.get("creator") or "autor"))[:60]
+                lic = f"{str(it.get('license') or '').upper()} {it.get('license_version') or ''}".strip()
+                credito = f"Foto: {autor} / {it.get('source') or 'Openverse'} ({it.get('foreign_landing_url') or ''}) · {lic}"
+                md = montagem.adicionar_midia(pid, arq, f"{termo[:60]} — {autor}.jpg",
+                                              {"credito": credito, "licenca": lic, "banco": iid})
+            except Exception:
+                arq.unlink(missing_ok=True)
+                continue
+            usados.add(iid)
+            return md
+    return None
+
+
+def chave_gemini() -> str:
+    cfg = store.load_config()
+    k = ((cfg.get("gemini") or {}).get("api_key") or "").strip()
+    ai = cfg.get("ai") or {}
+    if not k and "generativelanguage.googleapis.com" in (ai.get("base_url") or ""):
+        k = (ai.get("api_key") or "").strip()
+    return k
+
+
+def prompt_imagem(cena: dict, texto: str, estilo: str) -> str:
+    base = cena.get("imagem") or f"Uma cena desta história: {texto[:400]}"
+    return (f"{base}\n\nStyle: {estilo}. Vertical composition safe for subtitles at the bottom. "
+            "No text, no letters, no captions, no watermark, no logos.")
+
+
+ESTILOS = {"realista": "cinematic realistic photo, soft natural light, shallow depth of field",
+           "biblico": "cinematic realistic biblical era scene, ancient Middle East, warm golden light",
+           "pintura": "classic oil painting, rich colors, dramatic light",
+           "desenho": "colorful 2D illustrated storybook, clean shapes, friendly",
+           "3d": "3D animated movie style, soft lighting, expressive characters"}
+
+
+def _gemini_imagem(pid: str, k: int, prompt: str, formato: str) -> dict:
+    import base64
+    import httpx
+    chave = chave_gemini()
+    if not chave:
+        raise RuntimeError("Coloque a chave do Gemini (grátis no Google AI Studio) para criar imagens com IA.")
+    modelo = (store.load_config().get("gemini") or {}).get("img_model") or "gemini-2.5-flash-image"
+    corpo = {"contents": [{"parts": [{"text": prompt}]}],
+             "generationConfig": {"responseModalities": ["IMAGE"], "imageConfig": {"aspectRatio": formato}}}
+    url = f"{GEMINI}/models/{modelo}:generateContent"
+    h = {"x-goog-api-key": chave, "Content-Type": "application/json"}
+    r = httpx.post(url, headers=h, json=corpo, timeout=180)
+    if r.status_code == 400 and "imageConfig" in r.text:  # modelo antigo sem a opção de proporção
+        corpo["generationConfig"].pop("imageConfig")
+        r = httpx.post(url, headers=h, json=corpo, timeout=180)
+    if r.status_code == 429:
+        raise PermissionError("A cota de imagens do Gemini acabou (o Google libera imagens só com faturamento ativo "
+                              "no AI Studio). As outras cenas usam fotos grátis.")
+    if r.status_code != 200:
+        raise RuntimeError(f"Gemini respondeu {r.status_code}: {r.text[:200]}")
+    for cand in r.json().get("candidates") or []:
+        for part in (cand.get("content") or {}).get("parts") or []:
+            dado = part.get("inlineData") or part.get("inline_data")
+            if dado and dado.get("data"):
+                ext = ".png" if "png" in (dado.get("mimeType") or dado.get("mime_type") or "") else ".jpg"
+                arq = montagem.pasta_midias(pid) / f"ia_{k:03d}{ext}"
+                arq.write_bytes(base64.b64decode(dado["data"]))
+                return montagem.adicionar_midia(pid, arq, f"Imagem IA {k + 1}{ext}", {"credito": "Imagem criada por IA (Gemini)"})
+    raise RuntimeError("O Gemini não devolveu imagem para esta cena (pode ter sido barrada pelo filtro).")
+
+
+def visual_da_cena(pid: str, k: int, cena: dict, dur: float, formato: str, visual: str, usados: set,
+                   texto: str = "", estado: dict | None = None) -> dict:
+    """Mídia de fundo da cena. Ordem: IA (se escolhida) → Pexels/Pixabay → Openverse (sem chave) → fundo colorido."""
+    estado = estado if estado is not None else {}
+    W, H = montagem.FORMATOS[formato]
+    if visual == "ia" and not estado.get("ia_parou"):
+        try:
+            return _gemini_imagem(pid, k, prompt_imagem(cena, texto, ESTILOS.get(estado.get("estilo"), ESTILOS["realista"])),
+                                  formato)
+        except PermissionError as e:
+            estado["ia_parou"] = str(e)
+        except Exception as e:
+            estado.setdefault("falhas_ia", []).append(str(e)[:160])
+    if visual != "cores":
+        md = _do_banco(pid, cena, dur, formato, visual, usados)
+        if md:
+            return md
+        md = _openverse(pid, cena, formato, usados)
+        if md:
+            return md
+        estado["coloridas"] = estado.get("coloridas", 0) + 1
     return _fundo_cor(pid, k, W, H)
 
 
@@ -430,6 +611,8 @@ def montar(pid: str, words: list[dict], cenas: list[dict], visuais: list[dict], 
         zoom_in = k % 2 == 0
         dx = 0.015 if k % 3 == 1 else (-0.015 if k % 3 == 2 else 0.0)
         kw = {"fit": "cover", "volume": 0.0}
+        if md["kind"] == "video":
+            kw["speed"] = md.get("_speed", 1.0)
         if md["kind"] == "image":
             kw["kf"] = [{"t": 0, "scale": 1.0 if zoom_in else 1.14, "x": 0.5 - dx, "y": 0.5, "e": "linear"},
                         {"t": round(dur, 3), "scale": 1.14 if zoom_in else 1.0, "x": 0.5 + dx, "y": 0.5, "e": "linear"}]
@@ -470,7 +653,29 @@ def montar(pid: str, words: list[dict], cenas: list[dict], visuais: list[dict], 
 
 # ---------------------------------------------------------------- etapas comuns
 
-def _musica(pid: str, nome: str) -> str | None:
+def _musica(pid: str, nome: str, humor: str, avisos: list[str]) -> str | None:
+    """Música escolhida das "Minhas músicas" ou, no automático, uma faixa livre da biblioteca (Openverse) pelo humor."""
+    if nome == MUSICA_AUTO:
+        from . import trilhas as tl
+        try:
+            res = tl.buscar("", humor or "inspirador")
+            faixas = [f for f in res.get("faixas") or [] if (f.get("duration") or 0) >= 45] or res.get("faixas") or []
+            if not faixas:
+                raise RuntimeError("nenhuma música encontrada")
+            faixas.sort(key=lambda f: (f.get("license") != "cc0", -(f.get("duration") or 0)))
+            for f in faixas[:5]:
+                try:
+                    arq, info = tl.baixar(f["id"], montagem.pasta_midias(pid))
+                    md = montagem.adicionar_midia(pid, arq, f"{info['title'] or 'Música'} — {info['creator'] or 'autor'}{arq.suffix}",
+                                                  {"credito": info["credito"], "licenca": info["license"], "trilha": info["id"]})
+                    _salva_estado(pid, musica={"titulo": info["title"], "credito": info["credito"], "humor": humor})
+                    return md["id"]
+                except Exception:
+                    continue
+            raise RuntimeError("não consegui baixar")
+        except Exception as e:
+            avisos.append(f"Música automática indisponível agora ({str(e)[:80]}).")
+            return None
     src = pipeline.musica_path(nome or "")
     if not src:
         return None
@@ -486,13 +691,23 @@ def _salva_estado(pid: str, **kw) -> None:
     store.update(pid, lambda p: p.setdefault("historia", {}).update(kw))
 
 
-def _visuais(pid: str, cenas: list[dict], opts: dict, p) -> tuple[list[dict], list]:
+def _visuais(pid: str, words: list[dict], cenas: list[dict], opts: dict, p, avisos: list[str]) -> tuple[list[dict], list]:
     usados: set = set()
+    estado = {"estilo": opts.get("estilo")}
     vis, gfs = [], []
     for k, c in enumerate(cenas):
-        p(0.55 + 0.35 * k / max(1, len(cenas)), f"Escolhendo a imagem da cena {k + 1} de {len(cenas)}: “{c['busca']}”…")
-        vis.append(visual_da_cena(pid, k, c, c["e"] - c["s"], opts["formato"], opts.get("visual", "fotos"), usados))
+        o_que = "Criando a imagem" if opts.get("visual") == "ia" and not estado.get("ia_parou") else "Escolhendo a imagem"
+        p(0.55 + 0.35 * k / max(1, len(cenas)), f"{o_que} da cena {k + 1} de {len(cenas)}: “{c['busca']}”…")
+        vis.append(visual_da_cena(pid, k, c, c["e"] - c["s"], opts["formato"], opts.get("visual", "fotos"), usados,
+                                  _txt(words, c["i0"], c["i1"]), estado))
         gfs.append(grafico_png(pid, k, c["grafico"], opts["formato"]) if c.get("grafico") else None)
+    if estado.get("ia_parou"):
+        avisos.append(estado["ia_parou"])
+    elif estado.get("falhas_ia"):
+        avisos.append(f"{len(estado['falhas_ia'])} imagem(ns) da IA falharam e viraram foto grátis: {estado['falhas_ia'][0]}")
+    if estado.get("coloridas"):
+        sem = "" if any(bancos.status().values()) else " Coloque a chave grátis do Pexels para ter mais opções."
+        avisos.append(f"{estado['coloridas']} cena(s) ficaram com fundo colorido (não achei imagem).{sem}")
     return vis, gfs
 
 
@@ -500,8 +715,10 @@ def _opts(o: dict) -> dict:
     formato = o.get("formato") if o.get("formato") in montagem.FORMATOS else "9:16"
     return {"formato": formato, "voz": o.get("voz") if o.get("voz") in VOZES else "francisca",
             "visual": o.get("visual") if o.get("visual") in VISUAIS else "fotos",
+            "estilo": o.get("estilo") if o.get("estilo") in ESTILOS else "realista",
             "legenda": o.get("legenda", True) is not False, "usar_ia": bool(o.get("usar_ia", True)),
-            "musica": str(o.get("musica") or "")[:200], "velocidade": max(-50, min(50, int(o.get("velocidade") or 0)))}
+            "musica": str(o.get("musica") if o.get("musica") is not None else MUSICA_AUTO)[:200],
+            "velocidade": max(-50, min(50, int(o.get("velocidade") or 0)))}
 
 
 def novo_projeto(nome: str, formato: str, origem: str) -> str:
@@ -511,13 +728,22 @@ def novo_projeto(nome: str, formato: str, origem: str) -> str:
     return pid
 
 
-def _finaliza(pid: str, words, cenas, vis, gfs, narr, total, opts, modo) -> dict:
+def _finaliza(pid: str, words, cenas, vis, gfs, narr, total, opts, modo, humor, avisos) -> dict:
     o = dict(opts)
-    o["musica_id"] = _musica(pid, opts.get("musica"))
+    o["musica_id"] = _musica(pid, opts.get("musica"), humor, avisos)
     m = montar(pid, words, cenas, vis, gfs, narr, total, o)
-    _salva_estado(pid, cenas=[{k: c[k] for k in ("s", "e", "busca", "destaque")} for c in cenas],
-                  modo=modo, duracao=round(total, 2), opcoes=opts, texto=" ".join(w["w"] for w in words)[:MAX_TEXTO])
-    return {"id": pid, "cenas": len(cenas), "duracao": round(total, 2), "itens": len(m["items"]), "modo": modo}
+    _salva_estado(pid, cenas=[{k: c.get(k, "") for k in ("s", "e", "busca", "destaque")} for c in cenas],
+                  modo=modo, duracao=round(total, 2), opcoes=opts, texto=" ".join(w["w"] for w in words)[:MAX_TEXTO],
+                  avisos=avisos)
+    imgs = {"image": 0, "video": 0}
+    for md in vis:
+        if not str(md.get("file", "")).split("/")[-1].startswith("fundo_"):
+            imgs[md["kind"]] = imgs.get(md["kind"], 0) + 1
+    r = {"id": pid, "cenas": len(cenas), "duracao": round(total, 2), "itens": len(m["items"]), "modo": modo,
+         "humor": humor, "fotos": imgs.get("image", 0), "videos": imgs.get("video", 0), "musica": bool(o["musica_id"])}
+    if avisos:
+        r["aviso"] = " ".join(avisos)
+    return r
 
 
 # ---------------------------------------------------------------- 1) TEXTO
@@ -531,10 +757,10 @@ def criar_de_texto(pid: str, texto: str, opts: dict, progress: Progresso = None)
     if len(words) < 3:
         raise RuntimeError("Escreva pelo menos uma frase.")
     p(0.02, "Lendo a história…")
-    cenas, modo = planejar(words, opts["formato"], opts["usar_ia"], p)
+    cenas, modo, humor = planejar(words, opts["formato"], opts["usar_ia"], p)
     pasta = montagem.pasta_midias(pid)
     narr, t = [], 0.0
-    aviso = ""
+    avisos: list[str] = []
     for k, c in enumerate(cenas):
         txt = _txt(words, c["i0"], c["i1"])
         n = c["i1"] - c["i0"] + 1
@@ -547,7 +773,7 @@ def criar_de_texto(pid: str, texto: str, opts: dict, progress: Progresso = None)
                 md = montagem.adicionar_midia(pid, arq, f"Narração {k + 1}{arq.suffix}")
                 dur_fala = float(md["duration"] or 0)
             except Exception as e:
-                aviso = str(e)[:160]
+                avisos.append(f"A narração parou: {str(e)[:160]}")
                 opts["voz"] = "nenhuma"  # sem voz para o resto: o vídeo sai mesmo assim
         if not dur_fala:
             dur_fala = max(2.5, n / 2.6)  # tempo de leitura na tela
@@ -564,12 +790,9 @@ def criar_de_texto(pid: str, texto: str, opts: dict, progress: Progresso = None)
             narr.append((md["id"], inicio, dur_fala))
         c["s"], c["e"] = t, inicio + dur_fala + 0.35
         t = c["e"]
-    vis, gfs = _visuais(pid, cenas, opts, p)
-    p(0.93, "Montando a linha do tempo…")
-    r = _finaliza(pid, words, cenas, vis, gfs, narr, t, opts, modo)
-    if aviso:
-        r["aviso"] = f"A narração parou: {aviso}"
-        _salva_estado(pid, aviso=r["aviso"])
+    vis, gfs = _visuais(pid, words, cenas, opts, p, avisos)
+    p(0.93, "Montando a linha do tempo e a música…")
+    r = _finaliza(pid, words, cenas, vis, gfs, narr, t, opts, modo, humor, avisos)
     p(1.0, "Pronto!")
     return r
 
@@ -617,11 +840,12 @@ def criar_de_audio(pid: str, arquivo_audio: Path, opts: dict, progress: Progress
         wav.unlink(missing_ok=True)
     if len(words) < 3:
         raise RuntimeError("Não entendi fala nesse áudio. Confira se ele tem narração.")
-    cenas, modo = planejar(words, opts["formato"], opts["usar_ia"], p)
+    cenas, modo, humor = planejar(words, opts["formato"], opts["usar_ia"], p)
     _cenas_com_tempo(words, cenas, total)
-    vis, gfs = _visuais(pid, cenas, opts, p)
-    p(0.93, "Montando a linha do tempo…")
-    r = _finaliza(pid, words, cenas, vis, gfs, [(md["id"], 0.0, total)], total, opts, modo)
+    avisos: list[str] = []
+    vis, gfs = _visuais(pid, words, cenas, opts, p, avisos)
+    p(0.93, "Montando a linha do tempo e a música…")
+    r = _finaliza(pid, words, cenas, vis, gfs, [(md["id"], 0.0, total)], total, opts, modo, humor, avisos)
     p(1.0, "Pronto!")
     return r
 
@@ -722,19 +946,65 @@ def terminar_ao_vivo(pid: str, opts: dict, progress: Progresso = None) -> dict:
 
 
 def previa_cena(texto: str, formato: str) -> dict:
-    """Para a tela ao vivo: palavras de busca e uma foto do banco para o trecho que acabou de ser falado."""
+    """Para a tela ao vivo: palavras de busca e uma foto para o trecho que acabou de ser falado."""
+    import httpx
     q = palavras_chave(texto)
     out = {"busca": q, "imagem": None}
+    i = abs(hash(texto)) % 4
     if any(bancos.status().values()):
         try:
-            res = bancos.buscar("todos", "foto", q, 1, _orient(formato))
-            itens = res.get("itens") or []
+            itens = bancos.buscar("todos", "foto", q, 1, _orient(formato)).get("itens") or []
             if itens:
-                i = abs(hash(texto)) % min(4, len(itens))
-                out["imagem"] = itens[i].get("previa") or itens[i].get("thumb")
+                it = itens[i % len(itens)]
+                out["imagem"] = it.get("previa") or it.get("thumb")
+                return out
         except Exception:
             pass
+    try:
+        o = _orient(formato)
+        r = httpx.get(OPENVERSE, params={"q": q, "license_type": "commercial,modification", "page_size": 8,
+                                         "mature": "false", "aspect_ratio": {"portrait": "tall", "landscape": "wide"}.get(o, "square")},
+                      headers=UA, timeout=8.0)
+        itens = r.json().get("results") or [] if r.status_code == 200 else []
+        if itens:
+            it = itens[i % len(itens)]
+            out["imagem"] = it.get("thumbnail") or it.get("url")
+    except Exception:
+        pass
     return out
+
+
+def salvar_chaves(dados: dict) -> dict:
+    """Chaves grátis direto na tela da História. A do Gemini também liga a IA do programa (se não houver outra)."""
+    up: dict = {}
+    for sec in ("pexels", "pixabay"):
+        v = str(dados.get(sec) or "").strip()
+        if v:
+            up[sec] = {"api_key": v}
+    g = str(dados.get("gemini") or "").strip()
+    if g:
+        up["gemini"] = {"api_key": g}
+        ai = store.load_config().get("ai") or {}
+        if ai.get("provider") in (None, "none") or not ai.get("api_key") or dados.get("gemini_como_ia"):
+            up["ai"] = {"provider": "openai_compat", "api_key": g, "model": GEMINI_TEXTO,
+                        "base_url": GEMINI + "/openai"}
+    if up:
+        store.save_config(up)
+    return status()
+
+
+def testar_gemini() -> dict:
+    import httpx
+    k = chave_gemini()
+    if not k:
+        return {"ok": False, "msg": "Sem chave do Gemini."}
+    try:
+        r = httpx.get(f"{GEMINI}/models", headers={"x-goog-api-key": k}, timeout=15)
+    except Exception as e:
+        return {"ok": False, "msg": f"Sem conexão com o Google: {str(e)[:100]}"}
+    if r.status_code != 200:
+        return {"ok": False, "msg": f"O Google recusou a chave (erro {r.status_code})."}
+    return {"ok": True, "msg": "Chave do Gemini funcionando."}
 
 
 def status() -> dict:
@@ -748,11 +1018,21 @@ def status() -> dict:
         pil = True
     except Exception:
         pil = False
-    ai = store.load_config().get("ai") or {}
+    cfg = store.load_config()
+    ai = cfg.get("ai") or {}
     mus = sorted(f.name for f in pipeline.MUSICAS.glob("*") if f.is_file() and f.suffix.lower() in montagem.EXT_AUDIO) \
         if pipeline.MUSICAS.exists() else []
+    ia_nome = ""
+    if ai.get("provider") == "anthropic":
+        ia_nome = "Claude"
+    elif ai.get("provider") == "openai_compat":
+        ia_nome = "Gemini" if "generativelanguage" in (ai.get("base_url") or "") else "GPT/compatível"
     return {"vozes": [{"id": k, "nome": v[2], "ok": (v[0] != "edge" or edge) and (v[0] != "sapi" or os.name == "nt")}
                       for k, v in VOZES.items()],
-            "visuais": VISUAIS, "bancos": any(bancos.status().values()), "graficos": pil,
-            "ia": ai.get("provider") not in (None, "none") and bool(ai.get("api_key")),
+            "visuais": VISUAIS, "estilos": {"realista": "Foto realista", "biblico": "Época bíblica (realista)",
+                                            "pintura": "Pintura a óleo", "desenho": "Desenho de livro infantil",
+                                            "3d": "Animação 3D"},
+            "bancos": any(bancos.status().values()), "pexels": bancos.status().get("pexels", False),
+            "pixabay": bancos.status().get("pixabay", False), "gemini": bool(chave_gemini()), "graficos": pil,
+            "ia": ai.get("provider") not in (None, "none") and bool(ai.get("api_key")), "ia_nome": ia_nome,
             "transcricao": transcribe.local_available(), "musicas": mus, "pc": os.name == "nt"}

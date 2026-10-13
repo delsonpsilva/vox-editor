@@ -269,6 +269,44 @@ p{margin:0;color:#8b8d98;font-size:13px}
 </style></head><body><h1>__NOME__</h1><div class="bar"><i></i></div><p>Abrindo o estúdio…</p></body></html>"""
 
 
+def _liberar_microfone() -> None:
+    """v1.9.1: o WebView2 (a janela do programa) recusa o microfone sem perguntar nada. Aqui a janela passa a
+    liberar microfone (e câmera) SÓ para o próprio programa (127.0.0.1), para a narração ao vivo funcionar."""
+    if not IS_WIN:
+        return
+    try:
+        from webview.platforms import edgechromium as ec
+        from Microsoft.Web.WebView2.Core import CoreWebView2PermissionKind, CoreWebView2PermissionState
+    except Exception:
+        traceback.print_exc()
+        return
+    original = ec.EdgeChrome.on_webview_ready
+    if getattr(original, "_vox", False):
+        return
+    kinds = [CoreWebView2PermissionKind.Microphone, CoreWebView2PermissionKind.Camera]
+
+    def ao_ficar_pronto(self, sender, args):
+        original(self, sender, args)
+        try:
+            if not args.IsSuccess:
+                return
+
+            def pedido(_s, a):
+                try:
+                    uri = str(a.Uri or "")
+                    if uri.startswith(("http://127.0.0.1", "http://localhost")) and any(a.PermissionKind == k for k in kinds):
+                        a.State = CoreWebView2PermissionState.Allow
+                except Exception:
+                    traceback.print_exc()
+            self._vox_permissao = pedido  # guarda a referência (o .NET não pode perder o evento)
+            sender.CoreWebView2.PermissionRequested += pedido
+        except Exception:
+            traceback.print_exc()
+
+    ao_ficar_pronto._vox = True
+    ec.EdgeChrome.on_webview_ready = ao_ficar_pronto
+
+
 def run_window(url: str, owns_server: Server | None, title: str) -> bool:
     """Abre a janela própria. Devolve False se o WebView2/pywebview não estiver disponível."""
     try:
@@ -316,6 +354,10 @@ def run_window(url: str, owns_server: Server | None, title: str) -> bool:
 
     try:
         _limpar_cache_se_atualizou(store.DATA / "janela")
+    except Exception:  # nunca impede o programa de abrir
+        traceback.print_exc()
+    try:
+        _liberar_microfone()
     except Exception:  # nunca impede o programa de abrir
         traceback.print_exc()
     try:

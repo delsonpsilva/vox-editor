@@ -35,6 +35,7 @@ DEFAULT_CONFIG = {
     "online": {"url": "", "password": ""},  # endereço e senha da versão online, para enviar projetos do PC
     "pexels": {"api_key": ""},    # bancos de vídeos e fotos grátis (Montagem -> Grátis)
     "pixabay": {"api_key": ""},
+    "gemini": {"api_key": "", "img_model": "gemini-2.5-flash-image"},  # v1.9.1: imagens criadas por IA (História → Vídeo)
     "fundo": {"qualidade": "caprichada"},
     "legal": {"responsavel": "", "documento": "", "email": "", "cidade": ""},  # páginas /termos e /privacidade  # remoção de fundo com IA: rapida | caprichada
 }
@@ -84,7 +85,7 @@ def public_config(cfg: dict) -> dict:
         for k in ("password", "key", "token"):
             if isinstance(d, dict) and k in d:
                 d[k + "_set"] = bool(d.pop(k))
-    for sec in ("transcription", "ai", "pexels", "pixabay"):
+    for sec in ("transcription", "ai", "pexels", "pixabay", "gemini"):
         key = out[sec].get("api_key") or ""
         out[sec]["api_key"] = ""
         out[sec]["api_key_set"] = bool(key)
