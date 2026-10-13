@@ -6,6 +6,7 @@
 
 const Montagem = (() => {
   const FONTES = ["Poppins ExtraBold", "Poppins", "Anton", "Bebas Neue", "Archivo Black"];
+  const RESOLUCOES = [["720", "HD 720p (arquivo menor)"], ["1080", "Full HD 1080p (recomendado)"], ["1440", "2K 1440p"], ["4k", "4K Ultra HD"]];
   const FORMATOS = { "9:16": "Vertical 9:16 (Reels, Shorts, TikTok)", "16:9": "Horizontal 16:9 (YouTube)",
     "1:1": "Quadrado 1:1", "4:5": "Retrato 4:5 (Feed)" };
   const DIM = { "9:16": [1080, 1920], "16:9": [1920, 1080], "1:1": [1080, 1080], "4:5": [1080, 1350] };
@@ -209,6 +210,7 @@ const Montagem = (() => {
     trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
     copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>',
     magnet: '<path d="M6 3v8a6 6 0 0 0 12 0V3"/><path d="M6 7h4M14 7h4"/>',
+    flag: '<path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/>',
     zin: '<circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4M8 11h6M11 8v6"/>',
     zout: '<circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4M8 11h6"/>',
     fit: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
@@ -233,7 +235,8 @@ const Montagem = (() => {
 
   /* ---------------- montagem (dados) ---------------- */
 
-  const snapshot = () => JSON.stringify({ tracks: M.m.tracks, items: M.m.items, formato: M.m.formato, bg: M.m.bg, fps: M.m.fps, suave: M.m.suave });
+  const snapshot = () => JSON.stringify({ tracks: M.m.tracks, items: M.m.items, formato: M.m.formato, bg: M.m.bg, fps: M.m.fps, suave: M.m.suave,
+    markers: M.m.markers || [], res: M.m.res || "1080" });
   function restore(s) {
     const o = JSON.parse(s);
     Object.assign(M.m, o);
@@ -412,6 +415,7 @@ const Montagem = (() => {
           <button class="btn small ghost" data-act="dup" title="Duplicar (Ctrl+D)">${ico(I.copy)}<span class="lbl">Duplicar</span></button>
           <button class="btn small ghost" data-act="del" title="Apagar (Delete)">${ico(I.trash)}<span class="lbl">Apagar</span></button>
           <span class="mt-sep"></span>
+          <button class="btn small ghost" data-act="marker" title="Marcador no cursor (M) · , e . pulam entre marcadores">${ico(I.flag)}<span class="lbl">Marcador</span></button>
           <button class="btn small ghost mt-snap on" data-act="snap" title="Ímã: encaixa nos cortes e mantém a trilha principal sem buracos">${ico(I.magnet)}<span class="lbl">Ímã</span></button>
           <div class="menu-wrap">
             <button class="btn small ghost" data-act="addtrack">${ico(I.plus)}<span class="lbl">Trilha</span></button>
@@ -430,6 +434,7 @@ const Montagem = (() => {
             <div class="mt-rulerrow"><div class="mt-corner"><span class="hint mt-dur"></span></div><div class="mt-ruler"></div></div>
             <div class="mt-rows"></div>
             <div class="mt-ph"><i></i></div>
+            <div class="mt-mklines"></div>
           </div>
         </div>
       </section>
@@ -896,7 +901,7 @@ const Montagem = (() => {
       const j = js.find((k) => k.id === r.job), b = GR.baixando[x.id];
       if (!j || !b) return;
       b.pct = j.pct; pintaGratis(x.id);
-      if (j.status === "erro") { delete GR.baixando[x.id]; pintaGratis(x.id); toast(j.error, true); return; }
+      if (j.status === "erro" || j.status === "cancelado") { delete GR.baixando[x.id]; pintaGratis(x.id); toast(j.error || "Download cancelado.", !!j.error); return; }
       if (j.status !== "concluido") { setTimeout(tick, 900); return; }
       delete GR.baixando[x.id]; pintaGratis(x.id);
       const md = j.result;
@@ -955,8 +960,13 @@ const Montagem = (() => {
       const t = i * step;
       r += `<span class="tk" style="left:${(t * M.pps).toFixed(1)}px">${step < 1 ? fmt(t, true) : fmt(t)}</span>`;
     }
+    (M.m.markers || []).forEach((mk) => {
+      r += `<i class="mt-mk" data-mk="${mk.id}" style="left:${(mk.t * M.pps).toFixed(1)}px;--c:${mk.cor}" title="${esc(mk.nome || "Marcador")} · ${fmt(mk.t, true)} (clique: ir · dois cliques: editar)">${mk.nome ? `<span>${esc(mk.nome)}</span>` : ""}</i>`;
+    });
     $(".mt-ruler", B).style.width = laneW + "px";
     $(".mt-ruler", B).innerHTML = r;
+    const ml = $(".mt-mklines", B);
+    if (ml) ml.innerHTML = (M.m.markers || []).map((mk) => `<i style="left:${(headW() + mk.t * M.pps).toFixed(1)}px;--c:${mk.cor}"></i>`).join("");
     // trilhas
     const rows = M.m.tracks.map((t) => {
       const its = M.m.items.filter((i) => i.track === t.id);
@@ -1045,6 +1055,15 @@ const Montagem = (() => {
   }
 
   function scrubStart(e) {
+    const mkEl = e.target.closest && e.target.closest(".mt-mk");
+    if (mkEl) {
+      e.preventDefault(); e.stopPropagation();
+      const mk = (M.m.markers || []).find((x) => x.id === mkEl.dataset.mk); if (!mk) return;
+      const agora = Date.now();
+      if (M.mkClick && M.mkClick.id === mk.id && agora - M.mkClick.t < 400) { M.mkClick = null; editaMarcador(mk, mkEl); return; }
+      M.mkClick = { id: mk.id, t: agora };
+      seek(mk.t); return;
+    }
     const lane = $(".mt-ruler", box()).getBoundingClientRect();
     const set = (ev) => { seek(q(Math.max(0, (ev.clientX - lane.left) / M.pps))); };
     set(e);
@@ -1096,6 +1115,7 @@ const Montagem = (() => {
     const thr = 8 / M.pps;
     const pts = [0, M.t];
     M.m.items.forEach((o) => { if (o.id !== self) pts.push(o.start, o.start + o.dur); });
+    (M.m.markers || []).forEach((mk) => pts.push(mk.t));
     let best = t, bd = thr;
     pts.forEach((p) => {
       if (Math.abs(p - t) < bd) { bd = Math.abs(p - t); best = p; }
@@ -1181,6 +1201,57 @@ const Montagem = (() => {
     if (a === "zfit") { M.pps = fitZoom(); renderTimeline(); $(".mt-scroll", box()).scrollLeft = 0; }
     if (a === "addtrack") { e.stopPropagation(); $(".mt-trackmenu", box()).classList.toggle("hidden"); }
     if (a === "export") exportar();
+    if (a === "marker") marcador();
+  }
+
+  /* ---------------- v1.8: marcadores na linha do tempo ---------------- */
+  const CORES_MK = ["#FF8A3D", "#FACC15", "#16A34A", "#0EA5E9", "#EC4899", "#FFFFFF"];
+  function marcador() {
+    const lista = M.m.markers || (M.m.markers = []);
+    const tol = Math.max(0.5 / fps(), 4 / M.pps);
+    const perto = lista.find((x) => Math.abs(x.t - M.t) <= tol);
+    const before = snapshot();
+    if (perto) { M.m.markers = lista.filter((x) => x !== perto); toast("Marcador tirado."); }
+    else {
+      lista.push({ id: "mk" + Math.random().toString(36).slice(2, 10), t: q(M.t), nome: "", cor: CORES_MK[lista.length % CORES_MK.length] });
+      lista.sort((a, b) => a.t - b.t);
+      toast("Marcador colocado. Dois cliques nele (na régua) para dar um nome.");
+    }
+    commit(before);
+  }
+  function pulaMarcador(dir) {
+    const ts = (M.m.markers || []).map((x) => x.t), tol = 0.5 / fps();
+    const alvo = dir > 0 ? ts.find((t) => t > M.t + tol) : ts.filter((t) => t < M.t - tol).pop();
+    if (alvo == null) return toast(dir > 0 ? "Não há marcador depois do cursor." : "Não há marcador antes do cursor.");
+    seek(alvo);
+  }
+  function editaMarcador(mk, el) {
+    const velho = $(".mt-mkpop", box()); if (velho) velho.remove();
+    const pop = document.createElement("div");
+    pop.className = "mt-mkpop";
+    pop.innerHTML = `<label class="mt-f"><span>Nome do marcador</span><input type="text" maxlength="60" value="${esc(mk.nome || "")}" placeholder="Ex.: começa a pregação"></label>
+      <div class="mt-mkcores">${CORES_MK.map((c) => `<button type="button" data-c="${c}" class="${mk.cor === c ? "on" : ""}" style="background:${c}" aria-label="Cor ${c}"></button>`).join("")}</div>
+      <div class="row between"><button type="button" class="btn small ghost danger" data-x="del">Apagar</button><button type="button" class="btn small primary" data-x="ok">Pronto</button></div>`;
+    const r = el.getBoundingClientRect(), b = box().getBoundingClientRect();
+    pop.style.left = Math.max(8, Math.min(b.width - 248, r.left - b.left - 120)) + "px";
+    pop.style.top = Math.max(8, r.top - b.top - 150) + "px";
+    box().appendChild(pop);
+    const inp = $("input", pop); inp.focus(); inp.select();
+    let cor = mk.cor;
+    $$("[data-c]", pop).forEach((x) => x.addEventListener("click", () => { cor = x.dataset.c; $$("[data-c]", pop).forEach((y) => y.classList.toggle("on", y === x)); }));
+    const fecha = (gravar, apagar) => {
+      pop.remove(); document.removeEventListener("pointerdown", fora, true);
+      if (!gravar && !apagar) return;
+      const before = snapshot();
+      if (apagar) M.m.markers = (M.m.markers || []).filter((x) => x.id !== mk.id);
+      else { mk.nome = inp.value.trim().slice(0, 60); mk.cor = cor; }
+      commit(before);
+    };
+    const fora = (e) => { if (!pop.contains(e.target)) fecha(true, false); };
+    setTimeout(() => document.addEventListener("pointerdown", fora, true), 0);
+    inp.addEventListener("keydown", (e) => { e.stopPropagation(); if (e.key === "Enter") fecha(true, false); if (e.key === "Escape") fecha(false, false); });
+    $("[data-x=ok]", pop).addEventListener("click", () => fecha(true, false));
+    $("[data-x=del]", pop).addEventListener("click", () => fecha(false, true));
   }
 
   function split() {
@@ -1236,7 +1307,7 @@ const Montagem = (() => {
     clearTimeout(M.saveT);
     const btn = $(".mt-export", box());
     try {
-      const P = await api("POST", `/api/projects/${M.pid}/montagem/exportar`, { montagem: M.m });
+      const P = await api("POST", `/api/projects/${M.pid}/montagem/exportar`, { montagem: M.m, resolucao: M.m.res || "1080" });
       const job = (P.jobs || []).find((j) => j.kind === "montagem" && j.status !== "concluido" && j.status !== "erro");
       M.exportJob = job ? job.id : "?";
       setSaveState("Salvo");
@@ -1249,9 +1320,10 @@ const Montagem = (() => {
         if (!j) { M.exportJob = null; return; }
         $(".lbl", btn).textContent = j.status === "na fila" ? "Na fila…" : `Exportando ${Math.round(j.pct * 100)}%`;
         btn.style.setProperty("--p", (j.pct * 100).toFixed(1) + "%"); btn.classList.add("busy");
-        if (j.status === "concluido" || j.status === "erro") {
+        if (j.status === "concluido" || j.status === "erro" || j.status === "cancelado") {
           M.exportJob = null; btn.classList.remove("busy"); $(".lbl", btn).textContent = "Exportar";
-          if (j.status === "erro") toast("A exportação falhou: " + j.error, true);
+          if (j.status === "cancelado") toast("Exportação cancelada.");
+          else if (j.status === "erro") toast("A exportação falhou: " + j.error, true);
           else { toast("Vídeo da montagem pronto! Está em Ajustes → Exportados e na página Exportados."); }
           try { M.P = await api("GET", `/api/projects/${M.pid}`); if (typeof S !== "undefined" && S.P && S.P.id === M.pid) S.P = M.P; } catch (_) {}
           renderProps();
@@ -1325,6 +1397,62 @@ const Montagem = (() => {
     const f = [`brightness(${1 + fx.brilho})`, `contrast(${fx.contraste})`, `saturate(${fx.saturacao})`, `grayscale(${fx.pb})`, `sepia(${Math.min(1, fx.sepia + Math.max(0, fx.temperatura) * 0.35)})`];
     if (fx.temperatura < 0) f.push(`hue-rotate(${Math.round(fx.temperatura * 25)}deg)`);
     return `filter:${f.join(" ")}`;
+  }
+  /* v1.8: máscara (círculo ou retângulo) — mesma conta de backend/core/efeitos.py (mascara_alfa) */
+  const MK0 = { forma: "circulo", cx: 0.5, cy: 0.5, w: 0.7, h: 0.7, raio: 0.15, suave: 0.02, inverter: false };
+  function secMascara(it) {
+    const mk = it.mask ? { ...MK0, ...it.mask } : null;
+    const corpo = `
+      <div class="row mt-colors">
+        <button class="btn small ${!mk ? "primary" : ""}" data-mkforma="">Nenhuma</button>
+        <button class="btn small ${mk && mk.forma === "circulo" ? "primary" : ""}" data-mkforma="circulo">◯ Círculo</button>
+        <button class="btn small ${mk && mk.forma === "retangulo" ? "primary" : ""}" data-mkforma="retangulo">▭ Retângulo</button>
+      </div>
+      ${mk ? `
+        ${faixa("mk", "w", "Largura", 0.05, 1.5, 0.01, mk.w, pct)}
+        ${faixa("mk", "h", "Altura", 0.05, 1.5, 0.01, mk.h, pct)}
+        ${faixa("mk", "cx", "Posição na horizontal", 0, 1, 0.01, mk.cx, pct)}
+        ${faixa("mk", "cy", "Posição na vertical", 0, 1, 0.01, mk.cy, pct)}
+        ${mk.forma === "retangulo" ? faixa("mk", "raio", "Cantos arredondados", 0, 0.5, 0.01, mk.raio, pct) : ""}
+        ${faixa("mk", "suave", "Borda suave", 0, 0.3, 0.005, mk.suave, pct)}
+        <label class="checkline"><input type="checkbox" data-mk="inverter" ${mk.inverter ? "checked" : ""}> Inverter (esconde o que está dentro)</label>
+        <div class="row mt-colors">
+          <button class="btn small" data-mkpronto="redondo">Rosto redondo</button>
+          <button class="btn small" data-mkpronto="cartao">Cartão</button>
+          <button class="btn small" data-mkpronto="faixa">Faixa</button>
+        </div>` : `<p class="hint">Mostra só uma parte do vídeo ou da foto, num círculo ou retângulo. Bom para "imagem dentro da imagem" com o rosto em círculo.</p>`}`;
+    return secao("mask", `Máscara${mk ? " ✓" : ""}`, corpo, !mk);
+  }
+  const MK_PRONTOS = { redondo: { forma: "circulo", w: 0.62, h: 0.62 * 16 / 9, cx: 0.5, cy: 0.5, suave: 0.01 },
+    cartao: { forma: "retangulo", w: 0.92, h: 0.92, raio: 0.12, suave: 0.005 }, faixa: { forma: "retangulo", w: 1, h: 0.4, cy: 0.5, raio: 0, suave: 0.08 } };
+  const MKC = new Map();
+  /** Máscara em tons de cinza (canvas com transparência) do tamanho iw x ih, com cache. */
+  function mascaraCanvas(iw, ih, mk) {
+    const chave = iw + "x" + ih + JSON.stringify(mk);
+    let cv = MKC.get(chave); if (cv) return cv;
+    if (MKC.size > 24) MKC.clear();
+    cv = document.createElement("canvas"); cv.width = iw; cv.height = ih;
+    const x = cv.getContext("2d"), im = x.createImageData(iw, ih), d = im.data;
+    const cx = mk.cx * iw, cy = mk.cy * ih, rx = Math.max(0.5, mk.w * iw / 2), ry = Math.max(0.5, mk.h * ih / 2);
+    const rr = Math.min(Math.min(rx, ry), mk.raio * 2 * Math.min(rx, ry)), f = mk.suave * Math.min(iw, ih), mr = Math.min(rx, ry);
+    for (let py = 0; py < ih; py++) {
+      const y = py + 0.5;
+      for (let px = 0; px < iw; px++) {
+        const xx = px + 0.5;
+        let dist;
+        if (mk.forma === "circulo") dist = (Math.sqrt(((xx - cx) / rx) ** 2 + ((y - cy) / ry) ** 2) - 1) * mr;
+        else {
+          const dx = Math.abs(xx - cx) - (rx - rr), dy = Math.abs(y - cy) - (ry - rr);
+          dist = Math.hypot(Math.max(dx, 0), Math.max(dy, 0)) + Math.min(Math.max(dx, dy), 0) - rr;
+        }
+        let a = f > 0.5 ? clamp(0.5 - dist / f, 0, 1) : (dist <= 0 ? 1 : 0);
+        if (mk.inverter) a = 1 - a;
+        d[(py * iw + px) * 4 + 3] = Math.round(a * 255);
+      }
+    }
+    x.putImageData(im, 0, 0);
+    MKC.set(chave, cv);
+    return cv;
   }
   function secChroma(it) {
     const ch = { on: false, cor: "#00FF00", tol: 0.3, suave: 0.08, ...(it.chroma || {}) };
@@ -1414,13 +1542,16 @@ const Montagem = (() => {
     if (!it) {
       html += `<div class="panel-title">Projeto</div>
         <label class="mt-f"><span>Formato do vídeo</span><select data-proj="formato">${Object.entries(FORMATOS).map(([k, v]) => `<option value="${k}" ${M.m.formato === k ? "selected" : ""}>${v}</option>`).join("")}</select></label>
-        <label class="mt-f"><span>Quadros por segundo</span><select data-proj="fps">${[24, 25, 30, 60].map((f) => `<option ${M.m.fps === f ? "selected" : ""}>${f}</option>`).join("")}</select></label>
+        <label class="mt-f"><span>Quadros por segundo</span><select data-proj="fps">${[24, 25, 30, 50, 60].map((f) => `<option ${M.m.fps === f ? "selected" : ""}>${f}</option>`).join("")}</select></label>
+        <label class="mt-f"><span>Resolução da exportação</span><select data-proj="res">${RESOLUCOES.map(([v, n]) => `<option value="${v}" ${(M.m.res || "1080") === v ? "selected" : ""}>${n}</option>`).join("")}</select></label>
+        ${(M.m.res === "4k" || M.m.res === "1440") ? `<p class="hint">Em ${M.m.res === "4k" ? "4K" : "2K"} o arquivo fica bem maior e a exportação demora mais (cerca de ${M.m.res === "4k" ? "4" : "2"} vezes). Para Reels, Shorts e TikTok, Full HD já é o máximo que as redes mostram.</p>` : ""}
         <label class="mt-f row"><span>Cor do fundo</span><input type="color" data-proj="bg" value="${M.m.bg}"></label>
         <label class="mt-f"><span>Emendas da fala</span><select data-proj="suave">${[["suave", "Suaves (recomendado)"], ["bem_suave", "Bem suaves"], ["seca", "Secas (corte colado)"]].map(([v, n]) => `<option value="${v}" ${(M.m.suave || "suave") === v ? "selected" : ""}>${n}</option>`).join("")}</select></label>
         ${(M.m.media || []).some((x) => x.main) && (M.P || {}).kind !== "montagem" ? `<button class="btn small" data-recomecar>Recomeçar da edição automática</button>` : ""}
         <div class="panel-title">Atalhos</div>
         <ul class="mt-keys hint">
           <li><kbd>Espaço</kbd> tocar / pausar</li><li><kbd>S</kbd> dividir no cursor</li><li><kbd>Delete</kbd> apagar</li>
+          <li><kbd>M</kbd> marcador no cursor · <kbd>,</kbd> <kbd>.</kbd> marcador anterior / próximo</li>
           <li><kbd>Ctrl</kbd>+<kbd>Z</kbd> desfazer · <kbd>Ctrl</kbd>+<kbd>Y</kbd> refazer</li><li><kbd>Ctrl</kbd>+<kbd>D</kbd> duplicar</li><li><kbd>K</kbd> marcar / tirar quadro-chave</li>
           <li><kbd>←</kbd><kbd>→</kbd> um quadro · com <kbd>Shift</kbd> 1 segundo</li><li><kbd>Ctrl</kbd>+roda do mouse: zoom</li>
           <li>Clique direito no nome da trilha vazia: remover</li>
@@ -1493,7 +1624,7 @@ const Montagem = (() => {
         ${rng("fadeOut", "Saída suave", 0, 3, 0.05, it.fadeOut, "s")}`, true);
       if (it.type !== "audio" && it.type !== "tarja") html += secAnimacao(it);
       if (["video", "image", "color"].includes(it.type) && (track(it.track) || {}).kind === "video") html += secTransicao(it);
-      if (it.type === "video" || it.type === "image") html += secCor(it) + secChroma(it) + secSemFundo(it, md);
+      if (it.type === "video" || it.type === "image") html += secCor(it) + secMascara(it) + secChroma(it) + secSemFundo(it, md);
       if (it.type === "video" || it.type === "audio") {
         html += `<div class="panel-title">Som e velocidade</div>
           ${md && (md.has_audio || it.type === "audio") ? rng("volume", "Volume", 0, 2, 0.01, it.volume, "", (v) => Math.round(v * 100) + "%") : `<p class="hint">Este vídeo não tem som.</p>`}
@@ -1535,6 +1666,7 @@ const Montagem = (() => {
       if (k === "fps") M.m.fps = +inp.value;
       if (k === "bg") M.m.bg = inp.value.toUpperCase();
       if (k === "suave") M.m.suave = inp.value;
+      if (k === "res") M.m.res = inp.value;
       commit(before); layoutCanvas(); draw();
     }));
     if (!it) return;
@@ -1591,7 +1723,7 @@ const Montagem = (() => {
         const v = inp.type === "checkbox" ? inp.checked : inp.type === "range" ? +inp.value : inp.value;
         set(k, v);
         const out = el.querySelector(`[data-out-${attr}="${k}"]`);
-        if (out && inp.type === "range") out.textContent = attr === "trd" ? String(v).replace(".", ",") + "s" : (k === "contraste" || k === "saturacao" || attr === "ch") ? pct(v) : (k === "brilho" || k === "temperatura" ? (v > 0 ? "+" : "") + Math.round(v * 100) : Math.round(v * 100) + "%");
+        if (out && inp.type === "range") out.textContent = attr === "trd" ? String(v).replace(".", ",") + "s" : (k === "contraste" || k === "saturacao" || attr === "ch" || attr === "mk") ? pct(v) : (k === "brilho" || k === "temperatura" ? (v > 0 ? "+" : "") + Math.round(v * 100) : Math.round(v * 100) + "%");
         draw();
       });
       inp.addEventListener("change", () => { const b = M.editBefore; M.editBefore = null; commit(b); });
@@ -1599,9 +1731,12 @@ const Montagem = (() => {
     faixaViva("fx", (k, v) => { it.fx = { ...FX0, ...(it.fx || {}), [k]: v }; delete it.fx.preset; if (!fxAtivo(it.fx)) delete it.fx; });
     faixaViva("ch", (k, v) => { it.chroma = { on: false, cor: "#00FF00", tol: 0.3, suave: 0.08, ...(it.chroma || {}), [k]: k === "cor" ? String(v).toUpperCase() : v }; if (!it.chroma.on) delete it.chroma; });
     faixaViva("trd", (k, v) => { if (it.tr) it.tr.dur = v; });
+    faixaViva("mk", (k, v) => { if (it.mask) it.mask = { ...MK0, ...it.mask, [k]: v }; });
     const clique = (sel, fn) => $$(sel, el).forEach((b) => b.addEventListener("click", () => { const before = snapshot(); if (fn(b) !== false) commit(before); }));
     clique("[data-filtro]", (b) => { const f = FILTROS.find((x) => x[0] === b.dataset.filtro); if (!f || f[0] === "nenhum") { delete it.fx; return; } it.fx = { ...FX0, ...f[2], preset: f[0] }; });
     clique("[data-fxzero]", () => { delete it.fx; });
+    clique("[data-mkforma]", (b) => { const f = b.dataset.mkforma; if (!f) delete it.mask; else it.mask = { ...MK0, ...(it.mask || {}), forma: f }; SEC_ABERTA.add("mask"); SEC_ABERTA.delete("-mask"); });
+    clique("[data-mkpronto]", (b) => { it.mask = { ...MK0, ...MK_PRONTOS[b.dataset.mkpronto] }; });
     clique("[data-chcor]", (b) => { it.chroma = { ...(it.chroma || { on: true, tol: 0.3, suave: 0.08 }), on: true, cor: b.dataset.chcor }; });
     clique("[data-tr]", (b) => {
       const tipo = b.dataset.tr;
@@ -1667,6 +1802,7 @@ const Montagem = (() => {
         if (!j) { delete M.bgJobs[iid]; mudou = true; continue; }
         b.pct = j.pct; b.msg = j.status === "na fila" ? "Na fila (esperando outra tarefa terminar)…" : j.msg;
         if (j.status === "erro") { delete M.bgJobs[iid]; toast("Não deu para tirar o fundo: " + j.error, true); mudou = true; }
+        if (j.status === "cancelado") { delete M.bgJobs[iid]; toast("Remoção de fundo cancelada."); mudou = true; }
         if (j.status === "concluido") { delete M.bgJobs[iid]; mudou = true; await recarregaMidias(); toast("Fundo removido! Coloque algo numa trilha abaixo para aparecer atrás."); }
       }
       const it = itemById(M.sel);
@@ -1951,17 +2087,17 @@ const Montagem = (() => {
   /** Desenha a mídia (já com o canvas no centro do item) com fundo verde, filtros de cor e vinheta. */
   const ITEMCV = { cv: null };
   function desenhaMidia(ctx, src, it, w, h) {
-    const fx = it.fx, ch = it.chroma && it.chroma.on ? it.chroma : null, vin = fx && fx.vinheta > 0.005;
+    const fx = it.fx, ch = it.chroma && it.chroma.on ? it.chroma : null, vin = fx && fx.vinheta > 0.005, mk = it.mask ? { ...MK0, ...it.mask } : null;
     let fonte = src;
     if (ch) { try { fonte = chromaDesenha(src, ch, it.type === "image" ? src.naturalWidth : src.videoWidth, it.type === "image" ? src.naturalHeight : src.videoHeight); } catch (_) { fonte = src; } }
     const filtro = filtroCanvas(fx);
-    if (!vin) {
+    if (!vin && !mk) {
       if (filtro !== "none") ctx.filter = filtro;
       ctx.drawImage(fonte, -w / 2, -h / 2, w, h);
       ctx.filter = "none";
       return;
     }
-    // com vinheta: monta o item num canvas à parte (a vinheta escurece só o item, não o que está por baixo)
+    // com vinheta ou máscara: monta o item num canvas à parte (só o item muda, não o que está por baixo)
     const k = M.view.k, iw = Math.max(2, Math.round(w * k)), ih = Math.max(2, Math.round(h * k));
     if (!ITEMCV.cv) ITEMCV.cv = document.createElement("canvas");
     const cv = ITEMCV.cv; cv.width = iw; cv.height = ih;
@@ -1970,7 +2106,12 @@ const Montagem = (() => {
     if (filtro !== "none") x.filter = filtro;
     x.drawImage(fonte, 0, 0, iw, ih);
     x.filter = "none";
-    vinhetaDesenha(x, iw, ih, fx.vinheta);
+    if (vin) vinhetaDesenha(x, iw, ih, fx.vinheta);
+    if (mk) {  // v1.8: o que está fora da forma some (a mesma conta da exportação)
+      x.globalCompositeOperation = "destination-in";
+      x.drawImage(mascaraCanvas(iw, ih, mk), 0, 0);
+      x.globalCompositeOperation = "source-over";
+    }
     ctx.drawImage(cv, -w / 2, -h / 2, w, h);
   }
   function elOf(it) { const list = M.pool.get(it.src) || []; return list.find((x) => x._item === it.id) || null; }
@@ -2054,6 +2195,8 @@ const Montagem = (() => {
     if (ctrl && e.key.toLowerCase() === "d") { e.preventDefault(); duplicate(); return; }
     if (ctrl) return;
     if (e.key.toLowerCase() === "s") { e.preventDefault(); split(); }
+    if (e.key.toLowerCase() === "m") { e.preventDefault(); marcador(); }
+    if (e.key === "," || e.key === ".") { e.preventDefault(); pulaMarcador(e.key === "." ? 1 : -1); }
     if (e.key.toLowerCase() === "k") {
       const it = itemById(M.sel);
       if (it && it.type !== "audio" && it.type !== "tarja" && M.t >= it.start && M.t <= it.start + it.dur) {

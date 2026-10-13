@@ -140,6 +140,62 @@ def chroma_ffmpeg(ch: dict | None) -> list[str]:
             "format=rgba"]
 
 
+# ---------------------------------------------------------------- máscara (v1.8)
+# Forma desenhada em cima do item (círculo ou retângulo com cantos arredondados): o que fica fora some.
+# Tudo em frações da caixa do item, então a máscara anda, cresce e gira junto com ele.
+# A prévia (montagem.js, mascaraCanvas) usa exatamente a mesma conta.
+
+FORMAS_MASCARA = ("circulo", "retangulo")
+
+
+def mascara_limpa(mk) -> dict | None:
+    if not isinstance(mk, dict) or mk.get("forma") not in FORMAS_MASCARA:
+        return None
+
+    def n(k, d, lo, hi):
+        try:
+            return round(max(lo, min(hi, float(mk.get(k, d)))), 4)
+        except (TypeError, ValueError):
+            return d
+    return {"forma": mk["forma"], "cx": n("cx", 0.5, -0.5, 1.5), "cy": n("cy", 0.5, -0.5, 1.5),
+            "w": n("w", 0.7, 0.02, 2.0), "h": n("h", 0.7, 0.02, 2.0), "raio": n("raio", 0.15, 0.0, 0.5),
+            "suave": n("suave", 0.02, 0.0, 0.3), "inverter": bool(mk.get("inverter"))}
+
+
+def mascara_alfa(w: int, h: int, mk: dict):
+    """Matriz (h, w) de 0..1: 1 = aparece, 0 = some. Mesma conta da prévia."""
+    import numpy as np
+    ys, xs = np.mgrid[0:h, 0:w].astype("float32")
+    xs += 0.5
+    ys += 0.5
+    cx, cy = mk["cx"] * w, mk["cy"] * h
+    rx, ry = max(0.5, mk["w"] * w / 2), max(0.5, mk["h"] * h / 2)
+    if mk["forma"] == "circulo":
+        q = np.sqrt(((xs - cx) / rx) ** 2 + ((ys - cy) / ry) ** 2)
+        dist = (q - 1.0) * min(rx, ry)
+    else:
+        r = min(min(rx, ry), mk["raio"] * 2 * min(rx, ry))
+        dx = np.abs(xs - cx) - (rx - r)
+        dy = np.abs(ys - cy) - (ry - r)
+        fora = np.sqrt(np.maximum(dx, 0) ** 2 + np.maximum(dy, 0) ** 2)
+        dentro = np.minimum(np.maximum(dx, dy), 0)
+        dist = fora + dentro - r
+    f = mk["suave"] * min(w, h)
+    if f > 0.5:
+        a = np.clip(0.5 - dist / f, 0.0, 1.0)
+    else:
+        a = (dist <= 0).astype("float32")
+    if mk.get("inverter"):
+        a = 1.0 - a
+    return a
+
+
+def mascara_imagem(w: int, h: int, mk: dict):
+    """Imagem em tons de cinza (uint8) para o FFmpeg multiplicar na transparência do item."""
+    import numpy as np
+    return np.clip(mascara_alfa(w, h, mk) * 255 + 0.5, 0, 255).astype("uint8")
+
+
 # ---------------------------------------------------------------- transições
 
 TRANSICOES = {

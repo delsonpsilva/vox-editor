@@ -69,9 +69,41 @@ def ffprobe() -> str:
     return _find("ffprobe")
 
 
+def _registrar(proc) -> None:
+    """v1.8: avisa a fila qual processo a tarefa abriu, para o botão Cancelar encerrar na hora."""
+    try:
+        from ..core import jobs
+        jobs.registrar(proc)
+    except Exception:
+        pass
+
+
+def _liberar(proc) -> None:
+    try:
+        from ..core import jobs
+        jobs.liberar(proc)
+    except Exception:
+        pass
+
+
+def _conferir_cancelado() -> None:
+    try:
+        from ..core import jobs
+    except Exception:
+        return
+    jobs.conferir_cancelado()
+
+
 def run(args: list[str], cwd: Optional[str] = None, check: bool = True) -> subprocess.CompletedProcess:
-    p = subprocess.run(args, cwd=cwd, capture_output=True, text=True, encoding="utf-8",
-                       errors="replace", creationflags=CREATE_FLAGS, **_POPEN_EXTRA)
+    proc = subprocess.Popen(args, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8",
+                            errors="replace", creationflags=CREATE_FLAGS, **_POPEN_EXTRA)
+    _registrar(proc)
+    try:
+        out, err = proc.communicate()
+    finally:
+        _liberar(proc)
+    p = subprocess.CompletedProcess(args, proc.returncode, out, err)
+    _conferir_cancelado()
     if check and p.returncode != 0:
         tail = "\n".join(p.stderr.strip().splitlines()[-15:])
         raise RuntimeError(f"Falha no FFmpeg:\n{tail}")
@@ -85,6 +117,7 @@ def run_with_progress(args: list[str], total_seconds: float,
     full = [args[0], "-hide_banner", "-nostats", "-progress", "pipe:1"] + args[1:]
     proc = subprocess.Popen(full, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                             text=True, encoding="utf-8", errors="replace", creationflags=CREATE_FLAGS, **_POPEN_EXTRA)
+    _registrar(proc)
     err_lines: list[str] = []
 
     import threading
@@ -106,7 +139,9 @@ def run_with_progress(args: list[str], total_seconds: float,
             except ValueError:
                 pass
     proc.wait()
+    _liberar(proc)
     t.join(timeout=2)
+    _conferir_cancelado()
     if proc.returncode != 0:
         tail = "".join(err_lines[-15:])
         raise RuntimeError(f"Falha no FFmpeg:\n{tail}")

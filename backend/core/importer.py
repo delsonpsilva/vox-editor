@@ -119,6 +119,7 @@ def download(pid: str, url: str, progress, max_gb: float = 10) -> tuple[Path, st
         title, final, parts, done_parts, err = "", "", 1, 0, []
         proc = subprocess.Popen(_cmd(url, folder, max_gb), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                 text=True, encoding="utf-8", errors="replace", creationflags=ff.CREATE_FLAGS)
+        ff._registrar(proc)  # v1.8: o Cancelar encerra o download na hora
         import threading
         t = threading.Thread(target=lambda: err.extend(proc.stderr), daemon=True)  # type: ignore[arg-type]
         t.start()

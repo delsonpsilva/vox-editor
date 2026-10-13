@@ -235,6 +235,9 @@ def limpar(m: dict, atual: dict) -> dict:
             ch = fxm.chroma_limpo(it.get("chroma"))
             if ch:
                 novo["chroma"] = ch
+            mk = fxm.mascara_limpa(it.get("mask"))  # v1.8: máscara (círculo/retângulo)
+            if mk:
+                novo["mask"] = mk
         if k in ("video", "image", "color") and tids[it["track"]]["kind"] == "video":
             tr = fxm.tr_limpa(it.get("tr"), novo["dur"])
             if tr:
@@ -246,7 +249,27 @@ def limpar(m: dict, atual: dict) -> dict:
         items.append(novo)
     return {"v": VERSAO, "formato": formato, "w": w, "h": h, "fps": fps, "bg": _cor(m.get("bg"), "#000000"),
             "suave": m.get("suave") if m.get("suave") in SUAVE_MONTAGEM else "suave",
-            "tracks": tracks, "items": items, "media": atual.get("media") or [], "updated": time.time()}
+            "res": str(m.get("res")) if str(m.get("res")) in RESOLUCOES else "1080",
+            "tracks": tracks, "items": items, "markers": marcadores_limpos(m.get("markers")),
+            "media": atual.get("media") or [], "updated": time.time()}
+
+
+CORES_MARCADOR = ("#FF8A3D", "#FACC15", "#16A34A", "#0EA5E9", "#EC4899", "#FFFFFF")
+
+
+def marcadores_limpos(lst) -> list[dict]:
+    """v1.8: marcadores da linha do tempo (tempo, nome e cor), em ordem de tempo, no máximo 300."""
+    out = []
+    for mk in (lst if isinstance(lst, list) else [])[:300]:
+        if not isinstance(mk, dict):
+            continue
+        out.append({"id": str(mk.get("id") or _id("mk"))[:24], "t": round(_num(mk.get("t"), 0, 0, 36000), 4),
+                    "nome": str(mk.get("nome") or "")[:60],
+                    "cor": mk.get("cor") if mk.get("cor") in CORES_MARCADOR else CORES_MARCADOR[0]})
+    return sorted(out, key=lambda x: x["t"])
+
+
+RESOLUCOES = {"720": 2 / 3, "1080": 1.0, "1440": 4 / 3, "4k": 2.0}  # v1.8: altura de base 1080 (ou largura, no vertical)
 
 
 def salvar(pid: str, m: dict) -> dict:
@@ -578,6 +601,11 @@ def exportar(pid: str, opts: dict, progress: Optional[Callable[[float, str], Non
     folder = store.pdir(pid)
     cfg = store.load_config()
     W, H, fps = m["w"], m["h"], m["fps"]
+    res = str(opts.get("resolucao") or m.get("res") or "1080").lower()
+    if res in RESOLUCOES and res != "1080":  # v1.8: 720p, 2K e 4K — tudo é calculado em frações da tela
+        W, H = _par(W * RESOLUCOES[res]), _par(H * RESOLUCOES[res])
+    if int(opts.get("fps") or 0) in (24, 25, 30, 50, 60):
+        fps = int(opts["fps"])
     total = round(duracao(m), 4)
     if total <= 0:
         raise RuntimeError("A linha do tempo está vazia.")
@@ -635,6 +663,23 @@ def exportar(pid: str, opts: dict, progress: Optional[Callable[[float, str], Non
         graph.append(f"{c}{al}alphamerge,format=rgba{out}")
         return out
 
+    def mascara(lab: str, it: dict, w: int, h: int) -> str:
+        """v1.8: multiplica a transparência do item pela máscara (mantém fundo verde, sem fundo e PNG)."""
+        mk = it.get("mask")
+        if not mk:
+            return lab
+        import cv2
+        arq = folder / f"tmp_{tag}.m{len(graph)}.png"
+        cv2.imwrite(str(arq), fxm.mascara_imagem(w, h, mk))
+        idx = entrada(["-loop", "1", "-framerate", str(fps), "-i", arq.name])
+        a, b, al, mm, al2, out = (f"[mk{len(graph)}{s}]" for s in ("a", "b", "l", "m", "n", "o"))
+        graph.append(f"{lab}split{a}{b}")
+        graph.append(f"{b}alphaextract{al}")
+        graph.append(f"[{idx}:v]format=gray,scale={w}:{h}{mm}")
+        graph.append(f"{al}{mm}blend=all_mode=multiply:shortest=1{al2}")
+        graph.append(f"{a}{al2}alphamerge,format=rgba{out}")
+        return out
+
     def efeitos_fim(it: dict, dur: float) -> list[str]:
         """Giro, transparência e esmaecimento (no tempo local do item) — caminho sem animação."""
         f = []
@@ -655,7 +700,7 @@ def exportar(pid: str, opts: dict, progress: Optional[Callable[[float, str], Non
         pre = [f"scale={w}:{h}:flags=lanczos", "format=rgba"] + cor_filtros(it, w, h)
         lab = novo()
         graph.append(inicio + "," + ",".join(pre) + lab)
-        lab = vinheta(lab, it, w, h)
+        lab = mascara(vinheta(lab, it, w, h), it, w, h)
         fim = efeitos_fim(it, dur) + [f"setpts=PTS-STARTPTS+{s0:.4f}/TB"]
         out = novo()
         graph.append(lab + ",".join(fim) + out)
@@ -792,7 +837,7 @@ def exportar(pid: str, opts: dict, progress: Optional[Callable[[float, str], Non
         lab = novo()
         graph.append(inicio + "," + ",".join(pre) + lab)
         if it["type"] != "text":
-            lab = vinheta(lab, it, w, h)
+            lab = mascara(vinheta(lab, it, w, h), it, w, h)
         # transparência quadro a quadro (opacidade animada, entrada/saída suave e transição)
         n_q = int(math.ceil(vis * fps)) + 1
         cmd = folder / f"tmp_{tag}.c{len(graph)}.cmd"

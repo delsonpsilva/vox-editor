@@ -1,4 +1,26 @@
-# VOX Editor — edição de vídeo com cortes inteligentes e montagem manual (versão 1.7)
+# VOX Editor — edição de vídeo com cortes inteligentes e montagem manual (versão 1.8)
+
+## Novidades da versão 1.8 — Super Pacote 1 (parte 2): fila, cópia diária e Montagem mais completa
+
+- **Fila com limite:** no máximo **2 exportações** (com 4 núcleos ou mais) e **1 análise** ao mesmo tempo. O resto
+  espera e cada tarefa mostra a **posição na fila**. Responsável e administradores passam na frente da equipe, e
+  a equipe na frente dos clientes. O painel Vox nunca fica sem fôlego. (Dá para mudar com VOX_RENDERS e VOX_ANALISES.)
+- **Botão Cancelar** em cada tarefa (na Atividade, no Início e na aba Exportados): na fila sai na hora; rodando,
+  para em segundos e encerra o FFmpeg/download na mesma hora. Análise cancelada fica com "Tentar novamente".
+- **Cópia de segurança diária automática** (de madrugada, ou assim que o programa abrir se passou de um dia):
+  contas (vox.db), configurações, marca e a edição de todos os projetos, sem os vídeos. Guarda as últimas 7 em
+  `dados/backups`. Em **Configurações → Cópia de segurança**: ver a última, **baixar** e **Fazer cópia agora**.
+- **Limpeza automática:** restos de exportações interrompidas, downloads pela metade, exportados órfãos e cache
+  sem uso há 30 dias. Nunca toca no vídeo original, nos exportados da lista nem nas mídias da Montagem.
+  O "Liberar espaço" do menu agora também faz essa limpeza.
+- **Montagem — marcadores:** botão **Marcador** (ou tecla **M**) marca o ponto do cursor na régua; **,** e **.**
+  pulam entre eles; dois cliques no marcador dão nome e cor. O ímã encaixa nos marcadores.
+- **Montagem — máscara:** em vídeo ou foto, seção **Máscara**: círculo ou retângulo (cantos arredondados), tamanho,
+  posição, borda suave e **inverter**. Prontos: Rosto redondo, Cartão e Faixa. A prévia é idêntica ao vídeo final.
+- **Montagem — exportar em 720p, Full HD, 2K ou 4K** (painel do projeto → Resolução da exportação) e também
+  **50 quadros por segundo**. Tudo é recalculado na resolução escolhida (textos, tarjas e animações nítidos).
+- Por dentro: o `backend/app.py` (2.100 linhas) foi dividido em `backend/rotas/` (uma área por arquivo), sem
+  mudar nenhum endereço da API.
 
 ## Novidades da versão 1.7 — Super Pacote 1: contas da equipe e dos clientes
 

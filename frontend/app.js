@@ -1265,15 +1265,43 @@ function editWord(el) {
 /* ---------- exportados ---------- */
 
 function renderJobs() {
-  const jobs = (S.P.jobs || []).filter((j) => j.status !== "concluido" && j.kind !== "cortes");
-  const html = jobs.map((j) => `
+  const jobs = (S.P.jobs || []).filter((j) => j.status !== "concluido" && j.status !== "cancelado" && j.kind !== "cortes");
+  const html = jobs.map((j) => {
+    const andando = j.status === "na fila" || j.status === "processando";
+    return `
     <div class="job ${j.status === "erro" ? "erro" : ""}">
-      <div class="row between"><strong>${esc(j.label || j.kind)}</strong><span class="mono">${j.status === "erro" ? "erro" : j.status === "na fila" ? "na fila" : Math.round(j.pct * 100) + "%"}</span></div>
+      <div class="row between"><strong>${esc(j.label || j.kind)}</strong><span class="row gap-s"><span class="mono">${j.status === "erro" ? "erro" : j.status === "na fila" ? "na fila" : Math.round(j.pct * 100) + "%"}</span>${andando ? `<button type="button" class="btn small ghost job-x" data-cancel-job="${esc(j.id)}" data-pid="${esc(j.project)}" title="Cancelar esta tarefa">Cancelar</button>` : ""}</span></div>
       <div class="bar"><i style="width:${Math.round(j.pct * 100)}%"></i></div>
       <span class="hint">${esc(j.status === "erro" ? j.error : j.msg)}</span>
-    </div>`).join("");
+    </div>`;
+  }).join("");
   $$(".jobs-box").forEach((b) => (b.innerHTML = html));
 }
+
+/* v1.8: botão Cancelar das tarefas (na fila sai na hora; rodando, para em segundos) */
+async function cancelarTarefa(pid, jid, btn) {
+  if (!confirm("Cancelar esta tarefa?")) return false;
+  if (btn) { btn.disabled = true; btn.textContent = "Cancelando…"; }
+  try {
+    await api("POST", `/api/jobs/${encodeURIComponent(pid)}/${encodeURIComponent(jid)}/cancelar`);
+    toast("Tarefa cancelada.");
+    if (S.P && S.P.id === pid) { try { S.P = await api("GET", `/api/projects/${pid}`); renderJobs(); } catch (_) {} }
+    if (window.V14 && V14.atualizar) V14.atualizar();
+    return true;
+  } catch (e) { toast(e.message, true); if (btn) { btn.disabled = false; btn.textContent = "Cancelar"; } return false; }
+}
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-cancel-job]");
+  if (!b) return;
+  e.preventDefault(); e.stopPropagation();
+  cancelarTarefa(b.dataset.pid, b.dataset.cancelJob, b);
+}, true);
+document.addEventListener("keydown", (e) => {
+  const b = e.target.closest && e.target.closest("span[data-cancel-job]");
+  if (!b || (e.key !== "Enter" && e.key !== " ")) return;
+  e.preventDefault(); e.stopPropagation();
+  cancelarTarefa(b.dataset.pid, b.dataset.cancelJob, b);
+}, true);
 
 function renderRenders() {
   renderJobs();
@@ -2081,8 +2109,39 @@ async function openSettings() {
   const st = S.status || {};
   $("#sys-info").textContent = `Detectado: renderização ${st.encoder && st.encoder !== "libx264" ? "com GPU (" + st.encoder + ")" : "pelo processador"} · transcrição local ${st.local_transcription ? (st.gpu_transcription ? "com GPU NVIDIA" : "pelo processador") : "não instalada"} · enquadramento por rosto ${S.meta && S.meta.face_detection ? "ativo" : "indisponível"}.`;
   refreshShow();
+  carregarManutencao();
   $("#settings").showModal();
 }
+
+/* v1.8: cópia de segurança diária, limpeza automática e situação da fila (só responsável/administrador) */
+async function carregarManutencao() {
+  const fs = $("#fs-manut"); if (!fs) return;
+  let r; try { r = await api("GET", "/api/maintenance/status"); } catch (_) { fs.classList.add("hidden"); return; }
+  fs.classList.remove("hidden");
+  const dt = (ts) => ts ? new Date(ts * 1000).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "ainda não";
+  const b = r.backup, l = r.limpeza, f = (r.fila || {}).filas || {};
+  const filaTxt = f.render ? ` · Fila agora: ${f.render.rodando} de ${f.render.limite} exportações e ${f.analysis.rodando} de ${f.analysis.limite} análise rodando${f.render.esperando + f.analysis.esperando ? `, ${f.render.esperando + f.analysis.esperando} esperando` : ""}.` : "";
+  $("#mn-guardar").textContent = r.guardar || 7;
+  $("#mn-info").innerHTML = `Última cópia: <b>${dt(b && b.quando)}</b>${b ? ` (${fmtSize(b.tamanho)})` : ""}` +
+    (r.backup_erro && (!b || r.backup_erro.quando > b.quando) ? ` · <span class="err">a última tentativa falhou: ${esc(r.backup_erro.erro)}</span>` : "") +
+    ` · Última limpeza: <b>${dt(l && l.quando)}</b>${l && l.liberado ? ` (${fmtSize(l.liberado)} liberados)` : ""}.` + filaTxt;
+  $("#mn-lista").innerHTML = (r.copias || []).map((c) =>
+    `<div class="mn-item"><span>${esc(c.arquivo)}</span><span class="hint">${fmtSize(c.tamanho)}</span><button type="button" class="linkbtn" data-mn-baixar="${esc(c.arquivo)}">Baixar</button></div>`).join("");
+  $$("[data-mn-baixar]", fs).forEach((x) => x.addEventListener("click", () => baixar(`/api/maintenance/backups/${encodeURIComponent(x.dataset.mnBaixar)}`, x.dataset.mnBaixar)));
+}
+document.addEventListener("DOMContentLoaded", () => {
+  const b = $("#mn-agora"); if (!b) return;
+  b.addEventListener("click", async () => {
+    b.disabled = true; b.textContent = "Fazendo a cópia…";
+    try {
+      const r = await api("POST", "/api/maintenance/backup");
+      if (r.backup_erro) toast("Não deu para fazer a cópia: " + r.backup_erro, true);
+      else toast(`Cópia feita (${fmtSize(r.backup.tamanho)})${r.limpeza && r.limpeza.liberado ? ` e ${fmtSize(r.limpeza.liberado)} liberados` : ""}.`);
+      carregarManutencao();
+    } catch (e) { toast(e.message, true); }
+    b.disabled = false; b.textContent = "Fazer cópia agora";
+  });
+});
 
 function iaExtras() {
   const form = $("#ia-form"), prov = formVal(form, "ai.provider");
@@ -2221,6 +2280,7 @@ function acompanharJob(pid, kind, title, onDone) {
     xferShow(title, j.msg || "", j.pct || 0);
     if (j.status === "concluido") { clearInterval(XFER.t); setTimeout(xferHide, 2500); xferShow(title, "Pronto!", 1); if (onDone) onDone(j); }
     if (j.status === "erro") { clearInterval(XFER.t); xferHide(); toast(j.error || "Não deu certo", true); }
+    if (j.status === "cancelado") { clearInterval(XFER.t); xferHide(); toast("Cancelado."); }
   }, 1500);
 }
 

@@ -124,9 +124,10 @@
     const nome = KIND[j.kind] || j.label || "Trabalho";
     const est = j.status === "erro" ? `<span class="act-st err">${esc(j.error || "Erro")}</span>`
       : j.status === "concluido" ? `<span class="act-st ok">Concluído</span>`
+      : j.status === "cancelado" ? `<span class="act-st">Cancelado</span>`
       : `<span class="act-st">${esc(j.msg || "")}${j.status === "processando" ? " · " + pct(j.pct) + "%" : ""}</span>`;
     return `<button type="button" class="act-row" data-goto="${esc(j.project)}" data-kind="${esc(j.project_kind || "")}">
-      <span class="act-top"><b>${esc(j.label || nome)}</b><span class="act-proj">${esc(j.project_name || "")}</span></span>
+      <span class="act-top"><b>${esc(j.label || nome)}</b><span class="act-proj">${esc(j.project_name || "")}</span>${andando ? `<span class="act-x" role="button" tabindex="0" data-cancel-job="${esc(j.id)}" data-pid="${esc(j.project)}" title="Cancelar esta tarefa">Cancelar</span>` : ""}</span>
       ${est}${andando ? `<span class="bar"><i style="width:${pct(j.pct)}%"></i></span>` : ""}</button>`;
   }
 

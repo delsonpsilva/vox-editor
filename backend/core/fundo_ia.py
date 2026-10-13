@@ -162,6 +162,8 @@ def video(origem: Path, inicio: float, dur: float, destino: Path, info: dict,
          "-map", "0:v", "-map", "1:a?", "-c:v", "libvpx-vp9", "-pix_fmt", "yuva420p", "-b:v", "0", "-crf", "32",
          "-deadline", "realtime", "-cpu-used", "8", "-row-mt", "1", "-auto-alt-ref", "0", "-c:a", "libopus",
          "-b:a", "128k", "-shortest", str(tmp)], stdin=subprocess.PIPE)
+    ff._registrar(ler)  # v1.8: o Cancelar encerra os dois processos na hora
+    ff._registrar(escrever)
     tamq = w * h * 3
     anterior = None
     n = 0
