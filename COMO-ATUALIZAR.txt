@@ -1,35 +1,30 @@
-VOX Editor 1.8.0 — Super Pacote 1 (parte 2): fila, cópia diária e Montagem mais completa
-=========================================================================================
-(Este pacote já inclui tudo das versões anteriores. Pode extrair por cima.)
+VOX Editor 1.9.0 — História → Vídeo (texto, áudio ou narração ao vivo viram vídeo)
+====================================================================================
+(Este pacote já inclui tudo das versões anteriores.)
 
 NO PC (Windows)
 1. Feche o VOX Editor, se estiver aberto.
-2. Extraia este .zip DENTRO da pasta C:\editor-ia (onde ficam INICIAR.bat e PUBLICAR.bat).
-   Quando o Windows perguntar, escolha "Substituir os arquivos no destino".
-   (Não precisa rodar o ATUALIZAR.bat: não há componente novo.)
-3. Abra o programa. No canto de baixo, à esquerda, deve aparecer "versão 1.8.0".
+2. Os arquivos novos já estão na pasta C:\editor-ia (ou extraia o .zip por cima, escolhendo "Substituir").
+3. Dois cliques no ATUALIZAR.bat (instala a voz grátis e o desenhista de gráficos — 1 a 2 minutos).
+4. Abra o programa. No canto de baixo, à esquerda, deve aparecer "versão 1.9.0" e no menu "História → Vídeo".
    Se a tela não mudar: feche o programa e dê dois cliques no LIMPAR-CACHE-DA-TELA.bat.
-4. Dois cliques no PUBLICAR.bat.
+5. Quando estiver tudo certo, dois cliques no PUBLICAR.bat.
 
 NA VPS
-5. sudo vox-atualizar
+6. sudo vox-atualizar
 
-CONFERIR DEPOIS (no editor online, editor.voxapps.app)
-6. Configurações (engrenagem) -> "Cópia de segurança e limpeza automática": a primeira cópia
-   aparece sozinha poucos minutos depois de atualizar. Pode clicar em "Fazer cópia agora".
-7. Exporte dois vídeos seguidos: o ícone de Atividade (no topo) mostra a posição na fila e o botão Cancelar.
-8. Na Montagem: tecla M põe um marcador; selecione um vídeo ou foto e abra a seção "Máscara".
+TESTAR
+- Texto: cole uma história curta, escolha a voz Francisca e clique em Criar o vídeo. Abre na Montagem.
+- Ao vivo: aba "Narrar ao vivo" -> Começar a narrar -> fale umas 4 ou 5 frases -> Terminar e montar o vídeo.
+  Na primeira vez, se aparecer o pedido do microfone, clique em Permitir.
+- Para ter fotos de verdade nas cenas: chave grátis do Pexels ou do Pixabay em Inteligência artificial.
 
 O QUE MUDOU
-- Fila com limite: até 2 exportações e 1 análise ao mesmo tempo; o resto espera com a posição na fila.
-  Responsável e administradores passam na frente dos clientes.
-- Botão Cancelar nas tarefas (na fila sai na hora; rodando para em segundos e encerra o FFmpeg).
-- Cópia de segurança diária automática (contas, configurações, marca e edição dos projetos, sem vídeos),
-  guardando as últimas 7, com botão para baixar. Fica na pasta dados/backups.
-- Limpeza automática de restos de exportações interrompidas, downloads pela metade e cache antigo.
-- Montagem: marcadores na régua, máscara (círculo/retângulo, borda suave, inverter) e exportação em
-  720p, Full HD, 2K ou 4K, também a 50 quadros por segundo.
-- Por dentro: o backend/app.py foi dividido em backend/rotas/ (nenhum endereço mudou).
+- Menu novo "História → Vídeo" (e no botão Novo): texto, áudio gravado ou narração ao vivo.
+- Vozes grátis em português (Francisca, Antônio, Thalita) e a voz do Windows sem internet.
+- Cenas automáticas (com IA: títulos de destaque e gráficos de barras quando a história tem números).
+- Fotos/vídeos dos bancos grátis sem repetir, zoom suave, transição, legenda, narração e música com abaixamento.
+- Tudo sai como uma Montagem comum, que dá para ajustar e exportar.
 
 SE ALGO FICAR ESTRANHO NA VPS
-- sudo vox-atualizar --voltar   (volta para a 1.7.0 em um minuto; seus dados não são tocados)
+- sudo vox-atualizar --voltar   (volta para a 1.8.0 em um minuto; seus dados não são tocados)

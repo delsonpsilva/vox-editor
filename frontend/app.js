@@ -64,7 +64,7 @@ async function boot() {
 function route() {
   const m = location.hash.match(/^#\/p\/([0-9a-f]+)(\/cortes|\/montagem)?/);
   if (m) { S.mode = m[2] === "/cortes" ? "studio" : m[2] === "/montagem" ? "montage" : "edit"; openProject(m[1]); return; }
-  const pg = (location.hash.match(/^#\/(projetos|exportados|marca|publicacoes|modelos|redes|ia|usuarios|conta)/) || [])[1] || "inicio";
+  const pg = (location.hash.match(/^#\/(projetos|exportados|marca|publicacoes|modelos|redes|ia|usuarios|conta|historia)/) || [])[1] || "inicio";
   goHome(pg);
 }
 window.addEventListener("hashchange", () => READY.then(route));
@@ -95,6 +95,7 @@ async function goHome(page = "inicio") {
   if (page === "modelos") renderModelos();
   if (page === "redes") renderRedes();
   if (window.V17) V17.onHome(page);
+  if (window.V19) V19.onHome(page);
   if (page === "ia" && !(S.prevPage === "ia" && $("#ia-form").dataset.loaded)) renderIA();
   if (page !== "ia") delete $("#ia-form").dataset.loaded;
   refreshQueueCount();

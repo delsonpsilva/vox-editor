@@ -41,6 +41,7 @@
         <span class="nav-group">Criar</span>
         <a href="#/" data-page="inicio" data-tip="Início"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg><span class="lbl">Início</span></a>
         <a href="#/projetos" data-page="projetos" data-tip="Projetos"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 9h18M8 4v5M16 4v5"/></svg><span class="lbl">Projetos</span> <span class="count" id="nav-count-p"></span></a>
+        <a href="#/historia" data-page="historia" data-tip="História → Vídeo"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5V5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2.5z"/><path d="M10 8l5 3-5 3z"/></svg><span class="lbl">História → Vídeo</span> <span class="count ok">novo</span></a>
         <a href="#/exportados" data-page="exportados" data-tip="Exportados"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg><span class="lbl">Exportados</span> <span class="count" id="nav-count-r"></span></a>
         <span class="nav-group">Publicar</span>
         <a href="#/publicacoes" data-page="publicacoes" data-tip="Publicações"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><path d="M10 15l2 2 4-4"/></svg><span class="lbl">Publicações</span> <span class="count" id="nav-count-q"></span></a>
@@ -83,6 +84,7 @@
             <div class="menu tb-menu hidden" id="tb-new-menu" role="menu">
               <button type="button" data-new="arquivo" role="menuitem"><b>Enviar vídeo</b><span>Do computador ou do celular</span></button>
               <button type="button" data-new="link" role="menuitem"><b>Importar por link</b><span>YouTube e outros sites</span></button>
+              <button type="button" data-new="historia" role="menuitem"><b>História → Vídeo</b><span>Texto, áudio ou narração ao vivo</span></button>
               <hr>
               <button type="button" data-new="9:16" role="menuitem"><b>Montagem vertical 9:16</b><span>Reels, Shorts e TikTok</span></button>
               <button type="button" data-new="16:9" role="menuitem"><b>Montagem horizontal 16:9</b><span>YouTube e TV</span></button>
@@ -186,6 +188,82 @@
                 <a href="#/ia"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/></svg><span><b>Inteligência artificial</b><em>Chaves e transcrição</em></span></a>
               </div>
             </section>
+          </aside>
+        </div>
+      </section>
+
+
+      <!-- História → Vídeo (v1.9) -->
+      <section class="page hidden" id="pg-historia">
+        <header class="page-head">
+          <div><h1>História → Vídeo</h1><p>Escreva, envie um áudio ou narre ao vivo. O programa monta o vídeo com imagens, legenda, títulos e música — e você ajusta tudo na Montagem.</p></div>
+        </header>
+        <div class="seg hs-modos" role="tablist" aria-label="Como contar a história">
+          <button type="button" class="seg-btn active" data-hmodo="texto" role="tab">Texto</button>
+          <button type="button" class="seg-btn" data-hmodo="audio" role="tab">Áudio gravado</button>
+          <button type="button" class="seg-btn" data-hmodo="vivo" role="tab">Narrar ao vivo</button>
+        </div>
+        <div class="hs-grid">
+          <div class="hs-main">
+            <section class="pane" data-hpainel="texto">
+              <label class="field">Nome do vídeo <input id="hs-nome" placeholder="Ex.: O bom pastor"></label>
+              <label class="field">A história
+                <textarea id="hs-texto" rows="14" placeholder="Cole ou escreva aqui. Cada parágrafo ou frase vira parte de uma cena. Uma linha sem ponto no começo vira o título."></textarea></label>
+              <p class="hint" id="hs-conta">0 palavras</p>
+            </section>
+            <section class="pane hidden" data-hpainel="audio">
+              <label class="field">Nome do vídeo <input id="hs-nome-a" placeholder="Ex.: Devocional de segunda"></label>
+              <label class="hs-drop" for="hs-arquivo">
+                <input id="hs-arquivo" type="file" accept="audio/*,video/*,.m4a,.ogg,.opus,.wav,.mp3" hidden>
+                <b id="hs-arquivo-nome">Escolha o áudio da narração</b>
+                <span>MP3, WAV, M4A, OGG — ou um vídeo (fica só o som). O programa transcreve e monta as cenas no tempo da sua fala.</span>
+              </label>
+            </section>
+            <section class="pane hidden" data-hpainel="vivo">
+              <div class="hs-palco-wrap"><div class="hs-palco" id="hs-palco" data-fmt="9:16">
+                <div class="hs-fundo" id="hs-fundo"></div>
+                <span class="hs-cena" id="hs-cena">Cena 1</span>
+                <div class="hs-leg" id="hs-leg">Aperte “Começar a narrar” e conte a história</div>
+              </div></div>
+              <div class="row between">
+                <div class="row">
+                  <button type="button" class="btn primary" id="hs-gravar"><span class="hs-rec"></span>Começar a narrar</button>
+                  <button type="button" class="btn hidden" id="hs-pausar">Pausar</button>
+                  <button type="button" class="btn hidden" id="hs-terminar">Terminar e montar o vídeo</button>
+                </div>
+                <div class="hs-nivel" aria-hidden="true"><i id="hs-nivel"></i></div>
+              </div>
+              <p class="hint" id="hs-vivo-msg">A fala é transcrita no seu computador, de poucos em poucos segundos. Cada trecho ganha uma imagem na hora.</p>
+              <div class="hs-transc" id="hs-transc" aria-live="polite"></div>
+            </section>
+            <section class="pane hidden" id="hs-andamento">
+              <div class="row between"><b id="hs-and-tit">Montando o vídeo…</b><span class="hint" id="hs-and-pct">0%</span></div>
+              <div class="bar hs-bar"><i id="hs-and-bar"></i></div>
+              <p class="hint" id="hs-and-msg">Começando…</p>
+            </section>
+          </div>
+          <aside class="pane hs-opcoes">
+            <h2>Como vai ficar</h2>
+            <div class="field">Formato
+              <div class="chips" id="hs-formato">
+                <button type="button" class="chip-btn active" data-v="9:16">9:16 Reels/Shorts</button>
+                <button type="button" class="chip-btn" data-v="16:9">16:9 YouTube</button>
+                <button type="button" class="chip-btn" data-v="1:1">1:1 Feed</button>
+              </div>
+            </div>
+            <label class="field" data-so="texto">Voz da narração <select id="hs-voz"></select></label>
+            <label class="field" data-so="texto"><span class="lbl">Velocidade da voz <b id="hs-vel-v">normal</b></span>
+              <input type="range" id="hs-vel" min="-30" max="30" step="5" value="0"></label>
+            <label class="field">Imagens das cenas <select id="hs-visual">
+              <option value="fotos">Fotos dos bancos grátis</option>
+              <option value="videos">Vídeos dos bancos grátis</option>
+              <option value="cores">Fundos coloridos (sem internet)</option></select></label>
+            <p class="hint hidden" id="hs-sem-banco">Para fotos e vídeos, coloque a chave grátis do Pexels ou do Pixabay em <a href="#/ia">Inteligência artificial</a>. Sem chave, as cenas usam fundos coloridos.</p>
+            <label class="field">Música de fundo <select id="hs-musica"><option value="">Sem música</option></select></label>
+            <label class="hs-check"><input type="checkbox" id="hs-legenda" checked> Legenda na tela</label>
+            <label class="hs-check"><input type="checkbox" id="hs-ia" checked> <span>Usar a IA para escolher as cenas, títulos e gráficos <em class="hint" id="hs-ia-msg"></em></span></label>
+            <button type="button" class="btn primary big" id="hs-criar">Criar o vídeo</button>
+            <p class="hint">O vídeo abre na Montagem: troque imagens, mexa nos textos e exporte quando quiser.</p>
           </aside>
         </div>
       </section>
@@ -1066,5 +1144,6 @@
 <script src="cortes.js"></script>
 <script src="editor-novo.js"></script>
 <script src="contas.js"></script>
+<script src="historia.js"></script>
 </body>
 </html>

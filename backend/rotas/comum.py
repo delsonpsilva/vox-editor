@@ -82,7 +82,7 @@ _SO_DONO = [
 ]
 
 
-_RE_PROJ = re.compile(r"^/api/(?:projects|jobs)/([0-9a-f]{12})(?:/|$)")
+_RE_PROJ = re.compile(r"^/api/(?:projects|jobs|historia)/([0-9a-f]{12})(?:/|$)")
 _DONO_PROJ: dict[str, tuple[float, str]] = {}  # pid -> (quando leu, dono), para não abrir o project.json a cada pedido
 
 

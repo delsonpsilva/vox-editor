@@ -3,10 +3,10 @@
 (function () {
   const TITULOS = { inicio: "Início", projetos: "Projetos", exportados: "Exportados", publicacoes: "Publicações",
     modelos: "Modelos", redes: "Redes sociais", marca: "Marca", ia: "Inteligência artificial",
-    usuarios: "Contas", conta: "Minha conta" };
+    usuarios: "Contas", conta: "Minha conta", historia: "História → Vídeo" };
   const KIND = { analise: "Análise", render: "Exportação", download: "Download", publicar: "Publicação", "publicar-online": "Envio",
     semfundo: "Remover fundo", previa: "Prévia", banco: "Banco grátis", limpeza: "Limpeza com IA", pacote: "Pacote",
-    online: "Envio para o online", trazer: "Trazer do online", montagem: "Exportação da montagem" };
+    online: "Envio para o online", trazer: "Trazer do online", montagem: "Exportação da montagem", historia: "História → vídeo" };
   const A = { data: { trabalhos: [], analisando: [], proximas: [] }, t: null, open: false, pop: "#tb-act-pop" };
   // v1.6: o botão Atividade existe na barra da tela principal e na barra do editor
   const PARES = [["#tb-act", "#tb-act-pop", "#tb-act-n"], ["#ed-act", "#ed-act-pop", "#ed-act-n"]];
@@ -69,6 +69,7 @@
     if (["9:16", "16:9", "1:1"].includes(acao)) irInicio(() => { const b = $(`.fmt[data-blank="${acao}"]`); if (b) b.click(); });
     if (acao === "vox") $("#vox-input").click();
     if (acao === "online") $("#btn-from-online").click();
+    if (acao === "historia") location.hash = "#/historia";
   }
 
   function fecharMenus() {

@@ -1,4 +1,25 @@
-# VOX Editor — edição de vídeo com cortes inteligentes e montagem manual (versão 1.8)
+# VOX Editor — edição de vídeo com cortes inteligentes e montagem manual (versão 1.9)
+
+## Novidades da versão 1.9 — História → Vídeo
+
+Menu **História → Vídeo** (ou botão **Novo → História → Vídeo**). Três jeitos de contar a história:
+
+- **Texto**: cole a história. Uma voz narra (Francisca, Antônio ou Thalita — grátis, pela internet; ou a voz do
+  Windows, sem internet; ou sem narração). Uma linha sem ponto no começo vira o título.
+- **Áudio gravado**: envie a sua narração (MP3, WAV, M4A, OGG ou até um vídeo). O programa transcreve no PC e
+  monta as cenas no tempo exato da sua fala.
+- **Narrar ao vivo**: aperte "Começar a narrar" e fale. O texto aparece em poucos segundos e cada trecho ganha
+  uma imagem na hora, numa prévia vertical ou horizontal. "Pausar" não grava a pausa. "Terminar" monta o vídeo.
+
+O que o programa faz sozinho: divide em cenas (com a IA ligada, ela escolhe cenas, títulos de destaque e
+gráficos quando há números), procura fotos ou vídeos nos bancos grátis sem repetir (sem chave do Pexels/Pixabay
+usa fundos coloridos), põe zoom suave e transição em cada cena, legenda curta em maiúsculas, narração e música
+de fundo (das "Minhas músicas", com abaixamento automático na fala). O resultado abre na **Montagem**: dá para
+trocar uma imagem, corrigir uma palavra da legenda e exportar em 720p a 4K como qualquer montagem.
+
+Na janela do programa, na primeira vez que narrar ao vivo, o Windows pode pedir para usar o microfone: clique
+em **Permitir**. Se o microfone não aparecer, confira em Configurações do Windows → Privacidade → Microfone
+("Permitir que aplicativos da área de trabalho acessem o microfone"), ou abra pelo INICIAR-NAVEGADOR.bat.
 
 ## Novidades da versão 1.8 — Super Pacote 1 (parte 2): fila, cópia diária e Montagem mais completa
 

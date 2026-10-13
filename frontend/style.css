@@ -1425,3 +1425,44 @@ body.v17-restrito .shortcuts a[href="#/redes"],body.v17-restrito .shortcuts a[hr
 .mt-mkcores button{width:22px;height:22px;border-radius:50%;border:2px solid transparent;cursor:pointer;box-shadow:0 0 0 1px rgba(0,0,0,.3)}
 .mt-mkcores button.on{border-color:var(--text,#fff)}
 .mt-mkpop .mt-f{display:flex;flex-direction:column;gap:6px}
+
+/* ---------------- v1.9: História → Vídeo ---------------- */
+.hs-modos{align-self:flex-start}
+.hs-grid{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:18px;align-items:start}
+.hs-main{display:flex;flex-direction:column;gap:14px;min-width:0}
+#pg-historia textarea{padding:12px;line-height:1.55;resize:vertical;min-height:260px;font-size:14px}
+#pg-historia input:not([type]){height:38px}
+.hs-opcoes{position:sticky;top:16px}
+.hs-opcoes h2{font-size:16px}
+.hs-opcoes select{height:38px}
+.hs-check{display:flex;gap:8px;align-items:flex-start;font-size:13px;color:var(--text);cursor:pointer}
+.hs-check input{margin-top:2px;accent-color:var(--accent)}
+.hs-check em{display:block;font-style:normal}
+.hs-drop{display:flex;flex-direction:column;gap:6px;align-items:center;justify-content:center;text-align:center;min-height:200px;padding:20px;
+  border:1.5px dashed var(--line2);border-radius:12px;background:#121317;cursor:pointer;color:var(--muted)}
+.hs-drop:hover{border-color:var(--accent)}
+.hs-drop b{color:var(--text);font-size:15px}
+.hs-bar{height:8px}
+.hs-palco-wrap{display:flex;justify-content:center;background:#0b0c0f;border-radius:12px;padding:14px}
+.hs-palco{position:relative;overflow:hidden;border-radius:10px;background:#000;height:min(56vh,520px);aspect-ratio:9/16;max-width:100%}
+.hs-palco[data-fmt="16:9"]{aspect-ratio:16/9;height:auto;width:100%}
+.hs-palco[data-fmt="1:1"]{aspect-ratio:1/1}
+.hs-fundo{position:absolute;inset:0;background:linear-gradient(135deg,#402060,#d25a28);background-size:cover;background-position:center;transition:background-image .6s}
+.hs-fundo.zoom{animation:hs-zoom 12s linear forwards}
+@keyframes hs-zoom{from{transform:scale(1)}to{transform:scale(1.14)}}
+.hs-cena{position:absolute;top:10px;left:10px;font-size:11px;background:rgba(0,0,0,.55);color:#fff;padding:4px 8px;border-radius:6px}
+.hs-palco.ao-vivo .hs-cena::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:#ef4444;margin-right:6px;animation:hs-pisca 1s infinite}
+@keyframes hs-pisca{50%{opacity:.25}}
+.hs-leg{position:absolute;left:6%;right:6%;bottom:22%;text-align:center;color:#fff;font-family:"Poppins ExtraBold",var(--font);font-size:clamp(14px,2.2vw,24px);
+  line-height:1.25;text-shadow:0 0 4px #000,0 2px 0 #000,0 -2px 0 #000,2px 0 0 #000,-2px 0 0 #000}
+.hs-palco[data-fmt="16:9"] .hs-leg{bottom:10%}
+.hs-rec{width:10px;height:10px;border-radius:50%;background:#ef4444;display:inline-block}
+.hs-nivel{width:120px;height:6px;border-radius:3px;background:var(--card2);overflow:hidden}
+.hs-nivel i{display:block;height:100%;width:0;background:var(--ok);transition:width .08s}
+.hs-transc{max-height:160px;overflow-y:auto;font-size:14px;line-height:1.6;color:var(--text);background:var(--card);border-radius:10px;padding:10px 12px;min-height:60px}
+.hs-transc:empty::before{content:"O texto da sua narração aparece aqui.";color:var(--dim)}
+@media (max-width:900px){
+  .hs-grid{grid-template-columns:1fr}
+  .hs-opcoes{position:static}
+  .hs-palco{height:min(60vh,460px)}
+}
