@@ -19,42 +19,78 @@
   function title(page) {
     $("#tb-page").textContent = TITULOS[page] || "Início";
     const h = new Date().getHours();
-    $("#hero-hi").textContent = (h < 5 ? "Boa noite" : h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite") + ". O que vamos editar hoje?";
+    $("#hero-hi").textContent = (h < 5 ? "Boa noite" : h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite") + ". O que vamos criar hoje?";
   }
 
-  /* ---------------- números da tela inicial ---------------- */
+  /* ---------------- números da tela inicial (v1.11: cartões com ícone, cor e mini gráfico) ---------------- */
+  const ICO = {
+    enviado: '<path d="M12 15V3"/><path d="M7 8l5-5 5 5"/><path d="M4 21h16"/>',
+    cortado: '<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M8.1 8.1L20 20M8.1 15.9L20 4"/>',
+    cortes: '<rect x="6" y="3" width="12" height="18" rx="2"/><path d="M11 9l3 2-3 2z"/>',
+    exportados: '<path d="M12 4v11"/><path d="M7 10l5 5 5-5"/><path d="M5 20h14"/>',
+    fila: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+  };
+  const svgIco = (k, t = 20) => `<svg width="${t}" height="${t}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICO[k]}</svg>`;
+  // mini gráfico: as últimas semanas (valores acumulados); sem histórico, uma linha tracejada
+  function linha(vals) {
+    const W = 96, H = 34, p = 3;
+    if (!vals || vals.length < 2 || Math.max(...vals) === Math.min(...vals) && !Math.max(...vals)) {
+      return `<svg class="spark" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true"><path d="M${p} ${H - p}H${W - p}" stroke-dasharray="4 5"/></svg>`;
+    }
+    const mx = Math.max(...vals), mn = Math.min(...vals), r = mx - mn || 1;
+    const pts = vals.map((v, i) => [p + (i * (W - 2 * p)) / (vals.length - 1), H - p - ((v - mn) / r) * (H - 2 * p)]);
+    const d = pts.map((q, i) => (i ? "L" : "M") + q[0].toFixed(1) + " " + q[1].toFixed(1)).join("");
+    const area = d + `L${W - p} ${H}L${p} ${H}Z`;
+    return `<svg class="spark" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true"><path class="sp-area" d="${area}"/><path d="${d}"/></svg>`;
+  }
+
   function readout(d) {
     A.lastD = d;
     const box = $("#readout");
     if (!d.projects) { box.innerHTML = ""; box.classList.add("hidden"); return; }
     box.classList.remove("hidden");
-    const agendadas = A.data.proximas.length;
+    const agendadas = A.data.proximas.length, se = d.serie || {};
     const itens = [
-      [fmtHours(d.seconds_in), "de vídeo enviado", `${d.projects} projeto${d.projects > 1 ? "s" : ""}`],
-      [fmtHours(d.removed), "de silêncio e erros cortados", "pela edição automática"],
-      [String(d.clips), d.clips === 1 ? "corte criado" : "cortes criados", "para Reels, Shorts e TikTok"],
-      [String(d.renders), d.renders === 1 ? "vídeo exportado" : "vídeos exportados", "prontos para publicar"],
-      [String(agendadas), agendadas === 1 ? "publicação na fila" : "publicações na fila", agendadas ? "saem sozinhas" : "nada agendado"],
+      ["enviado", fmtHours(d.seconds_in), "de vídeo enviado", `${d.projects} projeto${d.projects > 1 ? "s" : ""}`, se.enviado, "#/projetos"],
+      ["cortado", fmtHours(d.removed), "de silêncio e erros cortados", "pela edição automática", se.cortado, "#/projetos"],
+      ["cortes", String(d.clips), d.clips === 1 ? "corte criado" : "cortes criados", "para Reels, Shorts e TikTok", se.cortes, "#/projetos"],
+      ["exportados", String(d.renders), d.renders === 1 ? "vídeo exportado" : "vídeos exportados", d.renders === 1 ? "pronto para publicar" : "prontos para publicar", se.exportados, "#/exportados"],
+      ["fila", String(agendadas), agendadas === 1 ? "publicação na fila" : "publicações na fila", agendadas ? "saem sozinhas" : "nada agendado", null, "#/publicacoes"],
     ];
-    box.innerHTML = itens.map(([n, l, s]) => `<div class="ro"><b>${esc(n)}</b><span>${esc(l)}</span><em>${esc(s)}</em></div>`).join("");
+    box.innerHTML = itens.map(([k, n, l, s, serie, href]) =>
+      `<a class="ro" data-k="${k}" href="${href}"><span class="ro-top"><span class="ro-ic">${svgIco(k)}</span>${linha(serie)}</span>` +
+      `<b>${esc(n)}</b><span>${esc(l)}</span><em>${esc(s)}</em></a>`).join("");
   }
 
-  /* ---------------- console de criação (abas) ---------------- */
+  /* ---------------- ações da tela inicial (v1.11: cartões grandes + envio compacto) ---------------- */
   function aba(nome) {
-    $$(".console-tabs [data-ctab]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.ctab === nome)));
-    $$(".console-panel").forEach((p) => p.classList.toggle("hidden", p.dataset.cpanel !== nome));
-    if (nome === "link") setTimeout(() => $("#link-url").focus(), 30);
+    const zero = $("#zero-box");
+    if (zero) zero.classList.toggle("hidden", nome !== "zero");
+    if (nome === "zero" && zero) { zero.scrollIntoView({ behavior: "smooth", block: "nearest" }); const f = $(".fmt", zero); if (f) setTimeout(() => f.focus(), 250); }
+    if (nome === "link") {
+      const lf = $("#link-form"); lf.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      lf.classList.remove("chama"); void lf.offsetWidth; lf.classList.add("chama");
+      setTimeout(() => $("#link-url").focus(), 30);
+    }
+  }
+
+  function acao(nome) {
+    window.voxDestino = "";
+    if (nome === "arquivo") { aba("arquivo"); $("#dropzone").click(); }
+    if (nome === "cortes") {
+      window.voxDestino = "/cortes";
+      toast("Escolha o vídeo. Quando a análise terminar, os cortes aparecem na aba Cortes.");
+      $("#dropzone").click();
+    }
+    if (nome === "historia") location.hash = "#/historia";
+    if (nome === "zero") aba("zero");
+    if (nome === "link") aba("link");
   }
 
   function setupConsole() {
-    $$(".console-tabs [data-ctab]").forEach((b) => b.addEventListener("click", () => aba(b.dataset.ctab)));
-    $(".console-tabs").addEventListener("keydown", (e) => {
-      if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
-      const tabs = $$(".console-tabs [data-ctab]"), i = tabs.findIndex((t) => t.getAttribute("aria-selected") === "true");
-      const n = tabs[(i + (e.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length];
-      aba(n.dataset.ctab); n.focus();
-    });
-    // colar um link na tela inicial abre a aba do link
+    $$(".acoes [data-acao]").forEach((b) => b.addEventListener("click", () => acao(b.dataset.acao)));
+    const fz = $("#zero-fechar"); if (fz) fz.addEventListener("click", () => aba(""));
+    // colar um link na tela inicial já leva ao campo do link
     document.addEventListener("paste", () => setTimeout(() => {
       if (S.page === "inicio" && homeVisivel() && $("#link-url").value) aba("link");
     }, 0));
@@ -208,6 +244,8 @@
     const pages = Object.entries(TITULOS).map(([k, t]) => ({ g: "Telas", ic: "page", t, s: "", run: () => (location.hash = k === "inicio" ? "#/" : "#/" + k) }));
     const acoes = [
       { t: "Enviar vídeo", s: "Novo projeto a partir de um arquivo", run: () => novo("arquivo") },
+      { t: "Cortes com IA", s: "Enviar um vídeo e abrir direto nos cortes", run: () => { if (location.hash && location.hash !== "#/") location.hash = "#/"; setTimeout(() => acao("cortes"), 350); } },
+      { t: "Modo claro / escuro", s: "Trocar as cores da tela", run: () => trocarTema() },
       { t: "Importar por link", s: "YouTube e outros sites", run: () => novo("link") },
       { t: "Montagem vertical 9:16", s: "Projeto em branco", run: () => novo("9:16") },
       { t: "Montagem horizontal 16:9", s: "Projeto em branco", run: () => novo("16:9") },
@@ -300,13 +338,29 @@
     atualizar();
   }
 
+  /* ---------------- v1.11: modo claro / escuro (lembrado neste aparelho) ---------------- */
+  function aplicarTema(t) {
+    const claro = t === "claro";
+    if (claro) document.documentElement.setAttribute("data-tema", "claro"); else document.documentElement.removeAttribute("data-tema");
+    const m = $('meta[name="theme-color"]'); if (m) m.content = claro ? "#F3F5F9" : "#0e0f13";
+    const b = $("#tb-tema"); if (b) b.setAttribute("aria-label", claro ? "Mudar para o modo escuro" : "Mudar para o modo claro");
+  }
+  function trocarTema() {
+    const novoTema = document.documentElement.getAttribute("data-tema") === "claro" ? "escuro" : "claro";
+    guardar("vox_tema", novoTema); aplicarTema(novoTema);
+  }
+  function setupTema() {
+    aplicarTema(ler("vox_tema") || "escuro");
+    const b = $("#tb-tema"); if (b) b.addEventListener("click", trocarTema);
+  }
+
   function setup() {
-    setupConsole(); setupNovo(); setupAtividade(); setupBusca();
+    setupConsole(); setupNovo(); setupAtividade(); setupBusca(); setupTema();
     $("#side-collapse").addEventListener("click", () => recolher());
     if (ler("vox-side-mini") === "1") recolher(true);
     title("inicio");
   }
 
-  window.V14 = { title, readout, onHome, abrirBusca, aba, atualizar, fecharMenus };
+  window.V14 = { title, readout, onHome, abrirBusca, aba, acao, atualizar, fecharMenus };
   setup();
 })();

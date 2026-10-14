@@ -38,12 +38,13 @@
     const a2 = document.createElement("a");
     a2.href = "#/conta"; a2.dataset.page = "conta"; a2.dataset.tip = "Minha conta"; a2.className = "v17-so-pessoa hidden";
     a2.innerHTML = ICONE.conta + '<span class="lbl">Minha conta</span>';
-    nav.insertBefore(a1, cfg); nav.insertBefore(a2, cfg);
+    const caixa = cfg ? cfg.parentNode : nav;  // v1.11: o menu é dividido em blocos (Criar, Publicar, Estilo, Sistema)
+    caixa.insertBefore(a1, cfg); caixa.insertBefore(a2, cfg);
     const sair = document.createElement("button");
     sair.type = "button"; sair.className = "v17-sair hidden"; sair.dataset.tip = "Sair";
     sair.innerHTML = ICONE.sair + '<span class="lbl">Sair</span>';
     sair.addEventListener("click", sairDaConta);
-    nav.appendChild(sair);
+    caixa.appendChild(sair);
 
     const pages = $("main.pages");
     pages.insertAdjacentHTML("beforeend", `
@@ -156,7 +157,8 @@
         if (getComputedStyle(el).display !== "none" && !el.classList.contains("hidden")) algum = true;
         el = el.nextElementSibling;
       }
-      g.style.display = algum ? "" : "none";
+      const bloco = g.closest(".nav-card");  // v1.11: esconde o bloco inteiro quando fica vazio
+      (bloco || g).style.display = algum ? "" : "none";
     });
     if (eu.papel === "cliente") {  // publicar fica com o responsável: o botão vira um aviso
       window.openPublish = () => toast("Publicar nas redes fica com o responsável pela conta. Baixe o vídeo e envie para ele.", true);

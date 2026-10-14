@@ -108,7 +108,29 @@ def dashboard():
         if livre is not None:
             free = int(livre)
     return {"projects": len(ps), "seconds_in": round(total_in), "removed": round(removed), "clips": clips,
-            "renders": renders, "storage": usado, "free": free}
+            "renders": renders, "storage": usado, "free": free, "serie": _serie_semanal(ps)}
+
+
+def _serie_semanal(ps: list[dict], semanas: int = 8) -> dict:
+    """v1.11: totais acumulados no fim de cada uma das últimas semanas, para os mini gráficos da tela inicial."""
+    import time as _t
+    agora = _t.time()
+    fins = [agora - (semanas - 1 - i) * 7 * 86400 for i in range(semanas)]
+    out = {"enviado": [], "cortado": [], "cortes": [], "exportados": []}
+    for fim in fins:
+        e = c = n = r = 0.0
+        for p in ps:
+            if (p.get("created") or 0) > fim:
+                continue
+            dur = p.get("duration") or 0
+            e += dur
+            if p.get("status") == "pronto" and p.get("final") is not None:
+                c += max(0.0, dur - (p.get("final") or 0))
+            n += p.get("clips", 0)
+            r += p.get("renders", 0)
+        out["enviado"].append(round(e)); out["cortado"].append(round(c))
+        out["cortes"].append(int(n)); out["exportados"].append(int(r))
+    return out
 
 
 @router.get("/api/atividade")

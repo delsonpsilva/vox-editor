@@ -733,6 +733,9 @@ function setupUpload() {
 
 /* ---------- importar pelo link e pelo arquivo do PC ---------- */
 
+// v1.11: o cartão "Cortes com IA" abre o projeto novo direto na aba Cortes
+function destinoNovo() { const d = window.voxDestino === "/cortes" ? "/cortes" : ""; window.voxDestino = ""; return d; }
+
 async function importLink(url) {
   url = (url || "").trim();
   if (!/^https?:\/\//i.test(url)) { toast("Cole um link completo, começando com https://", true); return; }
@@ -740,13 +743,13 @@ async function importLink(url) {
   try {
     const p = await api("POST", "/api/projects/link", { url });
     $("#link-url").value = "";
-    location.hash = "#/p/" + p.id;
+    location.hash = "#/p/" + p.id + destinoNovo();
   } catch (e) { toast(e.message, true); }
   finally { btn.disabled = false; }
 }
 
 async function importPath(path) {
-  try { const p = await api("POST", "/api/projects/path", { path }); location.hash = "#/p/" + p.id; }
+  try { const p = await api("POST", "/api/projects/path", { path }); location.hash = "#/p/" + p.id + destinoNovo(); }
   catch (e) { toast(e.message, true); }
 }
 
@@ -816,7 +819,7 @@ function upload(file) {
   xhr.onload = () => {
     box.classList.add("hidden"); bar.style.width = "0";
     if (xhr.status >= 200 && xhr.status < 300) {
-      const p = JSON.parse(xhr.responseText); location.hash = "#/p/" + p.id;
+      const p = JSON.parse(xhr.responseText); location.hash = "#/p/" + p.id + destinoNovo();
     } else {
       let msg = xhr.statusText; try { msg = JSON.parse(xhr.responseText).detail; } catch (_) {}
       toast("Falha no envio: " + msg, true);

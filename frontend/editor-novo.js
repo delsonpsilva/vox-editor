@@ -16,7 +16,7 @@
     if (cfg) { cfg.title = "Configurações"; cfg.addEventListener("click", openSettings); }
     rail.innerHTML = `<a class="er-brand" href="#/" title="Início" aria-label="Início"><span class="logo app-logo"></span></a>`;
     // grupos separados por um traço, como no menu recolhido da tela principal
-    const grupos = [["inicio", "projetos", "exportados"], ["publicacoes", "redes"], ["modelos", "marca"], ["ia"]];
+    const grupos = [["inicio", "projetos", "historia", "exportados"], ["publicacoes", "redes"], ["modelos", "marca"], ["ia"]];
     grupos.forEach((g, i) => {
       if (i) rail.insertAdjacentHTML("beforeend", `<span class="er-sep" aria-hidden="true"></span>`);
       g.forEach((pg) => { const a = $(`a[data-page="${pg}"]`, nav); if (a) rail.appendChild(a); });

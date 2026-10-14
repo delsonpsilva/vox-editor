@@ -1,4 +1,14 @@
-# VOX Editor — edição de vídeo com cortes inteligentes e montagem manual (versão 1.10)
+# VOX Editor — edição de vídeo com cortes inteligentes e montagem manual (versão 1.11)
+
+## Novidades da versão 1.11 — cara de app profissional
+
+- Menu lateral em blocos coloridos por área: Criar (azul), Publicar (laranja), Estilo (roxo) e Sistema (verde), com ícones maiores.
+- Tela inicial com cartões grandes: Editar vídeo, Cortes com IA, História → Vídeo, Montagem do zero e Importar link.
+- "Cortes com IA" abre o projeto novo direto na aba Cortes.
+- Envio de vídeo compacto, com o campo do link ao lado.
+- Indicadores com ícone, cor e mini gráfico das últimas 8 semanas; cada um leva à tela correspondente.
+- Modo claro e escuro (botão da lua/sol no topo ou Ctrl+K → "Modo claro"), lembrado em cada aparelho.
+- Letras maiores, mais contraste e melhor uso da largura da tela, no PC e no celular.
 
 ## Novidades da versão 1.10 — História → Vídeo completo
 
