@@ -1711,3 +1711,13 @@ body.v17-restrito .shortcuts a[href="#/redes"],body.v17-restrito .shortcuts a[hr
   background:rgba(250,204,21,.1);border:1px solid rgba(250,204,21,.38);color:var(--text)}
 .mt-toolbar [data-act=legenda].aviso{position:relative;color:#FACC15}
 .mt-toolbar [data-act=legenda].aviso::after{content:"";position:absolute;top:5px;right:5px;width:7px;height:7px;border-radius:50%;background:#FACC15}
+
+/* ---------- v1.13: figurinhas e seleção de vários ---------- */
+.mt-figbusca{width:100%}
+.mt-figs{display:grid;grid-template-columns:repeat(auto-fill,minmax(52px,1fr));gap:6px}
+.mt-fig{aspect-ratio:1;border-radius:10px;border:1px solid var(--line);background:var(--card);padding:6px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.mt-fig:hover{border-color:var(--accent);transform:scale(1.06)}
+.mt-fig img{width:100%;height:100%;object-fit:contain;pointer-events:none}
+.mt-item.multi{outline-style:dashed}
+.mt-multi{display:grid;gap:6px;padding:10px 12px;border-radius:10px;background:rgba(255,138,61,.08);border:1px solid rgba(255,138,61,.35)}
+.mt-multi .hint{margin:0}

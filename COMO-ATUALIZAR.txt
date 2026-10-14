@@ -1,12 +1,12 @@
-VOX Editor 1.12.0 — Super Pacote 2 (parte 1): legenda automática e som completo na Montagem
-=========================================================================================
-(Este pacote já inclui tudo das versões anteriores.)
+VOX Editor 1.13.0 — Super Pacote 2 (parte 2): fundo desfocado, figurinhas e seleção de vários
+=============================================================================================
+(Este pacote já inclui tudo das versões anteriores, inclusive a 1.12.)
 
 NO PC (Windows)
 1. Feche o VOX Editor, se estiver aberto.
-2. Extraia o vox-editor-1.12.0.zip (botão direito > Extrair tudo) e dê dois cliques no INSTALAR-1.12.0.bat.
+2. Extraia o vox-editor-1.13.0.zip (botão direito > Extrair tudo) e dê dois cliques no INSTALAR-1.13.0.bat.
    Ele guarda uma cópia dos arquivos antigos e copia a versão nova para C:\editor-ia.
-3. Abra o programa. Embaixo, à esquerda, deve aparecer "versão 1.12.0".
+3. Abra o programa. Embaixo, à esquerda, deve aparecer "versão 1.13.0".
    Se a tela não mudar: feche o programa e dê dois cliques no LIMPAR-CACHE-DA-TELA.bat.
    (Não precisa rodar o ATUALIZAR.bat: esta versão não instala nada novo.)
 4. Quando estiver tudo certo, dois cliques no PUBLICAR.bat.
@@ -14,15 +14,11 @@ NO PC (Windows)
 NA VPS
 5. sudo vox-atualizar
 
-TESTAR (abra um projeto e vá na aba Montagem)
-- Barra de ferramentas: botões "Narrar" e "Legenda".
-- Legenda: escolha o estilo e toque em "Gerar legenda da fala". Depois teste "Corrigir palavras" e troque o estilo.
-  Divida e apague um pedaço do vídeo: o botão Legenda ganha um pontinho amarelo -> "Atualizar a legenda".
-- Pedaços com som mostram a forma de onda.
-- Selecione um vídeo: botões "Congelar" (ou tecla F), "Copiar ajustes" / "Colar ajustes",
-  e em "Som e velocidade": "Voz de estúdio" e "Separar o áudio".
-- Narrar: leve o cursor ao ponto, clique em Narrar, fale e aperte Espaço para parar.
-- Exporte e confira a legenda e o som no vídeo final.
+TESTAR (aba Montagem)
+- Num projeto vertical (9:16), coloque um vídeo deitado, selecione e marque "Fundo desfocado atrás".
+- Biblioteca > Figurinhas: busque "oração" e toque numa figurinha.
+- Shift+clique em dois ou três pedaços: arraste um (todos andam), teste "Colar ajustes" e o Delete (Ctrl+Z desfaz).
+- Exporte e confira o fundo desfocado no vídeo final.
 
 SE ALGO FICAR ESTRANHO NA VPS
 - sudo vox-atualizar --voltar   (volta para a versão anterior em um minuto; seus dados não são tocados)

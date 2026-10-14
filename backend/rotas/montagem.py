@@ -303,3 +303,55 @@ def montagem_congelar(pid: str, data: dict = Body(...)):
         raise HTTPException(404, str(e))
     except (RuntimeError, ValueError) as e:
         raise HTTPException(400, str(e))
+
+
+# ---------- 1.13: figurinhas (emojis Twemoji, licença livre) na Montagem ----------
+
+def _figurinhas() -> list[dict]:
+    import json as _json
+    pasta = store.ROOT / "assets" / "emojis"
+    try:
+        lista = _json.loads((pasta / "emojis.json").read_text(encoding="utf-8"))
+    except Exception:
+        return []
+    return [x for x in lista if isinstance(x, dict) and re.fullmatch(r"[0-9a-f-]+\.png", str(x.get("arquivo") or ""))
+            and (pasta / x["arquivo"]).exists()]
+
+
+@router.get("/api/figurinhas")
+def figurinhas_lista():
+    return [{"e": x.get("e", ""), "arquivo": x["arquivo"], "sentido": x.get("sentido", "")} for x in _figurinhas()]
+
+
+@router.get("/api/figurinhas/{arquivo}")
+def figurinha_imagem(arquivo: str):
+    if not any(x["arquivo"] == arquivo for x in _figurinhas()):
+        raise HTTPException(404, "Figurinha não encontrada")
+    return FileResponse(store.ROOT / "assets" / "emojis" / arquivo, media_type="image/png",
+                        headers={"Cache-Control": "max-age=604800"})
+
+
+@router.post("/api/projects/{pid}/montagem/figurinha")
+def figurinha_no_projeto(pid: str, data: dict = Body(...)):
+    """Coloca a figurinha nas mídias da montagem (uma vez só por projeto; depois reaproveita)."""
+    import shutil
+    _404(lambda: store.load(pid))
+    arquivo = str(data.get("arquivo") or "")
+    fig = next((x for x in _figurinhas() if x["arquivo"] == arquivo), None)
+    if not fig:
+        raise HTTPException(404, "Figurinha não encontrada")
+    m = montagem.carregar(pid)
+    ja = next((x for x in m["media"] if x.get("figurinha") == arquivo), None)
+    if ja:
+        return ja
+    dest = montagem.pasta_midias(pid) / f"fig_{arquivo}"
+    shutil.copy(store.ROOT / "assets" / "emojis" / arquivo, dest)
+    md = montagem.adicionar_midia(pid, dest, f"Figurinha {fig.get('e', '')}.png".replace("  ", " "))
+    with store.lock(pid):
+        mm = montagem.carregar(pid)
+        for x in mm["media"]:
+            if x["id"] == md["id"]:
+                x["figurinha"] = arquivo
+                md = x
+        store._write_json(montagem.arquivo(pid), mm)
+    return md

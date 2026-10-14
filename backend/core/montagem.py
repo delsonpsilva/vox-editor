@@ -240,6 +240,8 @@ def limpar(m: dict, atual: dict) -> dict:
             mk = fxm.mascara_limpa(it.get("mask"))  # v1.8: máscara (círculo/retângulo)
             if mk:
                 novo["mask"] = mk
+            if it.get("fundoDesf"):  # v1.13: a mesma imagem, desfocada, preenchendo a tela por trás
+                novo["fundoDesf"] = True
         if k in ("video", "image", "color") and tids[it["track"]]["kind"] == "video":
             tr = fxm.tr_limpa(it.get("tr"), novo["dur"])
             if tr:
@@ -255,6 +257,20 @@ def limpar(m: dict, atual: dict) -> dict:
             "tracks": tracks, "items": items, "markers": marcadores_limpos(m.get("markers")),
             "legenda_viva": legenda_viva_limpa(m.get("legenda_viva", atual.get("legenda_viva"))),
             "media": atual.get("media") or [], "updated": time.time()}
+
+
+FX_FUNDO_DESF = {"desfoque": 1.0, "brilho": -0.15, "saturacao": 1.1}  # o mesmo do montagem.js (FX_FUNDO)
+
+
+def fundo_desfocado(it: dict) -> dict:
+    """v1.13: cópia do pedaço que fica atrás dele, preenchendo a tela e desfocada (vídeo deitado no vertical).
+    A prévia faz a mesma cópia (comFundo no montagem.js)."""
+    bg = {k: v for k, v in it.items() if k not in ("kf", "mask", "chroma", "fundoDesf", "fx", "_ext", "_tro")}
+    full = dict(fxm.FX_PADRAO)
+    full.update(FX_FUNDO_DESF)
+    bg.update(id=str(it["id"]) + "_bg", fit="cover", x=0.5, y=0.5, scale=1.0, rot=0.0, opacity=1.0, volume=0.0,
+              fx=full, _fundo=True)
+    return bg
 
 
 def legenda_viva_limpa(lv) -> dict | None:
@@ -958,6 +974,13 @@ def exportar(pid: str, opts: dict, progress: Optional[Callable[[float, str], Non
             if b.get("tr") and a["type"] in ("video", "image", "color") and \
                     abs(a["start"] + a["dur"] - b["start"]) < 0.6 / fps:
                 a["_ext"], a["_tro"] = min(b["tr"]["dur"], b["dur"]), b["tr"]["tipo"]
+    for tid, lst in por_trilha.items():  # v1.13: fundo desfocado entra logo antes do pedaço (por baixo dele)
+        novo_l = []
+        for it in lst:
+            if it.get("fundoDesf") and it["type"] in ("video", "image"):
+                novo_l.append(fundo_desfocado(it))
+            novo_l.append(it)
+        por_trilha[tid] = novo_l
     trilhas_baixo_cima = sorted(por_trilha, key=lambda t: -ordem[t])
 
     def animado(it: dict) -> bool:

@@ -1,4 +1,15 @@
-# VOX Editor — edição de vídeo com cortes inteligentes e montagem manual (versão 1.12)
+# VOX Editor — edição de vídeo com cortes inteligentes e montagem manual (versão 1.13)
+
+## Novidades da versão 1.13 — Super Pacote 2 (parte 2): fundo desfocado, figurinhas e seleção de vários
+
+- **Fundo desfocado** (vídeo ou foto → Ajustes → Posição e tamanho → "Fundo desfocado atrás"): a mesma imagem,
+  desfocada e um pouco mais escura, preenche a tela por trás. Ideal para pregação gravada deitada (16:9) virar
+  Reels/Shorts/TikTok sem faixas pretas. Aparece na prévia e sai igual na exportação.
+- **Figurinhas** (Biblioteca → aba Figurinhas): 83 emojis de licença livre (oração, coração, fogo, cruz, Bíblia...),
+  com busca. Toque para colocar no cursor: entram com efeito "pop" numa trilha de cima.
+- **Selecionar vários pedaços**: **Shift+clique** (ou Ctrl+clique) na linha do tempo junta ou tira um pedaço da
+  seleção; **Ctrl+A** seleciona todos. Arraste um deles para mover todos juntos, **Delete** apaga todos e
+  **Colar ajustes** vale para todos os selecionados de uma vez. **Esc** tira a seleção.
 
 ## Novidades da versão 1.12 — Super Pacote 2 (parte 1): legenda automática e som completo na Montagem
 

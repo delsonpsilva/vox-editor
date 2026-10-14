@@ -187,7 +187,7 @@ const Montagem = (() => {
   const M = { pid: null, P: null, m: null, sel: null, t: 0, playing: false, pps: 40, hist: [], fut: [], snap: true,
     saveT: null, saving: false, savedAt: 0, built: false, pool: new Map(), imgs: new Map(), raf: 0, clock: null,
     drag: null, editBefore: null, exportJob: null, proxyPoll: null, open: false, follow: true,
-    lvJob: null, lvPoll: null, rec: null, recT: null, clip: null };
+    lvJob: null, lvPoll: null, rec: null, recT: null, clip: null, multi: new Set() };
 
   const box = () => $("#montage-body");
   const fps = () => (M.m ? M.m.fps : 30);
@@ -309,7 +309,7 @@ const Montagem = (() => {
     M.open = true;
     if (!M.built) build();
     if (M.pid !== P.id) {
-      stop(); clearPool(); M.pid = P.id; M.P = P; M.sel = null; M.t = 0; M.hist = []; M.fut = [];
+      stop(); clearPool(); M.pid = P.id; M.P = P; M.sel = null; M.multi.clear(); M.t = 0; M.hist = []; M.fut = [];
       try { M.m = await api("GET", `/api/projects/${P.id}/montagem`); }
       catch (e) { toast(e.message, true); return; }
       M.pps = fitZoom();
@@ -357,6 +357,7 @@ const Montagem = (() => {
           <button class="seg-btn" data-tab="tarjas">Tarjas</button>
           <button class="seg-btn" data-tab="musicas">Músicas</button>
           <button class="seg-btn" data-tab="gratis">Grátis</button>
+          <button class="seg-btn" data-tab="figurinhas">Figurinhas</button>
         </div>
         <div class="mt-tab" data-tab="midias">
           <label class="btn primary mt-upbtn">${ico(I.up)} Enviar vídeo, foto ou música
@@ -391,6 +392,12 @@ const Montagem = (() => {
           <div class="mt-gsug">${["Céu", "Nuvens", "Natureza", "Cruz", "Bíblia", "Igreja", "Oração", "Família", "Mar", "Montanha", "Luz", "Cidade", "Pôr do sol", "Chuva"].map((x) => `<button class="chip-btn" data-gsug="${x}">${x}</button>`).join("")}</div>
           <p class="hint">Vídeos e fotos do Pexels e do Pixabay, livres para usar, inclusive em vídeo monetizado. Toque para colocar no cursor.</p>
           <div class="mt-glist"></div>
+        </div>
+        <div class="mt-tab hidden" data-tab="figurinhas">
+          <p class="hint">Toque para colocar no cursor (entra com um "pop"). Depois arraste na prévia e puxe a bolinha do canto para mudar o tamanho.</p>
+          <input type="text" class="mt-figbusca" placeholder="Procurar (ex.: oração, fogo, coração)" maxlength="40">
+          <div class="mt-figs"><p class="hint">Carregando…</p></div>
+          <p class="hint">Emojis Twemoji, de licença livre (CC-BY 4.0).</p>
         </div>
         <div class="mt-tab hidden" data-tab="musicas">
           <form class="mt-msearch"><input type="search" placeholder="Buscar música (ex.: piano, calmo, épico)" maxlength="80"><button class="btn small" type="submit">Buscar</button></form>
@@ -473,6 +480,7 @@ const Montagem = (() => {
     wireTarjas(B);
     wireMusicas(B);
     wireGratis(B);
+    wireFigurinhas(B);
     $(".mt-play", B).addEventListener("click", toggle);
     $$("[data-act]", B).forEach((b) => b.addEventListener("click", (e) => act(b.dataset.act, e)));
     $$("[data-newtrack]", B).forEach((a) => a.addEventListener("click", () => {
@@ -516,6 +524,7 @@ const Montagem = (() => {
 
   function renderAll() {
     if (!M.m) return;
+    if (M.multi.size) M.multi = new Set([...M.multi].filter((id) => id !== M.sel && itemById(id)));
     renderMedia(); renderTimeline(); renderProps(); draw(); updateTime();
     $(".mt-snap", box()).classList.toggle("on", M.snap);
     const bl = $("[data-act=legenda]", box()); if (bl) { const v = legendaVelha(); bl.classList.toggle("aviso", v); bl.title = v ? "A legenda precisa ser atualizada (os cortes mudaram)" : "Legenda automática da fala"; }
@@ -1031,7 +1040,7 @@ const Montagem = (() => {
     const onda = (it.type === "audio" || it.type === "video") ? ondaSVG(it, w) : "";
     const trw = it.tr ? Math.min(w, it.tr.dur * M.pps) : 0;
     const kfs = M.sel === it.id && it.kf ? it.kf.map((k) => `<i class="mt-kfd" data-kft="${k.t}" style="left:${(k.t * M.pps).toFixed(1)}px" title="Quadro-chave em ${fmt(k.t, true)}"></i>`).join("") : "";
-    return `<div class="mt-item t-${it.type} ${M.sel === it.id ? "sel" : ""} ${onda ? "has-wave" : ""}" data-id="${it.id}" style="left:${(it.start * M.pps).toFixed(2)}px;width:${w.toFixed(2)}px;${bg}">
+    return `<div class="mt-item t-${it.type} ${M.sel === it.id || M.multi.has(it.id) ? "sel" : ""} ${M.multi.has(it.id) ? "multi" : ""} ${onda ? "has-wave" : ""}" data-id="${it.id}" style="left:${(it.start * M.pps).toFixed(2)}px;width:${w.toFixed(2)}px;${bg}">
       ${onda}${trw ? `<span class="mt-trz" style="width:${trw.toFixed(1)}px" title="Transição: ${esc((TRANSICOES.find((x) => x[0] === it.tr.tipo) || [0, ""])[1])}"></span>` : ""}
       <span class="h-l"></span><span class="lb">${w > 30 ? esc(label) : ""}${extra && w > 70 ? ` <i>${extra}</i>` : ""}</span>${kfs}<span class="h-r"></span></div>`;
   }
@@ -1097,7 +1106,7 @@ const Montagem = (() => {
     }
     const kd = e.target.closest(".mt-kfd");
     if (kd) { e.preventDefault(); e.stopPropagation(); const it = itemById(M.sel); if (it) { seek(q(it.start + +kd.dataset.kft)); renderProps(); } return; }
-    const itEl = e.target.closest(".mt-item");
+    let itEl = e.target.closest(".mt-item");
     if (!itEl) {  // espaço vazio: tira a seleção e leva o cursor
       if (e.target.closest(".mt-head")) return;
       const lane = e.target.closest(".mt-lane");
@@ -1105,18 +1114,31 @@ const Montagem = (() => {
         const r = lane.getBoundingClientRect();
         seek(q(Math.max(0, (e.clientX - r.left) / M.pps)));
       }
-      if (M.sel) { M.sel = null; renderTimeline(); renderProps(); draw(); }
+      if (M.sel || M.multi.size) { M.sel = null; M.multi.clear(); renderTimeline(); renderProps(); draw(); }
       return;
     }
     const it = itemById(itEl.dataset.id);
     const tr = track(it.track);
-    const wasSel = M.sel === it.id;
-    if (!wasSel) { M.sel = it.id; $$(".mt-item.sel", box()).forEach((x) => x.classList.remove("sel")); itEl.classList.add("sel"); renderProps(); draw(); }
+    if ((e.shiftKey || e.ctrlKey || e.metaKey) && e.pointerType === "mouse") {  // v1.13: juntar / tirar da seleção
+      e.preventDefault();
+      if (!M.sel) M.sel = it.id;
+      else if (M.sel === it.id) { const prox = [...M.multi][0]; M.sel = prox || null; if (prox) M.multi.delete(prox); }
+      else if (M.multi.has(it.id)) M.multi.delete(it.id);
+      else M.multi.add(it.id);
+      renderTimeline(); renderProps(); draw();
+      return;
+    }
+    const noGrupo = M.sel === it.id || M.multi.has(it.id);
+    if (!noGrupo) M.multi.clear();
+    else if (M.sel !== it.id) { M.multi.delete(it.id); if (M.sel) M.multi.add(M.sel); }
+    const wasSel = noGrupo;
+    if (M.sel !== it.id || !noGrupo) { M.sel = it.id; renderTimeline(); renderProps(); draw(); itEl = $(`.mt-item[data-id="${it.id}"]`, box()) || itEl; }
     if (tr.locked) return;
     if (e.pointerType !== "mouse" && !wasSel) return;  // no celular: primeiro toque seleciona, o segundo arrasta
     e.preventDefault();
     const mode = e.target.classList.contains("h-l") ? "l" : e.target.classList.contains("h-r") ? "r" : "move";
-    M.drag = { mode, it, el: itEl, x0: e.clientX, y0: e.clientY, orig: { ...it }, before: snapshot(), moved: false, pointer: e.pointerId };
+    M.drag = { mode, it, el: itEl, x0: e.clientX, y0: e.clientY, orig: { ...it }, before: snapshot(), moved: false, pointer: e.pointerId,
+      grupo: mode === "move" ? [...M.multi].map(itemById).filter((o) => o && !track(o.track).locked).map((o) => ({ o, start: o.start })) : [] };
     itEl.setPointerCapture(e.pointerId);
     itEl.addEventListener("pointermove", dragMove);
     itEl.addEventListener("pointerup", dragEnd);
@@ -1146,6 +1168,15 @@ const Montagem = (() => {
     const maxSrc = md && (it.type === "video" || it.type === "audio") ? md.duration : Infinity;
     if (d.mode === "move") {
       it.start = q(Math.max(0, snapTime(o.start + dx, it.id, it.dur)));
+      if (d.grupo.length) {  // v1.13: os outros selecionados andam junto (sem passar do zero)
+        let delta = it.start - o.start;
+        const menor = Math.min(...d.grupo.map((g) => g.start));
+        if (menor + delta < 0) { delta = -menor; it.start = q(o.start + delta); }
+        d.grupo.forEach((g) => {
+          g.o.start = q(g.start + delta);
+          const el = $(`.mt-item[data-id="${g.o.id}"]`, box()); if (el) el.style.left = g.o.start * M.pps + "px";
+        });
+      }
       d.el.style.left = it.start * M.pps + "px";
       d.el.style.transform = `translateY(${e.clientY - d.y0}px)`;
       d.el.classList.add("dragging");
@@ -1177,6 +1208,7 @@ const Montagem = (() => {
     d.el.removeEventListener("pointermove", dragMove); d.el.removeEventListener("pointerup", dragEnd); d.el.removeEventListener("pointercancel", dragEnd);
     if (!d.moved) { if (e.pointerType === "mouse") seek(q(clamp(M.t, 0, total()))); return; }
     const it = d.it;
+    if (d.mode === "move" && d.grupo.length) { compactMain(); commit(d.before); return; }  // grupo: cada um na sua trilha
     if (d.mode === "move") {
       d.el.style.pointerEvents = "none";  // olha a trilha que está por baixo do pedaço arrastado
       const under = document.elementFromPoint(e.clientX, e.clientY);
@@ -1306,12 +1338,16 @@ const Montagem = (() => {
     M.sel = c.id; commit(before);
   }
   function remove() {
-    const it = itemById(M.sel); if (!it) return;
-    if (track(it.track).locked) return toast("Essa trilha está travada.");
+    const alvo = selecionados(); if (!alvo.length) return;
+    const livres = alvo.filter((x) => !track(x.track).locked);
+    if (!livres.length) return toast("Essa trilha está travada.");
     const before = snapshot();
-    M.m.items = M.m.items.filter((x) => x !== it);
-    M.sel = null; compactMain(); commit(before);
+    M.m.items = M.m.items.filter((x) => !livres.includes(x));
+    M.sel = null; M.multi.clear(); compactMain(); commit(before);
+    if (livres.length > 1) toast(`${livres.length} pedaços apagados (Ctrl+Z desfaz).`);
   }
+  /** v1.13: o pedaço principal da seleção mais os outros marcados com Shift/Ctrl. */
+  function selecionados() { return [M.sel, ...M.multi].map((id) => id && itemById(id)).filter(Boolean); }
 
   async function recomecar() {
     if (!confirm("Recomeçar a montagem a partir da edição automática? Tudo o que foi montado aqui será trocado.")) return;
@@ -1576,12 +1612,16 @@ const Montagem = (() => {
           <li><kbd>M</kbd> marcador no cursor · <kbd>,</kbd> <kbd>.</kbd> marcador anterior / próximo</li>
           <li><kbd>Ctrl</kbd>+<kbd>Z</kbd> desfazer · <kbd>Ctrl</kbd>+<kbd>Y</kbd> refazer</li><li><kbd>Ctrl</kbd>+<kbd>D</kbd> duplicar</li><li><kbd>K</kbd> marcar / tirar quadro-chave</li>
           <li><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>C</kbd> copiar ajustes · <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>V</kbd> colar ajustes</li><li><kbd>F</kbd> congelar o quadro do vídeo selecionado</li>
+          <li><kbd>Shift</kbd>+clique: selecionar vários · <kbd>Ctrl</kbd>+<kbd>A</kbd> selecionar todos</li>
           <li><kbd>←</kbd><kbd>→</kbd> um quadro · com <kbd>Shift</kbd> 1 segundo</li><li><kbd>Ctrl</kbd>+roda do mouse: zoom</li>
           <li>Clique direito no nome da trilha vazia: remover</li>
         </ul>`;
     } else {
       const md = it.src ? media(it.src) : null;
       const nome = { video: "Vídeo", image: "Imagem", text: "Texto", color: "Cor", audio: "Áudio", tarja: "Tarja" }[it.type];
+      if (M.multi.size) html += `<div class="mt-multi"><b>${M.multi.size + 1} pedaços selecionados</b>
+        <span class="hint">Arraste um deles para mover todos juntos. Delete apaga todos. "Colar ajustes" vale para todos. Shift+clique tira um da seleção.</span>
+        <div class="row mt-pbtns"><button class="btn small ghost danger" data-pact="delall">${ico(I.trash, 14)} Apagar todos</button><button class="btn small ghost" data-pact="desmarcar">Tirar a seleção</button></div></div>`;
       html += `<div class="panel-title">${nome}${md ? ` · <span class="mt-mname">${esc(md.name)}</span>` : ""}</div>
         <div class="hint">Começa em ${fmt(it.start, true)} · dura ${fmt(it.dur, true)}${md && it.type !== "image" ? ` · do original ${fmt(it.in, true)}` : ""}</div>
         <div class="row mt-pbtns">
@@ -1642,7 +1682,9 @@ const Montagem = (() => {
           ${rng("scale", "Tamanho", 0.05, 4, 0.01, it.type !== "tarja" ? V("scale") : it.scale, "", (v) => Math.round(v * 100) + "%")}
           ${it.type !== "text" && it.type !== "tarja" ? rng("rot", "Giro", -180, 180, 1, V("rot"), "°") : ""}
           ${rng("opacity", "Opacidade", 0, 1, 0.01, it.type !== "tarja" ? V("opacity") : it.opacity, "", (v) => Math.round(v * 100) + "%")}
-          <button class="btn small" data-pact="center">${ico(I.center, 14)} Centralizar e tamanho original</button>`;
+          <button class="btn small" data-pact="center">${ico(I.center, 14)} Centralizar e tamanho original</button>
+          ${it.type === "video" || it.type === "image" ? `<label class="checkline"><input type="checkbox" data-k="fundoDesf" ${it.fundoDesf ? "checked" : ""}> Fundo desfocado atrás (preenche a tela)</label>
+            ${it.fundoDesf ? `<p class="hint">Ótimo para vídeo deitado no vertical: a mesma imagem, desfocada, cobre as faixas pretas.</p>` : ""}` : ""}`;
       }
       if (it.type !== "tarja") html += secao("fade", "Entrada e saída suave", `
         ${rng("fadeIn", "Entrada suave", 0, 3, 0.05, it.fadeIn, "s")}
@@ -1711,6 +1753,8 @@ const Montagem = (() => {
       if (a === "split") split(); if (a === "dup") duplicate(); if (a === "del") remove();
       if (a === "center") { const before = snapshot(); Object.assign(it, { x: 0.5, y: 0.5, scale: 1, rot: 0 }); commit(before); }
       if (a === "congelar") congelar(it);
+      if (a === "delall") remove();
+      if (a === "desmarcar") { M.multi.clear(); renderTimeline(); renderProps(); }
       if (a === "separar") separarAudio(it);
       if (a === "copiar") copiarAjustes(it);
       if (a === "colar") colarAjustes(it);
@@ -1736,6 +1780,8 @@ const Montagem = (() => {
         if (k === "speed") {  // mantém o mesmo trecho do original: a duração muda junto
           const span = it.dur * it.speed; it.speed = v; it.dur = q(span / v);
           const md = media(it.src); if (md) it.dur = Math.min(it.dur, q((md.duration - it.in) / v));
+        } else if (k === "fundoDesf") {  // fundo desfocado só aparece se o pedaço não cobrir a tela toda
+          if (v) { it.fundoDesf = true; if (it.fit === "cover") it.fit = "contain"; } else delete it.fundoDesf;
         } else if (KF_KEYS.includes(k)) setProp(it, k, v); else it[k] = v;
         const out = $(`[data-out="${k}"]`, el);
         if (out) out.textContent = showVal(k, v);
@@ -1744,7 +1790,7 @@ const Montagem = (() => {
       });
       inp.addEventListener("change", () => {
         const b = M.editBefore; M.editBefore = null;
-        if (k === "boxOn" || k === "speed" || k === "tpl" || k === "duck" || k === "voz" || (KF_KEYS.includes(k) && it.kf && it.kf.length)) { commit(b); return; }
+        if (k === "boxOn" || k === "speed" || k === "tpl" || k === "duck" || k === "voz" || k === "fundoDesf" || (KF_KEYS.includes(k) && it.kf && it.kf.length)) { commit(b); return; }
         if (b && b !== snapshot()) { M.hist.push(b); M.fut = []; }
         save(); renderTimeline();
         $("[data-act=undo]", box()).disabled = !M.hist.length;
@@ -2092,7 +2138,7 @@ const Montagem = (() => {
     let selBox = null;
     order.forEach((tr) => {
       if (tr.hidden || tr.kind === "audio") return;
-      M.m.items.filter((i) => i.track === tr.id && i.start <= t && t < visivelAte(i, ext)).sort((a, b) => a.start - b.start).forEach((it) => {
+      comFundo(M.m.items.filter((i) => i.track === tr.id && i.start <= t && t < visivelAte(i, ext)).sort((a, b) => a.start - b.start)).forEach((it) => {
         const st = estado(it, t, ext);
         ctx.save();
         ctx.globalAlpha = clamp(st.a, 0, 1);
@@ -2123,7 +2169,7 @@ const Montagem = (() => {
           ctx.translate(cx, cy); ctx.rotate((st.rot * Math.PI) / 180);
           if (it.type === "color") { ctx.fillStyle = it.color; ctx.fillRect(-w / 2, -h / 2, w, h); }
           else {
-            const src = it.type === "image" ? img(it.src) : elOf(it);
+            const src = it.type === "image" ? img(it.src) : elOf(it._orig || it);
             if (src && (it.type === "image" ? src.complete && src.naturalWidth : src.readyState >= 2)) desenhaMidia(ctx, src, it, w, h);
             else {
               ctx.fillStyle = "rgba(255,255,255,.06)"; ctx.fillRect(-w / 2, -h / 2, w, h);
@@ -2131,7 +2177,7 @@ const Montagem = (() => {
               ctx.fillText(media(it.src) && !media(it.src).preview ? "preparando prévia…" : "carregando…", 0, 0);
             }
           }
-          if (it.id === M.sel) selBox = { cx, cy, w, h, rot: st.rot };
+          if (it.id === M.sel && !it._orig) selBox = { cx, cy, w, h, rot: st.rot };
         }
         ctx.restore();
         if (st.tout && st.tout.cor && st.tout.ca > 0.001) {  // passar pelo preto/branco: a tela inteira escurece/clareia
@@ -2225,7 +2271,7 @@ const Montagem = (() => {
         if (hit(b).inside) { it = c; break; }
       }
       if (!it) { if (M.sel) { M.sel = null; renderTimeline(); renderProps(); draw(); } return; }
-      M.sel = it.id; mode = "move"; renderTimeline(); renderProps(); draw();
+      M.sel = it.id; M.multi.clear(); mode = "move"; renderTimeline(); renderProps(); draw();
     }
     if (track(it.track).locked) return;
     e.preventDefault();
@@ -2522,11 +2568,23 @@ const Montagem = (() => {
     toast("Ajustes copiados. Selecione outro pedaço e toque em Colar ajustes (Ctrl+Alt+V).");
   }
   function colarAjustes(it) {
+    const todos = selecionados();
+    if (todos.length > 1 && todos.includes(it)) {  // v1.13: cola em todos os selecionados de uma vez
+      const before = snapshot(); let n = 0;
+      todos.forEach((x) => { if (colarEm(x)) n++; });
+      if (!n) return toast("Esses ajustes não servem para esses pedaços.");
+      commit(before); return toast(`Ajustes colados em ${n} pedaço${n > 1 ? "s" : ""}.`);
+    }
+    const before = snapshot();
+    const r = colarEm(it, true);
+    if (r === true) { commit(before); toast("Ajustes colados."); }
+  }
+  function colarEm(it, avisa) {
     let c = M.clip;
     if (!c) { try { c = JSON.parse(localStorage.getItem("vox-ajustes") || "null"); } catch (_) {} }
-    if (!c || !c.v) return toast("Copie os ajustes de um pedaço primeiro (Ctrl+Alt+C).");
-    if (track(it.track).locked) return toast("Essa trilha está travada.");
-    const before = snapshot(), ks = new Set(), daOrigem = new Set();
+    if (!c || !c.v) { if (avisa !== false) toast("Copie os ajustes de um pedaço primeiro (Ctrl+Alt+C)."); return false; }
+    if (track(it.track).locked) { if (avisa) toast("Essa trilha está travada."); return false; }
+    const ks = new Set(), daOrigem = new Set();
     gruposAj(it.type).forEach((g) => AJ[g].forEach((k) => ks.add(k)));
     gruposAj(c.tipo).forEach((g) => AJ[g].forEach((k) => daOrigem.add(k)));
     if (it.type === "audio") { ks.add("fadeIn"); ks.add("fadeOut"); }
@@ -2539,8 +2597,8 @@ const Montagem = (() => {
       const kf = (c.v.kf || []).filter((k) => k.t <= it.dur + 1e-6).map((k) => ({ ...k }));
       if (kf.length) it.kf = kf; else delete it.kf;
     }
-    if (!n) return toast("Esses ajustes não servem para este tipo de pedaço.");
-    commit(before); toast("Ajustes colados.");
+    if (!n) { if (avisa) toast("Esses ajustes não servem para este tipo de pedaço."); return false; }
+    return true;
   }
 
   /* ---------------- v1.12: gravar narração direto na Montagem ---------------- */
@@ -2604,6 +2662,56 @@ const Montagem = (() => {
     fim();
   }
 
+  /* ---------------- v1.13: fundo desfocado (a mesma imagem, preenchendo a tela por trás) ---------------- */
+  const FX_FUNDO = { desfoque: 1, brilho: -0.15, saturacao: 1.1 };  // o mesmo do montagem.py (FX_FUNDO_DESF)
+  function fundoDe(it) {
+    const { kf, mask, chroma, fx, fundoDesf, ...b } = it;
+    return { ...b, id: it.id + "_bg", fit: "cover", x: 0.5, y: 0.5, scale: 1, rot: 0, opacity: 1, volume: 0, fx: { ...FX0, ...FX_FUNDO }, _orig: it };
+  }
+  function comFundo(lista) {
+    return lista.flatMap((it) => (it.fundoDesf && (it.type === "video" || it.type === "image") ? [fundoDe(it), it] : [it]));
+  }
+
+  /* ---------------- v1.13: figurinhas ---------------- */
+  const FIG = { lista: null, q: "" };
+  function pintaFigurinhas() {
+    const el = $(".mt-figs", box()); if (!el || !FIG.lista) return;
+    const q = FIG.q.trim().toLowerCase();
+    const vis = FIG.lista.filter((f) => !q || (f.sentido || "").toLowerCase().includes(q) || f.e === q);
+    el.innerHTML = vis.length ? vis.map((f) => `<button class="mt-fig" data-fig="${esc(f.arquivo)}" title="${esc(f.sentido || "")}"><img src="/api/figurinhas/${esc(f.arquivo)}" alt="${esc(f.e)}" loading="lazy"></button>`).join("")
+      : `<p class="hint">Nada com "${esc(FIG.q)}". Tente outra palavra.</p>`;
+  }
+  function wireFigurinhas(B) {
+    const tabF = $('.mt-tab[data-tab="figurinhas"]', B);
+    const inp = $(".mt-figbusca", B);
+    inp.addEventListener("keydown", (e) => e.stopPropagation());
+    inp.addEventListener("input", () => { FIG.q = inp.value; pintaFigurinhas(); });
+    tabF.addEventListener("click", (e) => { const b = e.target.closest(".mt-fig"); if (b) { addFigurinha(b.dataset.fig); closeSheets(); } });
+    let carregou = false;
+    $$('.mt-tabs [data-tab="figurinhas"]', B).forEach((b) => b.addEventListener("click", async () => {
+      if (carregou) return; carregou = true;
+      try { FIG.lista = await api("GET", "/api/figurinhas"); pintaFigurinhas(); }
+      catch (e) { carregou = false; $(".mt-figs", B).innerHTML = `<p class="hint">${esc(e.message)}</p>`; }
+    }));
+  }
+  async function addFigurinha(arquivo) {
+    let md;
+    try { md = await api("POST", `/api/projects/${M.pid}/montagem/figurinha`, { arquivo }); }
+    catch (e) { return toast(e.message, true); }
+    if (!media(md.id)) M.m.media.push(md);
+    const before = snapshot();
+    const [W, H] = [M.m.w, M.m.h], lado = (md.w || 160);
+    const escala = +((Math.min(W, H) * 0.24) / (lado * Math.min(W / lado, H / (md.h || lado)))).toFixed(3);
+    const it = { id: uid("i"), type: "image", track: null, src: md.id, start: q(M.t), dur: 3, in: 0, x: 0.5, y: 0.38, scale: escala,
+      rot: 0, opacity: 1, volume: 1, fadeIn: 0, fadeOut: 0, speed: 1, fit: "contain" };
+    M.m.items.push(it);
+    const cima = M.m.tracks.find((t) => t.kind === "video" && !t.main && !t.locked);
+    place(it, cima ? cima.id : null);
+    aplicaAnim(it, "in_pop");
+    M.sel = it.id; M.multi.clear(); commit(before); renderMedia();
+    toast("Figurinha colocada. Arraste na prévia para mudar o lugar.");
+  }
+
   /* ---------------- teclado ---------------- */
 
   function keys(e) {
@@ -2621,6 +2729,15 @@ const Montagem = (() => {
     if (ctrl && e.key.toLowerCase() === "z") { e.preventDefault(); if (e.shiftKey) redo(); else undo(); return; }
     if (ctrl && e.key.toLowerCase() === "y") { e.preventDefault(); redo(); return; }
     if (ctrl && e.key.toLowerCase() === "d") { e.preventDefault(); duplicate(); return; }
+    if (ctrl && e.key.toLowerCase() === "a") {  // v1.13: selecionar todos os pedaços (das trilhas destravadas)
+      e.preventDefault();
+      const todos = M.m.items.filter((i) => !track(i.track).locked);
+      if (!todos.length) return;
+      if (!M.sel || !itemById(M.sel)) M.sel = todos[0].id;
+      M.multi = new Set(todos.map((i) => i.id).filter((id) => id !== M.sel));
+      renderTimeline(); renderProps(); draw(); toast(`${todos.length} pedaços selecionados.`);
+      return;
+    }
     if (ctrl) return;
     if (e.key.toLowerCase() === "s") { e.preventDefault(); split(); }
     if (e.key.toLowerCase() === "m") { e.preventDefault(); marcador(); }
@@ -2641,7 +2758,7 @@ const Montagem = (() => {
     if (e.key === "End") seek(total());
     if (e.key === "+" || e.key === "=") zoomAround(1.5);
     if (e.key === "-") zoomAround(1 / 1.5);
-    if (e.key === "Escape" && M.sel) { M.sel = null; renderTimeline(); renderProps(); draw(); }
+    if (e.key === "Escape" && (M.sel || M.multi.size)) { M.sel = null; M.multi.clear(); renderTimeline(); renderProps(); draw(); }
   }
 
   return { open, close, flush, get state() { return M; }, marcaFala };
