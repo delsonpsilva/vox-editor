@@ -1,4 +1,22 @@
-# VOX Editor — edição de vídeo com cortes inteligentes e montagem manual (versão 1.9.1)
+# VOX Editor — edição de vídeo com cortes inteligentes e montagem manual (versão 1.10)
+
+## Novidades da versão 1.10 — História → Vídeo completo
+
+- **Legenda animada** nos estilos do editor: Palavra em foco, Caixa na palavra, Karaokê, Uma palavra por vez,
+  Impacto, Neon, Faixa de fundo e Clássica — palavra por palavra no tempo da fala, com as palavras-chave
+  coloridas. Aparece na prévia da Montagem e sai igual na exportação. Na Montagem (painel "Projeto") dá para
+  desligar, mudar a posição e o tamanho. Quem preferir pode escolher "Texto simples (editável)".
+- **Gráficos animados**: barras crescendo, pizza girando, linha avançando e número grande contando (ex.: "85%").
+  Com a IA ligada ela escolhe o tipo; sem IA, uma porcentagem falada já vira um número animado.
+- **Movimento de câmera variado** nas fotos (aproxima, afasta, passeia para os lados, sobe e desce).
+- **Títulos animados** (entram com um pulo) e **abertura** com o título da história.
+- **Encerramento com a sua marca** (logo, seu @ e a chamada "Siga" / "Inscreva-se") e **logo no canto** opcional.
+  Usa o que está em Marca.
+- **Revisar as cenas antes de montar** (modo Texto): veja cada cena, troque o texto, o título e o que buscar de
+  imagem, junte ou apague cenas e tire gráficos. Depois é só "Montar o vídeo com estas cenas".
+- **Voz natural sem internet (Faber)**: baixa uma vez (uns 60 MB) e depois narra offline. Instalada pelo
+  ATUALIZAR.bat.
+- **Narrar ao vivo**: opção de transcrever a gravação inteira de novo no fim, para a legenda sair mais precisa.
 
 ## Novidades da versão 1.9.1 — História → Vídeo mais completo
 

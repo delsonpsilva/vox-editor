@@ -1479,3 +1479,7 @@ body.v17-restrito .shortcuts a[href="#/redes"],body.v17-restrito .shortcuts a[hr
 .hs-mic-ajuda{background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.35);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;font-size:13px}
 .hs-mic-ajuda ol{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px;color:var(--muted)}
 .hs-mic-ajuda ol b{color:var(--text)}
+.hs-cenas{display:flex;flex-direction:column;gap:12px}
+.hs-cena-card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+#pg-historia .hs-cena-card textarea{padding:8px 10px;line-height:1.5;min-height:64px;resize:vertical}
+.hs-cena-card input{height:36px}

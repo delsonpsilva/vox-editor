@@ -251,7 +251,43 @@ def limpar(m: dict, atual: dict) -> dict:
             "suave": m.get("suave") if m.get("suave") in SUAVE_MONTAGEM else "suave",
             "res": str(m.get("res")) if str(m.get("res")) in RESOLUCOES else "1080",
             "tracks": tracks, "items": items, "markers": marcadores_limpos(m.get("markers")),
+            "legenda_viva": legenda_viva_limpa(m.get("legenda_viva", atual.get("legenda_viva"))),
             "media": atual.get("media") or [], "updated": time.time()}
+
+
+def legenda_viva_limpa(lv) -> dict | None:
+    """v1.10: legenda animada (estilos do editor: palavra em foco, karaokê...) feita pela História → Vídeo.
+    Fica pronta em blocos com o tempo de cada palavra; a prévia desenha e a exportação queima igual (ASS)."""
+    if not isinstance(lv, dict) or lv.get("off"):
+        return {"off": True, "cfg": lv.get("cfg") or {}, "caps": lv.get("caps") or []} if isinstance(lv, dict) else None
+    from ..engine import subtitles as sb
+    cfg = lv.get("cfg") if isinstance(lv.get("cfg"), dict) else {}
+    estilo = cfg.get("style") if cfg.get("style") in sb.STYLES else "palavra_ativa"
+    base = dict(sb.STYLES[estilo])
+    limpo = {"style": estilo, "font": cfg.get("font") if cfg.get("font") in sb.FONTS else base["font"],
+             "color": _cor(cfg.get("color"), base["color"]), "highlight": _cor(cfg.get("highlight"), base["highlight"]),
+             "keyword_color": _cor(cfg.get("keyword_color"), "#39E75F"), "keywords": bool(cfg.get("keywords", True)),
+             "position": cfg.get("position") if cfg.get("position") in ("baixo", "meio", "topo") else base["position"],
+             "size_pct": _num(cfg.get("size_pct"), 100, 40, 180), "uppercase": bool(cfg.get("uppercase", base["uppercase"])),
+             "max_chars": int(_num(cfg.get("max_chars"), base["max_chars"], 1, 60)),
+             "lines": int(_num(cfg.get("lines"), base["lines"], 1, 3))}
+    caps = []
+    for c in (lv.get("caps") or [])[:6000]:
+        if not isinstance(c, dict):
+            continue
+        linhas = []
+        for ln in (c.get("lines") or [])[:4]:
+            ws = []
+            for w in (ln or [])[:40]:
+                if isinstance(w, dict) and str(w.get("w") or "").strip():
+                    ws.append({"w": str(w["w"])[:40], "s": round(_num(w.get("s"), 0, 0, 36000), 3),
+                               "e": round(_num(w.get("e"), 0, 0, 36000), 3), **({"kw": True} if w.get("kw") else {})})
+            if ws:
+                linhas.append(ws)
+        if linhas:
+            caps.append({"s": round(_num(c.get("s"), 0, 0, 36000), 3), "e": round(_num(c.get("e"), 0, 0, 36000), 3),
+                         "lines": linhas})
+    return {"cfg": limpo, "caps": caps} if caps else None
 
 
 CORES_MARCADOR = ("#FF8A3D", "#FACC15", "#16A34A", "#0EA5E9", "#EC4899", "#FFFFFF")
@@ -1023,6 +1059,13 @@ def exportar(pid: str, opts: dict, progress: Optional[Callable[[float, str], Non
                                                                              str(folder / midia["file"])])
         audio_de(idx, it, it["dur"], it["start"], destino=fundo if it.get("duck") else None)
 
+    lv = m.get("legenda_viva")
+    if lv and not lv.get("off") and lv.get("caps"):  # v1.10: legenda animada da História → Vídeo
+        from ..engine import subtitles as sb
+        (folder / f"tmp_{tag}.ass").write_text(sb.to_ass(lv["caps"], lv["cfg"], W, H), encoding="utf-8")
+        fontes = str(store.FONTS).replace("\\", "/").replace(":", "\\:").replace("'", "\\'")
+        graph.append(f"{cur}ass='tmp_{tag}.ass':fontsdir='{fontes}'[lviva]")
+        cur = "[lviva]"
     graph.append(f"{cur}null[vout]")
 
     def junta(labs: list[str], saida: str):

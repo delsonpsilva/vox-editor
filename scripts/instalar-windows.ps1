@@ -50,6 +50,7 @@ $vpy = Join-Path $Root ".venv\Scripts\python.exe"
 & $vpy -m pip install --upgrade pip --quiet
 & $vpy -m pip install -r requirements.txt --quiet
 if ($LASTEXITCODE -ne 0) { Write-Host "      Falha ao instalar as bibliotecas. Verifique a internet e rode de novo." -ForegroundColor Red; exit 1 }
+& $vpy -m pip install "piper-tts>=1.3" --quiet  # voz natural sem internet (opcional: se falhar, segue)
 Ok "Bibliotecas instaladas"
 
 # ---------- 3. GPU NVIDIA (opcional) ----------

@@ -1,5 +1,5 @@
 "use strict";
-/* v1.9.1 — História → Vídeo: texto, áudio gravado ou narração ao vivo viram uma Montagem pronta. */
+/* v1.10 — História → Vídeo: texto, áudio gravado ou narração ao vivo viram uma Montagem pronta. */
 (function () {
   const H = { modo: "texto", formato: "9:16", st: null, ocupado: false, vivo: null };
   const opcoes = () => ({
@@ -7,6 +7,8 @@
     estilo: $("#hs-estilo").value || "realista",
     legenda: $("#hs-legenda").checked, usar_ia: $("#hs-ia").checked && !$("#hs-ia").disabled,
     musica: $("#hs-musica").value, velocidade: +$("#hs-vel").value,
+    legenda_estilo: $("#hs-leg-estilo").value || "palavra_ativa", abertura: $("#hs-abertura").checked,
+    encerramento: $("#hs-encerramento").checked, logo: $("#hs-logo").checked, retranscrever: $("#hs-retrans").checked,
   });
 
   /* ---------------- estado e opções ---------------- */
@@ -22,6 +24,14 @@
     const es = $("#hs-estilo"), e0 = es.value || "realista";
     es.innerHTML = Object.entries(st.estilos || {}).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join("");
     es.value = e0;
+    const le = $("#hs-leg-estilo"), l0 = le.value || "palavra_ativa";
+    le.innerHTML = Object.entries(st.estilos_legenda || {}).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join("");
+    le.value = l0;
+    const mc = st.marca || {};
+    $("#hs-marca-msg").innerHTML = mc.logo || mc.handle ? `(${[mc.logo && "logo", mc.handle && "seu @"].filter(Boolean).join(" e ")})`
+      : `— coloque sua logo e seu @ em <a href="#/marca">Marca</a>`;
+    $("#hs-logo").disabled = !mc.logo;
+    if (!mc.logo) $("#hs-logo").checked = false;
     $("#hs-ia").disabled = !st.ia;
     if (st.ia && !H.iaTocado) $("#hs-ia").checked = true;
     if (!st.ia) $("#hs-ia").checked = false;
@@ -69,7 +79,8 @@
     H.modo = m;
     if (!H.ocupado) $("#hs-andamento").classList.add("hidden");
     $$("[data-hmodo]").forEach((b) => b.classList.toggle("active", b.dataset.hmodo === m));
-    $$("[data-hpainel]").forEach((p) => p.classList.toggle("hidden", p.dataset.hpainel !== m));
+    $$("[data-hpainel]").forEach((p) => p.classList.toggle("hidden", p.dataset.hpainel !== m || (m === "texto" && !!H.rot)));
+    $("#hs-roteiro").classList.toggle("hidden", !(m === "texto" && H.rot));
     $$("[data-so]").forEach((el) => el.classList.toggle("hidden", el.dataset.so !== m));
     $("#hs-criar").classList.toggle("hidden", m === "vivo");
   }
@@ -127,6 +138,7 @@
       if (H.modo === "texto") {
         const texto = $("#hs-texto").value.trim();
         if ((texto.match(/\S+/g) || []).length < 3) { toast("Escreva ou cole a história primeiro.", true); return; }
+        if ($("#hs-revisar").checked) { await abrirRoteiro(texto); return; }
         const r = await api("POST", "/api/historia/texto", { texto, name: $("#hs-nome").value.trim(), opcoes: opcoes() });
         acompanhar(r);
       } else if (H.modo === "audio") {
@@ -156,6 +168,70 @@
       xhr.onerror = () => falha(new Error("A conexão caiu durante o envio."));
       xhr.send(f);
     });
+  }
+
+  /* ---------------- revisar as cenas (roteiro) ---------------- */
+  const NOME_GRAF = { barras: "barras", pizza: "pizza", linha: "linha", numero: "número" };
+
+  async function abrirRoteiro(texto) {
+    H.ocupado = true; $("#hs-criar").disabled = true;
+    andamento("Dividindo em cenas…", 0.3, $("#hs-ia").checked && !$("#hs-ia").disabled ? "A IA está lendo a história…" : "Lendo a história…");
+    try {
+      const r = await api("POST", "/api/historia/roteiro", { texto, opcoes: opcoes() });
+      H.rot = { texto, humor: r.humor, cenas: r.cenas, modo: r.modo };
+      $("#hs-andamento").classList.add("hidden");
+      desenharRoteiro();
+      $("[data-hpainel=texto]").classList.add("hidden");
+      $("#hs-roteiro").classList.remove("hidden");
+      $("#hs-roteiro").scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (e) { toast(e.message, true); $("#hs-andamento").classList.add("hidden"); }
+    H.ocupado = false; $("#hs-criar").disabled = false;
+  }
+
+  function lerRoteiro() {
+    $$("#hs-cenas .hs-cena-card").forEach((card, i) => {
+      const c = H.rot.cenas[i]; if (!c) return;
+      c.texto = $("[data-c=texto]", card).value; c.busca = $("[data-c=busca]", card).value; c.destaque = $("[data-c=destaque]", card).value;
+    });
+  }
+
+  function desenharRoteiro() {
+    const R = H.rot;
+    $("#hs-rot-info").textContent = `${R.cenas.length} cenas · ${R.modo === "ia" ? "divididas pela IA" : "divisão automática"} · música: ${R.humor}`;
+    $("#hs-cenas").innerHTML = R.cenas.map((c, i) => `
+      <div class="hs-cena-card">
+        <div class="row between"><b>Cena ${i + 1}</b><div class="row">
+          ${i < R.cenas.length - 1 ? `<button type="button" class="btn ghost small" data-junta="${i}">Juntar com a próxima</button>` : ""}
+          ${R.cenas.length > 1 ? `<button type="button" class="btn ghost small" data-apaga="${i}">Apagar</button>` : ""}</div></div>
+        <label class="field">O que é dito <textarea data-c="texto" rows="3">${esc(c.texto)}</textarea></label>
+        <div class="grid2">
+          <label class="field">Imagem: o que buscar <input data-c="busca" value="${esc(c.busca)}" placeholder="ex.: pastor ovelhas campo"></label>
+          <label class="field">Título na tela (opcional) <input data-c="destaque" value="${esc(c.destaque)}" placeholder="vazio = sem título"></label>
+        </div>
+        ${c.grafico ? `<div class="row"><span class="chip">Gráfico de ${NOME_GRAF[c.grafico.tipo] || "barras"}: ${esc(c.grafico.titulo || (c.grafico.rotulos || []).join(", "))}</span>
+          <button type="button" class="btn ghost small" data-semgraf="${i}">Tirar o gráfico</button></div>` : ""}
+      </div>`).join("");
+    $$("[data-junta]").forEach((b) => b.addEventListener("click", () => {
+      lerRoteiro(); const i = +b.dataset.junta, a = H.rot.cenas[i], z = H.rot.cenas[i + 1];
+      a.texto = (a.texto + " " + z.texto).trim(); a.grafico = a.grafico || z.grafico; a.destaque = a.destaque || z.destaque;
+      H.rot.cenas.splice(i + 1, 1); desenharRoteiro();
+    }));
+    $$("[data-apaga]").forEach((b) => b.addEventListener("click", () => { lerRoteiro(); H.rot.cenas.splice(+b.dataset.apaga, 1); desenharRoteiro(); }));
+    $$("[data-semgraf]").forEach((b) => b.addEventListener("click", () => { lerRoteiro(); H.rot.cenas[+b.dataset.semgraf].grafico = null; desenharRoteiro(); }));
+  }
+
+  async function montarRoteiro() {
+    if (H.ocupado || !H.rot) return;
+    lerRoteiro();
+    const cenas = H.rot.cenas.filter((c) => c.texto.trim());
+    if (!cenas.length) { toast("Todas as cenas ficaram vazias.", true); return; }
+    try {
+      const r = await api("POST", "/api/historia/texto", { texto: H.rot.texto, cenas, name: $("#hs-nome").value.trim(),
+        opcoes: { ...opcoes(), humor: H.rot.humor } });
+      $("#hs-roteiro").classList.add("hidden"); $("[data-hpainel=texto]").classList.remove("hidden");
+      H.rot = null;
+      acompanhar(r);
+    } catch (e) { toast(e.message, true); }
   }
 
   /* ---------------- ao vivo ---------------- */
@@ -330,6 +406,10 @@
     });
     $("#hs-criar").addEventListener("click", criar);
     $("#hs-visual").addEventListener("change", avisoVisual);
+    $("#hs-legenda").addEventListener("change", () => $("#hs-leg-box").classList.toggle("hidden", !$("#hs-legenda").checked));
+    $("#hs-rot-montar").addEventListener("click", montarRoteiro);
+    $("#hs-rot-voltar").addEventListener("click", () => { H.rot = null; $("#hs-roteiro").classList.add("hidden"); $("[data-hpainel=texto]").classList.remove("hidden"); });
+    $("#hs-revisar").addEventListener("change", () => { $("#hs-criar").textContent = $("#hs-revisar").checked ? "Dividir em cenas para revisar" : "Criar o vídeo"; });
     $("#hs-ia").addEventListener("change", () => { H.iaTocado = true; });
     $("#hs-k-salvar").addEventListener("click", salvarChaves);
     $("#hs-mic-config").addEventListener("click", () => api("POST", "/api/historia/microfone/config").catch((e) => toast(e.message, true)));

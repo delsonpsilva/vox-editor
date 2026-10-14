@@ -42,10 +42,26 @@ def historia_texto(data: dict = Body(...)):
     if len(texto.split()) < 3:
         raise HTTPException(400, "Escreva ou cole a história (pelo menos uma frase).")
     _limites(minutos=False)
-    opts = data.get("opcoes") or {}
+    opts = dict(data.get("opcoes") or {})
+    primeira = texto.split("\n")[0].strip()
+    opts.setdefault("titulo", str(data.get("name") or "").strip() or
+                    (primeira if len(primeira) <= 60 and primeira[-1:] not in ".?!…:;," else ""))
     pid = historia.novo_projeto(str(data.get("name") or "")[:120] or texto.split("\n")[0][:60],
                                 opts.get("formato") or "9:16", "texto")
-    return _job(pid, lambda pr: historia.criar_de_texto(pid, texto, opts, pr), "História → vídeo")
+    cenas = data.get("cenas") if isinstance(data.get("cenas"), list) else None
+    return _job(pid, lambda pr: historia.criar_de_texto(pid, texto, opts, pr, cenas), "História → vídeo")
+
+
+@router.post("/api/historia/roteiro")
+def historia_roteiro(data: dict = Body(...)):
+    """Divide a história em cenas (com a IA, se ligada) para revisar antes de montar."""
+    texto = str(data.get("texto") or "").strip()
+    if len(texto.split()) < 3:
+        raise HTTPException(400, "Escreva ou cole a história (pelo menos uma frase).")
+    try:
+        return historia.roteiro(texto, data.get("opcoes") or {})
+    except RuntimeError as e:
+        raise HTTPException(400, str(e))
 
 
 @router.post("/api/historia/audio")
@@ -58,6 +74,7 @@ async def historia_audio(request: Request):
         opts = json.loads(unquote(request.headers.get("x-opcoes", "{}")) or "{}")
     except json.JSONDecodeError:
         opts = {}
+    opts.setdefault("titulo", str(opts.get("name") or "").strip())
     if montagem.tipo_por_extensao(nome) not in ("audio", "video"):
         raise HTTPException(400, "Envie um áudio (MP3, WAV, M4A, OGG...) ou um vídeo com a narração.")
     pid = historia.novo_projeto(str(opts.get("name") or "")[:120] or nome.rsplit(".", 1)[0][:60],

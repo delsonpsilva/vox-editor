@@ -1547,6 +1547,11 @@ const Montagem = (() => {
         ${(M.m.res === "4k" || M.m.res === "1440") ? `<p class="hint">Em ${M.m.res === "4k" ? "4K" : "2K"} o arquivo fica bem maior e a exportação demora mais (cerca de ${M.m.res === "4k" ? "4" : "2"} vezes). Para Reels, Shorts e TikTok, Full HD já é o máximo que as redes mostram.</p>` : ""}
         <label class="mt-f row"><span>Cor do fundo</span><input type="color" data-proj="bg" value="${M.m.bg}"></label>
         <label class="mt-f"><span>Emendas da fala</span><select data-proj="suave">${[["suave", "Suaves (recomendado)"], ["bem_suave", "Bem suaves"], ["seca", "Secas (corte colado)"]].map(([v, n]) => `<option value="${v}" ${(M.m.suave || "suave") === v ? "selected" : ""}>${n}</option>`).join("")}</select></label>
+        ${M.m.legenda_viva ? `<div class="panel-title">Legenda animada</div>
+        <label class="mt-f"><span>Legenda da narração</span><select data-proj="lv_on"><option value="1" ${M.m.legenda_viva.off ? "" : "selected"}>Ligada</option><option value="0" ${M.m.legenda_viva.off ? "selected" : ""}>Desligada</option></select></label>
+        <label class="mt-f"><span>Posição</span><select data-proj="lv_pos">${[["baixo", "Embaixo"], ["meio", "No meio"], ["topo", "No alto"]].map(([v, n]) => `<option value="${v}" ${(M.m.legenda_viva.cfg || {}).position === v ? "selected" : ""}>${n}</option>`).join("")}</select></label>
+        <label class="mt-f"><span>Tamanho</span><select data-proj="lv_size">${[[80, "Pequena"], [100, "Média"], [125, "Grande"], [150, "Bem grande"]].map(([v, n]) => `<option value="${v}" ${Math.round((M.m.legenda_viva.cfg || {}).size_pct || 100) === v ? "selected" : ""}>${n}</option>`).join("")}</select></label>
+        <p class="hint">Feita pela História → Vídeo, palavra por palavra no tempo da fala. Sai igual na exportação.</p>` : ""}
         ${(M.m.media || []).some((x) => x.main) && (M.P || {}).kind !== "montagem" ? `<button class="btn small" data-recomecar>Recomeçar da edição automática</button>` : ""}
         <div class="panel-title">Atalhos</div>
         <ul class="mt-keys hint">
@@ -1667,6 +1672,12 @@ const Montagem = (() => {
       if (k === "bg") M.m.bg = inp.value.toUpperCase();
       if (k === "suave") M.m.suave = inp.value;
       if (k === "res") M.m.res = inp.value;
+      if (k.startsWith("lv_") && M.m.legenda_viva) {  // v1.10: legenda animada da História → Vídeo
+        const lv = M.m.legenda_viva; lv.cfg = lv.cfg || {};
+        if (k === "lv_on") lv.off = inp.value === "0";
+        if (k === "lv_pos") lv.cfg.position = inp.value;
+        if (k === "lv_size") lv.cfg.size_pct = +inp.value;
+      }
       commit(before); layoutCanvas(); draw();
     }));
     if (!it) return;
@@ -2006,6 +2017,39 @@ const Montagem = (() => {
   }
   const visivelAte = (it, ext) => it.start + it.dur + ((ext[it.id] || {}).ext || 0);
 
+  /* v1.10: prévia da legenda animada (as contas imitam as da exportação, que usa o mesmo estilo em ASS) */
+  function desenhaLegendaViva(ctx, t, W, H) {
+    const lv = M.m.legenda_viva; if (!lv || lv.off || !lv.caps || !lv.caps.length) return;
+    const cap = lv.caps.find((c) => c.s <= t && t < c.e); if (!cap) return;
+    const cfg = lv.cfg || {}, vertical = H > W, est = cfg.style || "palavra_ativa";
+    const fac = ({ uma_palavra: 0.13, impacto: 0.095, minimalista: 0.05, caixa: 0.056, classico: 0.056 }[est] || 0.066) *
+      (vertical ? 1 : 0.78) * (cfg.size_pct || 100) / 100;
+    const size = Math.min(W, H) * fac, lh = size * 1.18, n = cap.lines.length;
+    const margem = H * (vertical ? 0.2 : 0.08);
+    const y0 = cfg.position === "meio" ? H / 2 - (lh * n) / 2 + size * 0.85 : cfg.position === "topo" ? margem + size * 0.85 : H - margem - lh * (n - 1) - size * 0.15;
+    ctx.save();
+    ctx.font = `${size}px "${cfg.font || "Poppins ExtraBold"}"`; ctx.textBaseline = "alphabetic"; ctx.textAlign = "left"; ctx.lineJoin = "round";
+    const porPalavra = ["palavra_ativa", "caixa_ativa", "neon", "uma_palavra"].includes(est);
+    cap.lines.forEach((ln, i) => {
+      const esp = ctx.measureText(" ").width;
+      const larg = ln.reduce((a, w) => a + ctx.measureText(w.w).width, 0) + esp * (ln.length - 1);
+      let x = W / 2 - larg / 2; const y = y0 + i * lh;
+      if (est === "caixa") { ctx.fillStyle = "rgba(0,0,0,.6)"; ctx.fillRect(x - size * 0.3, y - size * 0.95, larg + size * 0.6, size * 1.3); }
+      ln.forEach((w) => {
+        const lw = ctx.measureText(w.w).width;
+        const falando = w.s <= t && t < Math.max(w.e, w.s + 0.05), dita = t >= w.s;
+        let cor = cfg.color || "#FFFFFF";
+        if (cfg.keywords !== false && w.kw) cor = cfg.keyword_color || "#39E75F";
+        if ((porPalavra && falando) || (est === "destaque" && dita)) cor = cfg.highlight || "#FFD400";
+        if (est === "caixa_ativa" && falando) { ctx.fillStyle = cfg.highlight || "#FF8A3D"; ctx.fillRect(x - size * 0.12, y - size * 0.92, lw + size * 0.24, size * 1.2); cor = cfg.color || "#FFFFFF"; }
+        if (!["caixa", "minimalista"].includes(est)) { ctx.lineWidth = Math.max(3, size / 12) * 2; ctx.strokeStyle = "#000"; ctx.strokeText(w.w, x, y); }
+        ctx.fillStyle = cor; ctx.fillText(w.w, x, y);
+        x += lw + esp;
+      });
+    });
+    ctx.restore();
+  }
+
   function draw() {
     const cv = $(".mt-canvas", box()); if (!cv || !M.m || !M.view) return;
     const ctx = cv.getContext("2d");
@@ -2066,6 +2110,7 @@ const Montagem = (() => {
         }
       });
     });
+    desenhaLegendaViva(ctx, t, W, H);
     if (selBox && !M.playing) {
       ctx.save();
       ctx.translate(selBox.cx, selBox.cy); ctx.rotate((selBox.rot * Math.PI) / 180);

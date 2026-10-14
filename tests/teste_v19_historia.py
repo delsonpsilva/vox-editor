@@ -64,7 +64,8 @@ check(all(cn[k]["i0"] == cn[k - 1]["i1"] + 1 for k in range(1, len(cn))), "cenas
 st = c.get("/api/historia/status").json()
 check({v["id"] for v in st["vozes"]} >= {"francisca", "antonio", "windows", "nenhuma"}, "status lista as vozes")
 r = c.post("/api/historia/texto", json={"texto": HISTORIA, "name": "Ovelha", "opcoes": {
-    "formato": "9:16", "voz": "nenhuma", "visual": "cores", "usar_ia": False}})
+    "formato": "9:16", "voz": "nenhuma", "visual": "cores", "usar_ia": False,
+    "legenda_estilo": "texto", "musica": ""}})
 check(r.status_code == 200, f"criar pelo texto: {r.status_code} {r.text[:200]}")
 pid, jid = r.json()["id"], r.json()["job"]
 j = espera(pid, jid)
@@ -131,7 +132,8 @@ check(any(x["track"] == "t_titulo" and "OVELHA" in x["text"].upper() for x in m2
 gr = [x for x in m2["items"] if x["track"] == "t_v2"]
 check(len(gr) == 1, "gráfico entrou na cena com números")
 md = {x["id"]: x for x in m2["media"]}
-check(gr and md[gr[0]["src"]]["kind"] == "image" and md[gr[0]["src"]]["w"] > 500, "gráfico é um PNG de verdade")
+check(gr and md[gr[0]["src"]]["w"] > 500 and (md[gr[0]["src"]].get("alpha") or md[gr[0]["src"]]["kind"] == "image"),
+      "gráfico animado com fundo transparente")
 ult = historia.store.load(pid2)["historia"]["cenas"]
 check(len(ult) == 3 and ult[0]["busca"] == "pastor ovelhas", "cenas guardadas no projeto")
 
@@ -159,7 +161,7 @@ for k, p in enumerate(frase.split()):
 orig_tr = historia._transcrever
 historia._transcrever = lambda wav, progress=None, prompt="": {"words": falsas, "segments": [], "language": "pt"}
 r = c.post("/api/historia/audio", content=(tmp / "narracao.mp3").read_bytes(),
-           headers={"x-filename": "narracao.mp3", "x-opcoes": json.dumps({"formato": "1:1", "visual": "cores"})})
+           headers={"x-filename": "narracao.mp3", "x-opcoes": json.dumps({"formato": "1:1", "visual": "cores", "legenda_estilo": "texto", "musica": ""})})
 check(r.status_code == 200, f"enviar áudio: {r.status_code} {r.text[:150]}")
 pid3 = r.json()["id"]
 j = espera(pid3, r.json()["job"])

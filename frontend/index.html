@@ -245,8 +245,15 @@
                   <button type="button" class="btn small" id="hs-mic-tentar">Tentar de novo</button></div>
                 <p class="hint" id="hs-mic-erro"></p>
               </div>
+              <label class="hs-check"><input type="checkbox" id="hs-retrans"> <span>Ao terminar, transcrever de novo a gravação inteira <em class="hint">(mais preciso, leva um pouco mais)</em></span></label>
               <p class="hint" id="hs-vivo-msg">A fala é transcrita no seu computador, de poucos em poucos segundos. Cada trecho ganha uma imagem na hora.</p>
               <div class="hs-transc" id="hs-transc" aria-live="polite"></div>
+            </section>
+            <section class="pane hidden" id="hs-roteiro">
+              <div class="row between"><div><h2>Revise as cenas</h2><p class="hint" id="hs-rot-info"></p></div>
+                <button type="button" class="btn ghost small" id="hs-rot-voltar">Voltar ao texto</button></div>
+              <div class="hs-cenas" id="hs-cenas"></div>
+              <div class="row end"><button type="button" class="btn primary" id="hs-rot-montar">Montar o vídeo com estas cenas</button></div>
             </section>
             <section class="pane hidden" id="hs-andamento">
               <div class="row between"><b id="hs-and-tit">Montando o vídeo…</b><span class="hint" id="hs-and-pct">0%</span></div>
@@ -275,6 +282,11 @@
             <p class="hint hidden" id="hs-visual-msg"></p>
             <label class="field">Música de fundo <select id="hs-musica"><option value="__auto__">Automática (biblioteca livre, combina com a história)</option><option value="">Sem música</option></select></label>
             <label class="hs-check"><input type="checkbox" id="hs-legenda" checked> Legenda na tela</label>
+            <label class="field" id="hs-leg-box">Estilo da legenda <select id="hs-leg-estilo"></select></label>
+            <label class="hs-check"><input type="checkbox" id="hs-abertura" checked> Abertura com o título da história</label>
+            <label class="hs-check"><input type="checkbox" id="hs-encerramento" checked> <span>Encerramento com a sua marca <em class="hint" id="hs-marca-msg"></em></span></label>
+            <label class="hs-check"><input type="checkbox" id="hs-logo"> Logo no canto o vídeo todo</label>
+            <label class="hs-check" data-so="texto"><input type="checkbox" id="hs-revisar"> <span>Revisar as cenas antes de montar <em class="hint">(trocar textos, títulos e o que buscar em cada cena)</em></span></label>
             <label class="hs-check"><input type="checkbox" id="hs-ia" checked> <span>Usar a IA para escolher as cenas, títulos e gráficos <em class="hint" id="hs-ia-msg"></em></span></label>
             <button type="button" class="btn primary big" id="hs-criar">Criar o vídeo</button>
             <p class="hint">O vídeo abre na Montagem: troque imagens, mexa nos textos e exporte quando quiser.</p>
