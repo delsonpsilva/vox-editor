@@ -1681,3 +1681,33 @@ body.v17-restrito .shortcuts a[href="#/redes"],body.v17-restrito .shortcuts a[hr
 [data-tema="claro"] input,[data-tema="claro"] select,[data-tema="claro"] textarea{color:var(--text)}
 .btn.primary:hover,a.btn.primary:hover{background:var(--accent);filter:brightness(1.1)}
 [data-tema="claro"] .linkbtn,[data-tema="claro"] .hint a,[data-tema="claro"] p a,[data-tema="claro"] .next-list a:not(.next-row){color:color-mix(in srgb,var(--accent) 62%,#000)}
+
+/* ---------- v1.12: Montagem com som e legenda ---------- */
+.mt-pbtns{flex-wrap:wrap}
+.mt-wave{position:absolute;left:0;bottom:0;width:100%;pointer-events:none;z-index:0;overflow:visible}
+.mt-wave.full{top:0;height:100%}
+.mt-wave.low{height:36%}
+.mt-wave path{fill:none;stroke:rgba(255,255,255,.62);stroke-width:1.5;vector-effect:non-scaling-stroke}
+.mt-wave.low path{stroke:rgba(150,255,205,.85)}
+.mt-item.t-audio.has-wave{background:#1F5B45}
+.mt-item.t-audio.has-wave .lb{align-self:flex-start;margin-top:1px}
+.mt-narrar.rec{color:#fff;background:#DC2626;border-color:#DC2626;animation:mtRec 1.2s ease-in-out infinite}
+.mt-narrar.rec .lbl{display:inline!important;font-family:var(--mono)}
+@keyframes mtRec{0%,100%{box-shadow:0 0 0 0 rgba(220,38,38,.55)}50%{box-shadow:0 0 0 6px rgba(220,38,38,0)}}
+.mt-lvedit{position:absolute;inset:0;z-index:60;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:16px}
+.mt-lvbox{width:min(640px,100%);max-height:min(82vh,760px);display:flex;flex-direction:column;gap:10px;padding:16px;border-radius:14px;
+  background:var(--panel);border:1px solid var(--line);box-shadow:0 18px 50px rgba(0,0,0,.45)}
+.mt-lvbox .hint{margin:0}
+.mt-lvbusca{width:100%}
+.mt-lvlista{overflow:auto;display:flex;flex-direction:column;gap:6px;padding-right:4px;min-height:120px}
+.mt-lvrow{display:flex;gap:8px;align-items:center}
+.mt-lvrow.hidden{display:none}
+.mt-lvrow input{flex:1;min-width:0}
+.mt-lvt{flex-shrink:0;width:64px;padding:6px 4px;border-radius:7px;border:1px solid var(--line);background:var(--card);color:var(--muted);font-size:12px;cursor:pointer}
+.mt-lvt:hover{color:var(--text);border-color:var(--accent)}
+.mt-lvjob .row{gap:8px}
+@media (max-width:900px){.mt-lvedit{position:fixed;padding:8px}.mt-lvbox{max-height:92vh}}
+.mt-lvaviso{display:grid;gap:8px;padding:10px 12px;border-radius:10px;font-size:12.5px;line-height:1.45;
+  background:rgba(250,204,21,.1);border:1px solid rgba(250,204,21,.38);color:var(--text)}
+.mt-toolbar [data-act=legenda].aviso{position:relative;color:#FACC15}
+.mt-toolbar [data-act=legenda].aviso::after{content:"";position:absolute;top:5px;right:5px;width:7px;height:7px;border-radius:50%;background:#FACC15}

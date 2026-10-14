@@ -1,11 +1,12 @@
-VOX Editor 1.11.0 — Cara nova (menu em blocos, tela inicial em cartões, modo claro)
-================================================================================
+VOX Editor 1.12.0 — Super Pacote 2 (parte 1): legenda automática e som completo na Montagem
+=========================================================================================
 (Este pacote já inclui tudo das versões anteriores.)
 
 NO PC (Windows)
 1. Feche o VOX Editor, se estiver aberto.
-2. Os arquivos novos já estão na pasta C:\editor-ia.
-3. Abra o programa. Embaixo, à esquerda, deve aparecer "versão 1.11.0".
+2. Extraia o vox-editor-1.12.0.zip (botão direito > Extrair tudo) e dê dois cliques no INSTALAR-1.12.0.bat.
+   Ele guarda uma cópia dos arquivos antigos e copia a versão nova para C:\editor-ia.
+3. Abra o programa. Embaixo, à esquerda, deve aparecer "versão 1.12.0".
    Se a tela não mudar: feche o programa e dê dois cliques no LIMPAR-CACHE-DA-TELA.bat.
    (Não precisa rodar o ATUALIZAR.bat: esta versão não instala nada novo.)
 4. Quando estiver tudo certo, dois cliques no PUBLICAR.bat.
@@ -13,14 +14,15 @@ NO PC (Windows)
 NA VPS
 5. sudo vox-atualizar
 
-TESTAR
-- Menu lateral: blocos Criar, Publicar, Estilo e Sistema, cada um com sua cor.
-- Tela inicial: clique em cada cartão. "Montagem do zero" abre a escolha do formato;
-  "Importar link" leva ao campo do link; "Cortes com IA" pede o vídeo e abre direto na aba Cortes.
-- Indicadores: clique num deles para ir à tela correspondente.
-- Botão da lua (ao lado da engrenagem, no topo): troca para o modo claro e volta.
-- Ctrl+B recolhe o menu (fica só com os ícones coloridos).
-- No celular: menu de baixo; "Mais" abre o menu em blocos.
+TESTAR (abra um projeto e vá na aba Montagem)
+- Barra de ferramentas: botões "Narrar" e "Legenda".
+- Legenda: escolha o estilo e toque em "Gerar legenda da fala". Depois teste "Corrigir palavras" e troque o estilo.
+  Divida e apague um pedaço do vídeo: o botão Legenda ganha um pontinho amarelo -> "Atualizar a legenda".
+- Pedaços com som mostram a forma de onda.
+- Selecione um vídeo: botões "Congelar" (ou tecla F), "Copiar ajustes" / "Colar ajustes",
+  e em "Som e velocidade": "Voz de estúdio" e "Separar o áudio".
+- Narrar: leve o cursor ao ponto, clique em Narrar, fale e aperte Espaço para parar.
+- Exporte e confira a legenda e o som no vídeo final.
 
 SE ALGO FICAR ESTRANHO NA VPS
 - sudo vox-atualizar --voltar   (volta para a versão anterior em um minuto; seus dados não são tocados)

@@ -227,6 +227,8 @@ def limpar(m: dict, atual: dict) -> dict:
             novo["speed"] = 1.0
         if k == "audio":
             novo["duck"] = bool(it.get("duck"))
+        if k in ("video", "audio") and it.get("voz"):  # v1.12: voz de estúdio neste pedaço
+            novo["voz"] = True
         # 1.2: filtros de cor, fundo verde, transição de entrada e animação por quadros-chave
         if k in ("video", "image"):
             fx = fxm.fx_limpo(it.get("fx"))
@@ -257,9 +259,10 @@ def limpar(m: dict, atual: dict) -> dict:
 
 def legenda_viva_limpa(lv) -> dict | None:
     """v1.10: legenda animada (estilos do editor: palavra em foco, karaokê...) feita pela História → Vídeo.
+    v1.12: também a legenda automática da fala na Montagem, que guarda as palavras (para trocar o estilo e corrigir).
     Fica pronta em blocos com o tempo de cada palavra; a prévia desenha e a exportação queima igual (ASS)."""
-    if not isinstance(lv, dict) or lv.get("off"):
-        return {"off": True, "cfg": lv.get("cfg") or {}, "caps": lv.get("caps") or []} if isinstance(lv, dict) else None
+    if not isinstance(lv, dict):
+        return None
     from ..engine import subtitles as sb
     cfg = lv.get("cfg") if isinstance(lv.get("cfg"), dict) else {}
     estilo = cfg.get("style") if cfg.get("style") in sb.STYLES else "palavra_ativa"
@@ -287,7 +290,24 @@ def legenda_viva_limpa(lv) -> dict | None:
         if linhas:
             caps.append({"s": round(_num(c.get("s"), 0, 0, 36000), 3), "e": round(_num(c.get("e"), 0, 0, 36000), 3),
                          "lines": linhas})
-    return {"cfg": limpo, "caps": caps} if caps else None
+    palavras = []
+    for w in (lv.get("words") if isinstance(lv.get("words"), list) else [])[:30000]:
+        if isinstance(w, dict) and str(w.get("w") or "").strip():
+            ps = round(_num(w.get("s"), 0, 0, 36000), 3)
+            palavras.append({"w": str(w["w"]).strip()[:40], "s": ps, "e": round(max(_num(w.get("e"), 0, 0, 36000), ps + 0.02), 3),
+                             **({"kw": True} if w.get("kw") else {})})
+    if not caps:
+        return None
+    out = {"cfg": limpo, "caps": caps}
+    if palavras:
+        out["words"] = palavras
+    if lv.get("auto"):
+        out["auto"] = True
+    if isinstance(lv.get("marca"), str) and re.fullmatch(r"[0-9a-f]{1,16}", lv["marca"]):
+        out["marca"] = lv["marca"]  # v1.12: para a tela saber se os cortes mudaram depois da legenda
+    if lv.get("off"):
+        out["off"] = True
+    return out
 
 
 CORES_MARCADOR = ("#FF8A3D", "#FACC15", "#16A34A", "#0EA5E9", "#EC4899", "#FFFFFF")
@@ -525,6 +545,8 @@ def _mesclavel(a: dict, b: dict, fps: float) -> bool:
     if a.get("kf") or b.get("kf") or a.get("tr") or b.get("tr") or a.get("_ext") or b.get("_ext"):
         return False
     if a.get("fx") != b.get("fx") or a.get("chroma") != b.get("chroma"):
+        return False
+    if bool(a.get("voz")) != bool(b.get("voz")):
         return False
     for k in ("x", "y", "scale", "rot", "opacity", "fit", "volume"):
         if abs(float(a[k]) - float(b[k])) > 1e-6 if k != "fit" else a[k] != b[k]:
@@ -800,6 +822,9 @@ def exportar(pid: str, opts: dict, progress: Optional[Callable[[float, str], Non
             if it["fadeOut"] > 0:
                 fo = min(it["fadeOut"], dur)
                 chain.append(f"afade=t=out:st={max(0.0, dur - fo):.3f}:d={fo:.3f}")
+        if it.get("voz"):  # v1.12: voz de estúdio (o mesmo filtro da edição automática)
+            from ..engine.render import VOZ_LIMPA
+            chain = [VOZ_LIMPA] + chain
         chain += ["aresample=48000", "aformat=sample_fmts=fltp:channel_layouts=stereo",
                   f"adelay={int(round(s0 * 1000))}:all=1"]
         graph.append(base + ",".join(chain) + lab)
@@ -1069,8 +1094,12 @@ def exportar(pid: str, opts: dict, progress: Optional[Callable[[float, str], Non
     graph.append(f"{cur}null[vout]")
 
     def junta(labs: list[str], saida: str):
-        mix = "".join(labs) + (f"amix=inputs={len(labs)}:normalize=0:dropout_transition=0" if len(labs) > 1
-                               else "anull")
+        # v1.12: um silêncio do tamanho do vídeo entra junto, para o som começar no zero mesmo quando o primeiro
+        # som só entra depois (sem isso o áudio do arquivo começava atrasado e algumas redes desalinhavam)
+        sil = f"[sil{len(graph)}]"
+        graph.append(f"anullsrc=r=48000:cl=stereo,atrim=0:{total:.4f},aformat=sample_fmts=fltp:channel_layouts=stereo{sil}")
+        labs = [sil] + labs
+        mix = "".join(labs) + f"amix=inputs={len(labs)}:normalize=0:dropout_transition=0"
         graph.append(mix + f",apad,atrim=0:{total:.4f}{saida}")
 
     if fundo and audios:

@@ -1,4 +1,27 @@
-# VOX Editor — edição de vídeo com cortes inteligentes e montagem manual (versão 1.11)
+# VOX Editor — edição de vídeo com cortes inteligentes e montagem manual (versão 1.12)
+
+## Novidades da versão 1.12 — Super Pacote 2 (parte 1): legenda automática e som completo na Montagem
+
+- **Legenda automática da fala na Montagem** (botão **Legenda** na barra, ou no painel Projeto): transcreve a fala dos
+  vídeos e áudios da linha do tempo — só os trechos usados — e coloca a legenda animada no tempo certo, mesmo depois
+  dos cortes e com velocidade mudada. Os mesmos estilos do editor (Palavra em foco, Karaokê, Uma palavra por vez,
+  Impacto, Neon...), posição, tamanho, cor do destaque e palavras-chave coloridas. Sai igual na exportação.
+  O vídeo principal de um projeto analisado usa a transcrição que já existe (na hora, sem transcrever de novo).
+- **Corrigir palavras**: lista dos trechos da legenda para consertar o que a transcrição errou, com busca e o tempo
+  de cada trecho (clique para ver na prévia). Trocar o estilo também não transcreve de novo.
+- **Aviso quando os cortes mudam**: se você mexer nos cortes depois de fazer a legenda, o botão Legenda ganha um
+  pontinho amarelo e o painel oferece **Atualizar a legenda** (o que já foi transcrito não é transcrito de novo).
+- **Forma de onda** nos pedaços de áudio e no rodapé dos vídeos com som (acompanha o volume).
+- **Narrar**: grava a narração pelo microfone direto na Montagem, a partir do cursor, com a montagem tocando sem som.
+  **Espaço** (ou o botão) para parar. A gravação entra numa trilha "Narração".
+- **Separar o áudio** de um vídeo: o som vira um pedaço na trilha de áudio para cortar, mover e ajustar separado.
+- **Voz de estúdio por pedaço** (vídeo ou áudio): tira chiado e ronco e dá presença à voz, no vídeo exportado.
+- **Congelar quadro** (botão no vídeo ou tecla **F**): a imagem exata do ponto do cursor fica parada por 2 segundos,
+  com o mesmo enquadramento, cor e máscara. Puxe a ponta para mudar o tempo.
+- **Copiar e colar ajustes** entre pedaços (**Ctrl+Alt+C** / **Ctrl+Alt+V**): posição, tamanho, animação, filtros,
+  máscara, fundo verde, volume e voz de estúdio; nos textos, também a fonte e as cores.
+- Correção: quando o primeiro som da montagem entrava depois do começo (ex.: começa com foto e a música entra
+  depois), o áudio do arquivo exportado começava atrasado. Agora começa sempre no zero.
 
 ## Novidades da versão 1.11 — cara de app profissional
 

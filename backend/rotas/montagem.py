@@ -224,3 +224,82 @@ def montagem_sem_fundo(pid: str, data: dict = Body(...)):
 @router.post("/api/projects/{pid}/midias/{mid}/aplicado")
 def montagem_substituicao_aplicada(pid: str, mid: str):
     return _404(lambda: montagem.substituicao_aplicada(pid, mid))
+
+
+# ---------- 1.12: legenda automática da fala, forma de onda, narração e congelar quadro ----------
+
+@router.post("/api/projects/{pid}/montagem/legenda")
+def montagem_legenda(pid: str, data: dict = Body(default={})):
+    """Transcreve a fala da linha do tempo (só o que ainda não foi transcrito) e monta a legenda animada."""
+    from ..core import montagem_som
+    _404(lambda: store.load(pid))
+    _limites(minutos=True)
+    if data.get("montagem"):
+        _404(lambda: montagem.salvar(pid, data["montagem"]))
+    if any(j["kind"] == "legenda_mont" and j["status"] in ("na fila", "processando") for j in jobs.for_project(pid)):
+        raise HTTPException(409, "A legenda deste projeto já está sendo feita.")
+    cfg = data.get("cfg") if isinstance(data.get("cfg"), dict) else {}
+    j = jobs.submit("legenda_mont", pid, lambda pr: montagem_som.gerar_legenda(pid, cfg, pr), queue="analysis",
+                    label="Legenda da fala")
+    return {"job": j["id"]}
+
+
+@router.post("/api/projects/{pid}/montagem/legenda/montar")
+def montagem_legenda_montar(pid: str, data: dict = Body(...)):
+    """Remonta a legenda a partir das palavras (trocar estilo ou corrigir palavras), sem transcrever. Não grava:
+    a tela coloca na montagem e salva junto."""
+    from ..core import montagem_som
+    m = _404(lambda: montagem.carregar(pid))
+    lv = montagem_som.montar_legenda(data.get("words") or [], data.get("cfg") or {}, m["h"] > m["w"])
+    if lv is None:
+        raise HTTPException(400, "A legenda ficou sem nenhuma palavra.")
+    if data.get("off"):
+        lv["off"] = True
+    return lv
+
+
+@router.get("/api/projects/{pid}/midias/{mid}/onda")
+def montagem_onda(pid: str, mid: str):
+    from ..core import montagem_som
+    try:
+        return JSONResponse(_404(lambda: montagem_som.onda(pid, mid)), headers={"Cache-Control": "max-age=3600"})
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e))
+
+
+@router.post("/api/projects/{pid}/montagem/narracao")
+async def montagem_narracao(pid: str, request: Request):
+    """Gravação do microfone feita na própria Montagem."""
+    from ..core import montagem_som
+    _404(lambda: store.load(pid))
+    _limites(minutos=False)
+    bruto = montagem.pasta_midias(pid) / f"gravando_{secrets.token_hex(4)}.webm"
+    size = 0
+    try:
+        with open(bruto, "wb") as fh:
+            async for chunk in request.stream():
+                size += len(chunk)
+                if size > 1024 ** 3:
+                    raise HTTPException(413, "Gravação grande demais (máximo 1 GB).")
+                fh.write(chunk)
+        if size < 200:
+            raise HTTPException(400, "A gravação ficou vazia. Confira o microfone e grave de novo.")
+        return montagem_som.narracao(pid, bruto)
+    except HTTPException:
+        bruto.unlink(missing_ok=True)
+        raise
+    except Exception as e:
+        bruto.unlink(missing_ok=True)
+        raise HTTPException(400, f"Não consegui usar a gravação: {str(e)[:200]}")
+
+
+@router.post("/api/projects/{pid}/montagem/congelar")
+def montagem_congelar(pid: str, data: dict = Body(...)):
+    from ..core import montagem_som
+    _404(lambda: store.load(pid))
+    try:
+        return montagem_som.congelar(pid, str(data.get("src") or ""), float(data.get("t") or 0))
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e))
+    except (RuntimeError, ValueError) as e:
+        raise HTTPException(400, str(e))

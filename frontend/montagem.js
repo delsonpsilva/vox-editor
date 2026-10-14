@@ -186,7 +186,8 @@ const Montagem = (() => {
 
   const M = { pid: null, P: null, m: null, sel: null, t: 0, playing: false, pps: 40, hist: [], fut: [], snap: true,
     saveT: null, saving: false, savedAt: 0, built: false, pool: new Map(), imgs: new Map(), raf: 0, clock: null,
-    drag: null, editBefore: null, exportJob: null, proxyPoll: null, open: false, follow: true };
+    drag: null, editBefore: null, exportJob: null, proxyPoll: null, open: false, follow: true,
+    lvJob: null, lvPoll: null, rec: null, recT: null, clip: null };
 
   const box = () => $("#montage-body");
   const fps = () => (M.m ? M.m.fps : 30);
@@ -231,6 +232,11 @@ const Montagem = (() => {
     x: '<path d="M6 6l12 12M18 6L6 18"/>',
     download: '<path d="M12 3v12M7 10l5 5 5-5M4 21h16"/>',
     center: '<circle cx="12" cy="12" r="2"/><path d="M12 3v4M12 17v4M3 12h4M17 12h4"/>',
+    mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',
+    cc: '<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M10.5 10.2a2.2 2.2 0 1 0 0 3.6M17.5 10.2a2.2 2.2 0 1 0 0 3.6"/>',
+    snow: '<path d="M12 2v20M4.2 7l15.6 10M4.2 17L19.8 7"/><path d="M9.5 3.5L12 6l2.5-2.5M9.5 20.5L12 18l2.5 2.5"/>',
+    unlink: '<path d="M3 8h7M3 16h7"/><path d="M14 6v12M18 9v6M22 11v2"/>',
+    paste: '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V2.5h6V4M9 11h6M9 15h4"/>',
   };
 
   /* ---------------- montagem (dados) ---------------- */
@@ -307,8 +313,10 @@ const Montagem = (() => {
       try { M.m = await api("GET", `/api/projects/${P.id}/montagem`); }
       catch (e) { toast(e.message, true); return; }
       M.pps = fitZoom();
-      M.bgJobs = {};
-      api("GET", `/api/jobs/${P.id}`).then((js) => {  // tirando o fundo desde antes de abrir: continua acompanhando
+      M.bgJobs = {}; M.lvJob = null;
+      api("GET", `/api/jobs/${P.id}`).then((js) => {
+        const lj = js.find((j) => j.kind === "legenda_mont" && (j.status === "na fila" || j.status === "processando"));
+        if (lj) { M.lvJob = { job: lj.id, pct: lj.pct, msg: lj.msg }; vigiaLegenda(); renderProps(); }  // tirando o fundo desde antes de abrir: continua acompanhando
         js.filter((j) => j.kind === "semfundo" && (j.status === "na fila" || j.status === "processando") && j.ref)
           .forEach((j) => { M.bgJobs[j.ref] = { job: j.id, pct: j.pct, msg: j.msg }; });
         if (Object.keys(M.bgJobs).length) vigiaFundo();
@@ -416,6 +424,9 @@ const Montagem = (() => {
           <button class="btn small ghost" data-act="del" title="Apagar (Delete)">${ico(I.trash)}<span class="lbl">Apagar</span></button>
           <span class="mt-sep"></span>
           <button class="btn small ghost" data-act="marker" title="Marcador no cursor (M) · , e . pulam entre marcadores">${ico(I.flag)}<span class="lbl">Marcador</span></button>
+          <button class="btn small ghost mt-narrar" data-act="narrar" title="Gravar narração a partir do cursor (microfone). Espaço para parar.">${ico(I.mic)}<span class="lbl">Narrar</span></button>
+          <button class="btn small ghost" data-act="legenda" title="Legenda automática da fala">${ico(I.cc)}<span class="lbl">Legenda</span></button>
+          <span class="mt-sep"></span>
           <button class="btn small ghost mt-snap on" data-act="snap" title="Ímã: encaixa nos cortes e mantém a trilha principal sem buracos">${ico(I.magnet)}<span class="lbl">Ímã</span></button>
           <div class="menu-wrap">
             <button class="btn small ghost" data-act="addtrack">${ico(I.plus)}<span class="lbl">Trilha</span></button>
@@ -507,6 +518,7 @@ const Montagem = (() => {
     if (!M.m) return;
     renderMedia(); renderTimeline(); renderProps(); draw(); updateTime();
     $(".mt-snap", box()).classList.toggle("on", M.snap);
+    const bl = $("[data-act=legenda]", box()); if (bl) { const v = legendaVelha(); bl.classList.toggle("aviso", v); bl.title = v ? "A legenda precisa ser atualizada (os cortes mudaram)" : "Legenda automática da fala"; }
     $("[data-act=undo]", box()).disabled = !M.hist.length;
     $("[data-act=redo]", box()).disabled = !M.fut.length;
   }
@@ -1009,17 +1021,18 @@ const Montagem = (() => {
     if (it.type === "text") label = (it.text || "").replace(/\n/g, " ");
     else if (it.type === "tarja") label = "Tarja · " + (it.l1 || "");
     else if (it.type === "color") { label = "Cor"; bg = `background:${it.color}`; }
-    else label = md ? md.name : "?";
+    else label = md ? (it.type === "audio" && md.kind === "video" ? "♪ " : "") + md.name : "?";
     if ((it.type === "video" || it.type === "image") && md && md.preview && w > 36) {
       const tt = it.type === "video" ? Math.round(it.in / 15) * 15 : 0;
       bg = `background-image:url('${urlMidia(md.id)}/thumb?t=${tt}')`;
     }
     const extra = [it.speed !== 1 ? `${it.speed}×` : "", it.fadeIn ? "◢" : "", it.fadeOut ? "◣" : "", it.fx ? "🎨" : "", it.chroma ? "▣" : "",
-      md && md.semfundo ? "✂" : "", it.kf && M.sel !== it.id ? "◆" : ""].filter(Boolean).join(" ");
+      md && md.semfundo ? "✂" : "", it.kf && M.sel !== it.id ? "◆" : "", it.voz ? "🎙" : ""].filter(Boolean).join(" ");
+    const onda = (it.type === "audio" || it.type === "video") ? ondaSVG(it, w) : "";
     const trw = it.tr ? Math.min(w, it.tr.dur * M.pps) : 0;
     const kfs = M.sel === it.id && it.kf ? it.kf.map((k) => `<i class="mt-kfd" data-kft="${k.t}" style="left:${(k.t * M.pps).toFixed(1)}px" title="Quadro-chave em ${fmt(k.t, true)}"></i>`).join("") : "";
-    return `<div class="mt-item t-${it.type} ${M.sel === it.id ? "sel" : ""}" data-id="${it.id}" style="left:${(it.start * M.pps).toFixed(2)}px;width:${w.toFixed(2)}px;${bg}">
-      ${trw ? `<span class="mt-trz" style="width:${trw.toFixed(1)}px" title="Transição: ${esc((TRANSICOES.find((x) => x[0] === it.tr.tipo) || [0, ""])[1])}"></span>` : ""}
+    return `<div class="mt-item t-${it.type} ${M.sel === it.id ? "sel" : ""} ${onda ? "has-wave" : ""}" data-id="${it.id}" style="left:${(it.start * M.pps).toFixed(2)}px;width:${w.toFixed(2)}px;${bg}">
+      ${onda}${trw ? `<span class="mt-trz" style="width:${trw.toFixed(1)}px" title="Transição: ${esc((TRANSICOES.find((x) => x[0] === it.tr.tipo) || [0, ""])[1])}"></span>` : ""}
       <span class="h-l"></span><span class="lb">${w > 30 ? esc(label) : ""}${extra && w > 70 ? ` <i>${extra}</i>` : ""}</span>${kfs}<span class="h-r"></span></div>`;
   }
 
@@ -1202,6 +1215,12 @@ const Montagem = (() => {
     if (a === "addtrack") { e.stopPropagation(); $(".mt-trackmenu", box()).classList.toggle("hidden"); }
     if (a === "export") exportar();
     if (a === "marker") marcador();
+    if (a === "narrar") narrar();
+    if (a === "legenda") {
+      M.sel = null; renderTimeline(); renderProps(); draw();
+      if (window.innerWidth <= 900) openSheet("props");
+      requestAnimationFrame(() => { const sec = $("[data-lvsec]", box()); if (sec) sec.scrollIntoView({ block: "start", behavior: "smooth" }); });
+    }
   }
 
   /* ---------------- v1.8: marcadores na linha do tempo ---------------- */
@@ -1260,17 +1279,19 @@ const Montagem = (() => {
     alvos = alvos.filter((i) => i && i.start + 1 / fps() <= t && t <= i.start + i.dur - 1 / fps() && !track(i.track).locked);
     if (!alvos.length) return toast("Coloque o cursor em cima do pedaço que quer dividir.");
     const before = snapshot();
-    alvos.forEach((it) => {
-      const cut = q(t), orig = JSON.parse(JSON.stringify(it)), lc = cut - it.start;
-      const right = { ...JSON.parse(JSON.stringify(it)), id: uid("i"), start: cut, dur: q(it.start + it.dur - cut), fadeIn: 0 };
-      delete right.tr;  // a transição fica no começo (pedaço da esquerda)
-      if (it.type === "video" || it.type === "audio") right.in = +(it.in + (cut - it.start) * it.speed).toFixed(4);
-      if (orig.kf) { right.kf = kfRecorta(orig, lc, orig.dur); it.kf = kfRecorta(orig, 0, lc); if (!right.kf) delete right.kf; if (!it.kf) delete it.kf; }
-      it.dur = q(cut - it.start); it.fadeOut = 0;
-      M.m.items.push(right);
-      M.sel = right.id;
-    });
+    alvos.forEach((it) => { M.sel = cortar(it, q(t)).id; });
     commit(before);
+  }
+  /** Corta o pedaço no ponto `cut` (tempo da montagem). Devolve o pedaço da direita (já na lista). */
+  function cortar(it, cut) {
+    const orig = JSON.parse(JSON.stringify(it)), lc = cut - it.start;
+    const right = { ...JSON.parse(JSON.stringify(it)), id: uid("i"), start: cut, dur: q(it.start + it.dur - cut), fadeIn: 0 };
+    delete right.tr;  // a transição fica no começo (pedaço da esquerda)
+    if (it.type === "video" || it.type === "audio") right.in = +(it.in + (cut - it.start) * it.speed).toFixed(4);
+    if (orig.kf) { right.kf = kfRecorta(orig, lc, orig.dur); it.kf = kfRecorta(orig, 0, lc); if (!right.kf) delete right.kf; if (!it.kf) delete it.kf; }
+    it.dur = q(cut - it.start); it.fadeOut = 0;
+    M.m.items.push(right);
+    return right;
   }
   function duplicate() {
     const it = itemById(M.sel); if (!it) return;
@@ -1547,17 +1568,14 @@ const Montagem = (() => {
         ${(M.m.res === "4k" || M.m.res === "1440") ? `<p class="hint">Em ${M.m.res === "4k" ? "4K" : "2K"} o arquivo fica bem maior e a exportação demora mais (cerca de ${M.m.res === "4k" ? "4" : "2"} vezes). Para Reels, Shorts e TikTok, Full HD já é o máximo que as redes mostram.</p>` : ""}
         <label class="mt-f row"><span>Cor do fundo</span><input type="color" data-proj="bg" value="${M.m.bg}"></label>
         <label class="mt-f"><span>Emendas da fala</span><select data-proj="suave">${[["suave", "Suaves (recomendado)"], ["bem_suave", "Bem suaves"], ["seca", "Secas (corte colado)"]].map(([v, n]) => `<option value="${v}" ${(M.m.suave || "suave") === v ? "selected" : ""}>${n}</option>`).join("")}</select></label>
-        ${M.m.legenda_viva ? `<div class="panel-title">Legenda animada</div>
-        <label class="mt-f"><span>Legenda da narração</span><select data-proj="lv_on"><option value="1" ${M.m.legenda_viva.off ? "" : "selected"}>Ligada</option><option value="0" ${M.m.legenda_viva.off ? "selected" : ""}>Desligada</option></select></label>
-        <label class="mt-f"><span>Posição</span><select data-proj="lv_pos">${[["baixo", "Embaixo"], ["meio", "No meio"], ["topo", "No alto"]].map(([v, n]) => `<option value="${v}" ${(M.m.legenda_viva.cfg || {}).position === v ? "selected" : ""}>${n}</option>`).join("")}</select></label>
-        <label class="mt-f"><span>Tamanho</span><select data-proj="lv_size">${[[80, "Pequena"], [100, "Média"], [125, "Grande"], [150, "Bem grande"]].map(([v, n]) => `<option value="${v}" ${Math.round((M.m.legenda_viva.cfg || {}).size_pct || 100) === v ? "selected" : ""}>${n}</option>`).join("")}</select></label>
-        <p class="hint">Feita pela História → Vídeo, palavra por palavra no tempo da fala. Sai igual na exportação.</p>` : ""}
+        ${secLegenda()}
         ${(M.m.media || []).some((x) => x.main) && (M.P || {}).kind !== "montagem" ? `<button class="btn small" data-recomecar>Recomeçar da edição automática</button>` : ""}
         <div class="panel-title">Atalhos</div>
         <ul class="mt-keys hint">
           <li><kbd>Espaço</kbd> tocar / pausar</li><li><kbd>S</kbd> dividir no cursor</li><li><kbd>Delete</kbd> apagar</li>
           <li><kbd>M</kbd> marcador no cursor · <kbd>,</kbd> <kbd>.</kbd> marcador anterior / próximo</li>
           <li><kbd>Ctrl</kbd>+<kbd>Z</kbd> desfazer · <kbd>Ctrl</kbd>+<kbd>Y</kbd> refazer</li><li><kbd>Ctrl</kbd>+<kbd>D</kbd> duplicar</li><li><kbd>K</kbd> marcar / tirar quadro-chave</li>
+          <li><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>C</kbd> copiar ajustes · <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>V</kbd> colar ajustes</li><li><kbd>F</kbd> congelar o quadro do vídeo selecionado</li>
           <li><kbd>←</kbd><kbd>→</kbd> um quadro · com <kbd>Shift</kbd> 1 segundo</li><li><kbd>Ctrl</kbd>+roda do mouse: zoom</li>
           <li>Clique direito no nome da trilha vazia: remover</li>
         </ul>`;
@@ -1569,8 +1587,10 @@ const Montagem = (() => {
         <div class="row mt-pbtns">
           <button class="btn small" data-pact="split">${ico(I.split, 14)} Dividir</button>
           <button class="btn small" data-pact="dup">${ico(I.copy, 14)} Duplicar</button>
+          ${it.type === "video" ? `<button class="btn small" data-pact="congelar" title="Congela o quadro do cursor por 2 segundos (F)">${ico(I.snow, 14)} Congelar</button>` : ""}
           <button class="btn small ghost danger" data-pact="del">${ico(I.trash, 14)} Apagar</button>
-        </div>`;
+        </div>
+        ${it.type !== "tarja" ? `<div class="row mt-pbtns"><button class="btn small ghost" data-pact="copiar" title="Ctrl+Alt+C">${ico(I.copy, 14)} Copiar ajustes</button><button class="btn small ghost" data-pact="colar" title="Ctrl+Alt+V">${ico(I.paste, 14)} Colar ajustes</button></div>` : ""}`;
       if (it.type === "text") {
         html += `<label class="mt-f"><span>Texto</span><textarea data-k="text" rows="3">${esc(it.text)}</textarea></label>
           <label class="mt-f"><span>Fonte</span><select data-k="font">${FONTES.map((f) => `<option ${it.font === f ? "selected" : ""} style="font-family:'${f}'">${f}</option>`).join("")}</select></label>
@@ -1631,8 +1651,12 @@ const Montagem = (() => {
       if (["video", "image", "color"].includes(it.type) && (track(it.track) || {}).kind === "video") html += secTransicao(it);
       if (it.type === "video" || it.type === "image") html += secCor(it) + secMascara(it) + secChroma(it) + secSemFundo(it, md);
       if (it.type === "video" || it.type === "audio") {
+        const temSom = md && (md.has_audio || it.type === "audio");
         html += `<div class="panel-title">Som e velocidade</div>
-          ${md && (md.has_audio || it.type === "audio") ? rng("volume", "Volume", 0, 2, 0.01, it.volume, "", (v) => Math.round(v * 100) + "%") : `<p class="hint">Este vídeo não tem som.</p>`}
+          ${temSom ? rng("volume", "Volume", 0, 2, 0.01, it.volume, "", (v) => Math.round(v * 100) + "%") : `<p class="hint">Este vídeo não tem som.</p>`}
+          ${temSom ? `<label class="checkline"><input type="checkbox" data-k="voz" ${it.voz ? "checked" : ""}> Voz de estúdio (tira chiado e ronco, dá presença à voz)</label>
+            ${it.voz ? `<p class="hint">O efeito sai no vídeo exportado; a prévia toca o som original.</p>` : ""}` : ""}
+          ${it.type === "video" && temSom && it.volume > 0.001 ? `<button class="btn small" data-pact="separar" title="O som vira um pedaço na trilha de áudio, para cortar e mexer separado">${ico(I.unlink, 14)} Separar o áudio</button>` : ""}
           <label class="mt-f"><span>Velocidade</span><select data-k="speed">${[0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4].map((s) => `<option value="${s}" ${it.speed === s ? "selected" : ""}>${s === 1 ? "Normal (1×)" : s + "×"}</option>`).join("")}</select></label>`;
       }
     }
@@ -1680,11 +1704,16 @@ const Montagem = (() => {
       }
       commit(before); layoutCanvas(); draw();
     }));
+    wireLegenda(el);
     if (!it) return;
     $$("[data-pact]", el).forEach((b) => b.addEventListener("click", () => {
       const a = b.dataset.pact;
       if (a === "split") split(); if (a === "dup") duplicate(); if (a === "del") remove();
       if (a === "center") { const before = snapshot(); Object.assign(it, { x: 0.5, y: 0.5, scale: 1, rot: 0 }); commit(before); }
+      if (a === "congelar") congelar(it);
+      if (a === "separar") separarAudio(it);
+      if (a === "copiar") copiarAjustes(it);
+      if (a === "colar") colarAjustes(it);
     }));
     $$("[data-fit]", el).forEach((b) => b.addEventListener("click", () => { const before = snapshot(); it.fit = b.dataset.fit; commit(before); }));
     wireSecoes(el, it);
@@ -1715,7 +1744,7 @@ const Montagem = (() => {
       });
       inp.addEventListener("change", () => {
         const b = M.editBefore; M.editBefore = null;
-        if (k === "boxOn" || k === "speed" || k === "tpl" || k === "duck" || (KF_KEYS.includes(k) && it.kf && it.kf.length)) { commit(b); return; }
+        if (k === "boxOn" || k === "speed" || k === "tpl" || k === "duck" || k === "voz" || (KF_KEYS.includes(k) && it.kf && it.kf.length)) { commit(b); return; }
         if (b && b !== snapshot()) { M.hist.push(b); M.fut = []; }
         save(); renderTimeline();
         $("[data-act=undo]", box()).disabled = !M.hist.length;
@@ -1956,7 +1985,7 @@ const Montagem = (() => {
       const tr = track(it.track);
       if (!on) { if (!el.paused) el.pause(); return; }
       const target = it.in + (t - it.start) * it.speed;
-      const vol = tr.muted || (tr.hidden && it.type === "video") || t >= it.start + it.dur ? 0 : it.volume * fadeK(it, t) * emendaK(it, t) * duckK(it, t);
+      const vol = M.rec || tr.muted || (tr.hidden && it.type === "video") || t >= it.start + it.dur ? 0 : it.volume * fadeK(it, t) * emendaK(it, t) * duckK(it, t);
       el.volume = clamp(vol, 0, 1); el.muted = vol <= 0.001;
       if (Math.abs(el.playbackRate - it.speed) > 0.001) el.playbackRate = it.speed;
       if (M.playing) {
@@ -2227,6 +2256,354 @@ const Montagem = (() => {
     cv.addEventListener("pointermove", mv); cv.addEventListener("pointerup", up); cv.addEventListener("pointercancel", up);
   }
 
+  /* ---------------- v1.12: legenda automática da fala ---------------- */
+  const ESTILOS_LV = [["palavra_ativa", "Palavra em foco"], ["caixa_ativa", "Caixa na palavra"], ["destaque", "Karaokê"],
+    ["uma_palavra", "Uma palavra por vez"], ["impacto", "Impacto"], ["neon", "Neon"], ["caixa", "Faixa de fundo"],
+    ["classico", "Clássica"], ["minimalista", "Minimalista"]];
+  function secLegenda() {
+    const lv = M.m.legenda_viva, cfg = (lv && lv.cfg) || {}, job = M.lvJob;
+    const estilo = cfg.style || M.lvEstilo || "palavra_ativa";
+    let h = `<div class="panel-title" data-lvsec>${ico(I.cc, 14)} Legenda automática da fala</div>`;
+    if (lv && !job && legendaVelha()) h += `<div class="mt-lvaviso"><span>Os cortes mudaram depois que a legenda foi feita, então ela pode estar fora do tempo.</span>
+      <button class="btn small primary" data-lvx="gerar">Atualizar a legenda</button></div>`;
+    const sel = `<label class="mt-f"><span>Estilo</span><select data-lv="style">${ESTILOS_LV.map(([v, n]) => `<option value="${v}" ${estilo === v ? "selected" : ""}>${n}</option>`).join("")}</select></label>`;
+    if (job) h += `<div class="mt-bgjob mt-lvjob"><div class="bar"><i style="width:${Math.round((job.pct || 0) * 100)}%"></i></div>
+      <div class="row between"><span class="hint">${esc(job.msg || "Na fila…")}</span><button class="btn small ghost" data-lvx="cancelar">Cancelar</button></div></div>`;
+    if (!lv) {
+      return h + sel + `<button class="btn small primary" data-lvx="gerar" ${job ? "disabled" : ""}>${ico(I.cc, 14)} Gerar legenda da fala</button>
+        <p class="hint">Transcreve a fala dos vídeos e áudios da linha do tempo (só os trechos usados) e põe a legenda animada no tempo certo, mesmo depois dos cortes. Roda no próprio PC/servidor, sem gastar API.</p>`;
+    }
+    return h + `<label class="mt-f"><span>Legenda</span><select data-lv="on"><option value="1" ${lv.off ? "" : "selected"}>Ligada</option><option value="0" ${lv.off ? "selected" : ""}>Desligada</option></select></label>
+      ${sel}
+      <label class="mt-f"><span>Posição</span><select data-lv="position">${[["baixo", "Embaixo"], ["meio", "No meio"], ["topo", "No alto"]].map(([v, n]) => `<option value="${v}" ${cfg.position === v ? "selected" : ""}>${n}</option>`).join("")}</select></label>
+      <label class="mt-f"><span>Tamanho</span><select data-lv="size_pct">${[[80, "Pequena"], [100, "Média"], [110, "Média grande"], [125, "Grande"], [150, "Bem grande"]].map(([v, n]) => `<option value="${v}" ${Math.round(cfg.size_pct || 100) === v ? "selected" : ""}>${n}</option>`).join("")}</select></label>
+      <div class="row mt-colors">
+        <label>Destaque <input type="color" data-lv="highlight" value="${cfg.highlight || "#FFD400"}"></label>
+        <label>Palavras-chave <input type="color" data-lv="keyword_color" value="${cfg.keyword_color || "#39E75F"}"></label>
+        <label class="chk"><input type="checkbox" data-lv="keywords" ${cfg.keywords !== false ? "checked" : ""}> Colorir</label>
+      </div>
+      <div class="row mt-pbtns"><button class="btn small" data-lvx="corrigir">Corrigir palavras</button><button class="btn small" data-lvx="gerar" ${job ? "disabled" : ""}>Refazer da fala</button></div>
+      <p class="hint">Mexeu nos cortes? Toque em <b>Refazer da fala</b>: o que já foi transcrito não é transcrito de novo. A legenda sai igual na exportação.</p>`;
+  }
+  /** "Impressão digital" do que fala na linha do tempo: muda quando um corte, posição ou velocidade muda. */
+  function marcaFala() {
+    const txt = M.m.items.filter((i) => (i.type === "video" || i.type === "audio") && i.src).map((i) => {
+      const tr = track(i.track) || {};
+      const ouve = !(tr.muted || (i.type === "video" && tr.hidden)) && i.volume > 0.01;
+      return ouve ? [i.src, (+i.start).toFixed(2), (+i.dur).toFixed(2), (+i.in).toFixed(2), i.speed].join(":") : "";
+    }).filter(Boolean).sort().join("|");
+    let h = 5381;
+    for (let k = 0; k < txt.length; k++) h = ((h * 33) ^ txt.charCodeAt(k)) >>> 0;
+    return h.toString(16);
+  }
+  function legendaVelha() { const lv = M.m && M.m.legenda_viva; return !!(lv && lv.auto && lv.marca && !lv.off && lv.marca !== marcaFala()); }
+  function palavrasLv(lv) {
+    if (lv.words && lv.words.length) return lv.words.map((w) => ({ ...w }));
+    return lv.caps.flatMap((c) => c.lines.flat()).map((w) => ({ ...w }));
+  }
+  /** Remonta a legenda com outras palavras ou outro estilo (sem transcrever). Não entra no desfazer (é grande). */
+  async function remontaLv(words, cfg, msgOk) {
+    const lv = M.m.legenda_viva;
+    try {
+      const novo = await api("POST", `/api/projects/${M.pid}/montagem/legenda/montar`, { words, cfg, off: !!(lv && lv.off) });
+      if (lv && lv.marca) novo.marca = lv.marca;
+      if (lv && lv.auto) novo.auto = true;
+      M.m.legenda_viva = novo; save(); renderProps(); draw();
+      if (msgOk) toast(msgOk);
+    } catch (e) { toast(e.message, true); }
+  }
+  function wireLegenda(el) {
+    $$("[data-lv]", el).forEach((inp) => inp.addEventListener("change", async () => {
+      const k = inp.dataset.lv, lv = M.m.legenda_viva;
+      if (k === "style" && !lv) { M.lvEstilo = inp.value; return; }
+      if (!lv) return;
+      const v = inp.type === "checkbox" ? inp.checked : inp.value;
+      if (k === "on") { lv.off = v === "0"; save(); draw(); return; }
+      if (k === "style") {  // estilo novo muda como as palavras se agrupam: remonta com as mesmas palavras
+        const cfg = { ...lv.cfg, style: v };
+        ["highlight", "color", "font", "uppercase"].forEach((c) => delete cfg[c]);
+        await remontaLv(palavrasLv(lv), cfg);
+        return;
+      }
+      lv.cfg = { ...lv.cfg, [k]: k === "size_pct" ? +v : v };
+      save(); draw();
+    }));
+    $$("[data-lvx]", el).forEach((b) => b.addEventListener("click", () => {
+      const a = b.dataset.lvx;
+      if (a === "gerar") gerarLegenda();
+      if (a === "corrigir") corrigirLegenda();
+      if (a === "cancelar" && M.lvJob) api("POST", `/api/jobs/${M.pid}/${M.lvJob.job}/cancelar`).catch((e) => toast(e.message, true));
+    }));
+  }
+  async function gerarLegenda() {
+    if (M.lvJob) return;
+    if (!M.m.items.some((i) => i.type === "video" || i.type === "audio")) return toast("Coloque na linha do tempo um vídeo ou áudio com fala.");
+    const lv = M.m.legenda_viva, cfg = { style: (lv && lv.cfg && lv.cfg.style) || M.lvEstilo || "palavra_ativa" };
+    if (lv && lv.cfg) ["position", "size_pct", "highlight", "keyword_color", "keywords"].forEach((k) => { if (lv.cfg[k] != null) cfg[k] = lv.cfg[k]; });
+    clearTimeout(M.saveT);
+    try {
+      const marca = marcaFala();
+      const r = await api("POST", `/api/projects/${M.pid}/montagem/legenda`, { montagem: M.m, cfg });
+      M.lvJob = { job: r.job, pct: 0, msg: "Na fila…", marca };
+      setSaveState("Salvo"); renderProps();
+      toast("Fazendo a legenda. Pode continuar editando.");
+      vigiaLegenda();
+    } catch (e) { toast(e.message, true); }
+  }
+  function vigiaLegenda() {
+    if (M.lvPoll) return;
+    const pid = M.pid;
+    M.lvPoll = setInterval(async () => {
+      if (!M.lvJob || M.pid !== pid) { clearInterval(M.lvPoll); M.lvPoll = null; return; }
+      let js; try { js = await api("GET", `/api/jobs/${pid}`); } catch (_) { return; }
+      const j = js.find((x) => x.id === M.lvJob.job);
+      if (!j) { M.lvJob = null; renderProps(); return; }
+      M.lvJob.pct = j.pct; M.lvJob.msg = j.status === "na fila" ? "Na fila (esperando outra tarefa terminar)…" : j.msg;
+      if (j.status === "concluido" || j.status === "erro" || j.status === "cancelado") {
+        const marca = M.lvJob.marca || marcaFala();
+        M.lvJob = null; clearInterval(M.lvPoll); M.lvPoll = null;
+        if (j.status === "erro") toast("Não deu para fazer a legenda: " + j.error, true);
+        else if (j.status === "cancelado") toast("Legenda cancelada.");
+        else if (j.result && j.result.legenda_viva) {
+          M.m.legenda_viva = { ...j.result.legenda_viva, marca }; save(); draw(); renderAll();
+          toast(`Legenda pronta: ${j.result.palavras} palavras. Toque no play para ver.`);
+        }
+        renderProps();
+        return;
+      }
+      const el = $(".mt-lvjob", box());
+      if (el) { $("i", el).style.width = Math.round(M.lvJob.pct * 100) + "%"; $(".hint", el).textContent = M.lvJob.msg; }
+      else renderProps();
+    }, 1200);
+  }
+  function corrigirLegenda() {
+    const lv = M.m.legenda_viva; if (!lv) return;
+    let base = palavrasLv(lv);
+    const blocos = []; let i = 0;
+    lv.caps.forEach((c) => { const n = c.lines.reduce((a, l) => a + l.length, 0); blocos.push({ s: c.s, e: c.e, i0: i, n }); i += n; });
+    if (i !== base.length) base = lv.caps.flatMap((c) => c.lines.flat()).map((w) => ({ ...w }));  // legenda antiga sem as palavras
+    const texto = (b) => base.slice(b.i0, b.i0 + b.n).map((w) => w.w).join(" ");
+    const velho = $(".mt-lvedit", box()); if (velho) velho.remove();
+    const dlg = document.createElement("div");
+    dlg.className = "mt-lvedit";
+    dlg.innerHTML = `<div class="mt-lvbox" role="dialog" aria-label="Corrigir a legenda">
+      <div class="row between"><b>Corrigir a legenda</b><button class="btn icon small ghost" data-x="fechar" aria-label="Fechar">${ico(I.x)}</button></div>
+      <p class="hint">Corrija as palavras de cada trecho. Apagar todo o texto tira o trecho. Toque no tempo para ver na prévia.</p>
+      <input type="text" class="mt-lvbusca" placeholder="Procurar palavra…" maxlength="60">
+      <div class="mt-lvlista">${blocos.map((b, k) => `<div class="mt-lvrow" data-k="${k}"><button type="button" class="mt-lvt mono" data-seek="${b.s}">${fmt(b.s, true)}</button><input type="text" value="${esc(texto(b))}" maxlength="300"></div>`).join("")}</div>
+      <div class="row between"><span class="hint">${blocos.length} trechos</span><div class="row"><button class="btn small ghost" data-x="fechar">Cancelar</button><button class="btn small primary" data-x="ok">Salvar correções</button></div></div>
+    </div>`;
+    box().appendChild(dlg);
+    $$("input", dlg).forEach((inp) => inp.addEventListener("keydown", (e) => { e.stopPropagation(); if (e.key === "Escape") dlg.remove(); }));
+    $$("[data-seek]", dlg).forEach((b) => b.addEventListener("click", () => seek(+b.dataset.seek + 0.02)));
+    $$(".mt-lvrow input", dlg).forEach((inp) => inp.addEventListener("focus", () => seek(+inp.previousElementSibling.dataset.seek + 0.02)));
+    $(".mt-lvbusca", dlg).addEventListener("input", (e) => {
+      const qq = e.target.value.trim().toLowerCase();
+      $$(".mt-lvrow", dlg).forEach((r) => r.classList.toggle("hidden", !!qq && !$("input", r).value.toLowerCase().includes(qq)));
+    });
+    $$("[data-x=fechar]", dlg).forEach((b) => b.addEventListener("click", () => dlg.remove()));
+    dlg.addEventListener("pointerdown", (e) => { if (e.target === dlg) dlg.remove(); });
+    $("[data-x=ok]", dlg).addEventListener("click", async () => {
+      const novas = [];
+      let mudou = 0;
+      blocos.forEach((b, k) => {
+        const velhas = base.slice(b.i0, b.i0 + b.n), orig = texto(b);
+        const txt = $(`.mt-lvrow[data-k="${k}"] input`, dlg).value.trim().replace(/\s+/g, " ");
+        if (txt === orig) { novas.push(...velhas); return; }
+        mudou++;
+        if (!txt || !velhas.length) return;
+        const toks = txt.split(" ");
+        if (toks.length === velhas.length) { toks.forEach((t, j) => novas.push({ ...velhas[j], w: t })); return; }
+        // número de palavras mudou: divide o tempo do trecho pelo tamanho de cada palavra
+        const s0 = velhas[0].s, e0 = velhas[velhas.length - 1].e, tot = toks.reduce((a, t) => a + t.length + 1, 0);
+        let acc = 0;
+        toks.forEach((t) => {
+          const s = s0 + ((e0 - s0) * acc) / tot; acc += t.length + 1;
+          novas.push({ w: t, s: +s.toFixed(3), e: +Math.max(s + 0.04, s0 + ((e0 - s0) * acc) / tot - 0.01).toFixed(3) });
+        });
+      });
+      if (!mudou) { dlg.remove(); return; }
+      if (!novas.length) return toast("A legenda ficaria vazia. Para tirar a legenda, escolha \"Desligada\".", true);
+      dlg.remove();
+      await remontaLv(novas, lv.cfg, `Legenda corrigida (${mudou} trecho${mudou > 1 ? "s" : ""}).`);
+    });
+    setTimeout(() => { const f = $(".mt-lvrow input", dlg); if (f) f.focus(); }, 30);
+  }
+
+  /* ---------------- v1.12: forma de onda nos pedaços com som ---------------- */
+  const ONDA = new Map();       // "projeto:mídia" -> { pps, p: Uint8Array } | "carregando" | "erro"
+  const ONDA_SVG = new Map();   // desenho pronto de cada pedaço (refeito só quando ele muda)
+  function ondaDe(mid) {
+    const chave = M.pid + ":" + mid, o = ONDA.get(chave);
+    if (o) return typeof o === "object" ? o : null;
+    ONDA.set(chave, "carregando");
+    api("GET", `${urlMidia(mid)}/onda`).then((r) => {
+      const bin = atob(r.peaks || ""), p = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) p[i] = bin.charCodeAt(i);
+      ONDA.set(chave, { pps: r.pps || 25, p });
+      if (M.open && M.pid + ":" + mid === chave) renderTimeline();
+    }).catch(() => ONDA.set(chave, "erro"));
+    return null;
+  }
+  function ondaSVG(it, w) {
+    const md = media(it.src); if (!md || !(md.has_audio || md.kind === "audio")) return "";
+    const o = ondaDe(it.src); if (!o || !o.p.length) return "";
+    const cheia = it.type === "audio";
+    const chave = [M.pid, it.src, it.in, it.dur, it.speed, Math.round(w), it.volume, cheia].join("|");
+    const pronto = ONDA_SVG.get(chave); if (pronto != null) return pronto;
+    const passo = Math.max(2, w / 1500), n = Math.max(1, Math.floor(w / passo));
+    const vol = clamp(it.volume, 0, 2), fator = vol <= 0.001 ? 0 : Math.min(1.25, 0.3 + vol * 0.7);
+    let d = "";
+    for (let i = 0; i < n; i++) {
+      const t0 = it.in + ((i * passo) / w) * it.dur * it.speed, t1 = it.in + (((i + 1) * passo) / w) * it.dur * it.speed;
+      const a = Math.floor(t0 * o.pps), b = Math.max(a + 1, Math.ceil(t1 * o.pps));
+      let mx = 0; for (let k = a; k < b && k < o.p.length; k++) if (o.p[k] > mx) mx = o.p[k];
+      const h = Math.min(1, (mx / 255) * fator) * 47;
+      if (h < 0.8) continue;
+      const x = (i * passo + passo / 2).toFixed(1);
+      d += cheia ? `M${x} ${(50 - h).toFixed(1)}V${(50 + h).toFixed(1)}` : `M${x} 100V${(100 - h * 2).toFixed(1)}`;
+    }
+    const svg = d ? `<svg class="mt-wave ${cheia ? "full" : "low"}" viewBox="0 0 ${w.toFixed(1)} 100" preserveAspectRatio="none" aria-hidden="true"><path d="${d}"/></svg>` : "";
+    if (ONDA_SVG.size > 800) ONDA_SVG.clear();
+    ONDA_SVG.set(chave, svg);
+    return svg;
+  }
+
+  /* ---------------- v1.12: separar o áudio, congelar quadro, copiar/colar ajustes ---------------- */
+  function separarAudio(it) {
+    const md = media(it.src); if (!md || !md.has_audio || it.volume <= 0.001) return;
+    if (track(it.track).locked) return toast("Essa trilha está travada.");
+    const before = snapshot();
+    const a = { id: uid("i"), type: "audio", track: null, src: it.src, start: it.start, dur: it.dur, in: it.in, x: 0.5, y: 0.5, scale: 1,
+      rot: 0, opacity: 1, volume: it.volume, fadeIn: it.fadeIn, fadeOut: it.fadeOut, speed: it.speed, fit: "contain", ...(it.voz ? { voz: true } : {}) };
+    M.m.items.push(a);
+    place(a, (M.m.tracks.find((t) => t.kind === "audio" && !t.locked) || {}).id);
+    it.volume = 0; delete it.voz;
+    M.sel = a.id; commit(before);
+    toast("Áudio separado: agora ele é um pedaço na trilha de áudio, e o vídeo ficou sem som.");
+  }
+  async function congelar(it) {
+    if (!it || it.type !== "video") return;
+    if (track(it.track).locked) return toast("Essa trilha está travada.");
+    const lt = M.t - it.start;
+    if (lt < -1e-6 || lt > it.dur + 1e-6) return toast("Leve o cursor para cima do vídeo, no ponto que quer congelar.");
+    const ltc = clamp(lt, 0, Math.max(0, it.dur - 1 / fps()));
+    const ts = it.in + ltc * it.speed;
+    const V = {}; KF_KEYS.forEach((k) => (V[k] = +(+valAt(it, k, ltc)).toFixed(4)));
+    toast("Tirando o quadro…");
+    let md;
+    try { md = await api("POST", `/api/projects/${M.pid}/montagem/congelar`, { src: it.src, t: ts }); }
+    catch (e) { return toast(e.message, true); }
+    if (!media(md.id)) M.m.media.push(md);
+    if (!itemById(it.id)) return;
+    const before = snapshot(), DUR = 2, cut = q(M.t);
+    let pos;
+    if (cut > it.start + 1 / fps() && cut < it.start + it.dur - 1 / fps()) { cortar(it, cut); pos = cut; }
+    else pos = cut >= it.start + it.dur - 1 / fps() ? it.start + it.dur : it.start;
+    // o que vem depois, nesta trilha, anda 2 segundos para abrir espaço
+    M.m.items.forEach((o) => { if (o.track === it.track && (o !== it || pos <= it.start + 1e-6) && o.start >= pos - 1e-6) o.start = q(o.start + DUR); });
+    const im = { id: uid("i"), type: "image", track: it.track, src: md.id, start: q(pos), dur: DUR, in: 0, ...V, volume: 1,
+      fadeIn: 0, fadeOut: 0, speed: 1, fit: it.fit };
+    ["fx", "chroma", "mask"].forEach((k) => { if (it[k]) im[k] = JSON.parse(JSON.stringify(it[k])); });
+    M.m.items.push(im);
+    M.sel = im.id; compactMain(); commit(before); renderMedia();
+    toast("Quadro congelado por 2 segundos. Puxe a ponta do pedaço para mudar o tempo.");
+  }
+  const AJ = { geral: ["x", "y", "scale", "rot", "opacity", "fadeIn", "fadeOut"], visual: ["fit", "fx", "chroma", "mask"],
+    som: ["volume", "voz"], texto: ["font", "size", "color", "stroke", "strokeW", "box", "boxOn", "boxAlpha", "upper"] };
+  const gruposAj = (tipo) => ({ video: ["geral", "visual", "som"], image: ["geral", "visual"], color: ["geral"], text: ["geral", "texto"], audio: ["som"] }[tipo] || []);
+  function copiarAjustes(it) {
+    const v = {};
+    gruposAj(it.type).forEach((g) => AJ[g].forEach((k) => { if (it[k] !== undefined) v[k] = JSON.parse(JSON.stringify(it[k])); }));
+    if (it.type === "audio") { v.fadeIn = it.fadeIn; v.fadeOut = it.fadeOut; }
+    if (it.kf && it.type !== "audio") v.kf = JSON.parse(JSON.stringify(it.kf));
+    M.clip = { tipo: it.type, v };
+    try { localStorage.setItem("vox-ajustes", JSON.stringify(M.clip)); } catch (_) {}
+    toast("Ajustes copiados. Selecione outro pedaço e toque em Colar ajustes (Ctrl+Alt+V).");
+  }
+  function colarAjustes(it) {
+    let c = M.clip;
+    if (!c) { try { c = JSON.parse(localStorage.getItem("vox-ajustes") || "null"); } catch (_) {} }
+    if (!c || !c.v) return toast("Copie os ajustes de um pedaço primeiro (Ctrl+Alt+C).");
+    if (track(it.track).locked) return toast("Essa trilha está travada.");
+    const before = snapshot(), ks = new Set(), daOrigem = new Set();
+    gruposAj(it.type).forEach((g) => AJ[g].forEach((k) => ks.add(k)));
+    gruposAj(c.tipo).forEach((g) => AJ[g].forEach((k) => daOrigem.add(k)));
+    if (it.type === "audio") { ks.add("fadeIn"); ks.add("fadeOut"); }
+    let n = 0;
+    ks.forEach((k) => {
+      if (k in c.v) { it[k] = JSON.parse(JSON.stringify(c.v[k])); n++; }
+      else if (["fx", "chroma", "mask", "voz"].includes(k) && daOrigem.has(k)) { delete it[k]; n++; }  // a origem não tinha: tira
+    });
+    if (ks.has("x") && daOrigem.has("x")) {
+      const kf = (c.v.kf || []).filter((k) => k.t <= it.dur + 1e-6).map((k) => ({ ...k }));
+      if (kf.length) it.kf = kf; else delete it.kf;
+    }
+    if (!n) return toast("Esses ajustes não servem para este tipo de pedaço.");
+    commit(before); toast("Ajustes colados.");
+  }
+
+  /* ---------------- v1.12: gravar narração direto na Montagem ---------------- */
+  async function narrar() {
+    if (M.rec) return pararNarracao();
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder)
+      return toast("Esta janela não tem acesso ao microfone. Abra pelo INICIAR-NAVEGADOR.bat.", true);
+    let stream;
+    try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 } }); }
+    catch (e) {
+      const motivo = { NotAllowedError: "O acesso ao microfone foi bloqueado (pela janela do programa ou pelo Windows).",
+        NotFoundError: "Nenhum microfone foi encontrado. Confira se ele está conectado.",
+        NotReadableError: "O microfone está ocupado por outro programa (feche OBS, WhatsApp, chamadas) e tente de novo.",
+        SecurityError: "O acesso ao microfone foi bloqueado." }[e.name] || ("Erro do microfone: " + (e.message || e.name));
+      return toast(motivo + " No Windows: Configurações → Privacidade → Microfone.", true);
+    }
+    const tipo = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus", "audio/mp4"]
+      .find((t) => MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) || "";
+    let mr;
+    try { mr = new MediaRecorder(stream, tipo ? { mimeType: tipo, audioBitsPerSecond: 128000 } : undefined); }
+    catch (e) { stream.getTracks().forEach((t) => t.stop()); return toast("Não consegui gravar: " + e.message, true); }
+    stop();
+    M.rec = { mr, stream, partes: [], t0: q(M.t), ini: performance.now(), tipo: mr.mimeType || tipo };
+    mr.ondataavailable = (e) => { if (e.data && e.data.size && M.rec) M.rec.partes.push(e.data); };
+    mr.onstop = () => enviaNarracao();
+    mr.start(500);
+    const btn = $(".mt-narrar", box());
+    btn.classList.add("rec"); $(".lbl", btn).textContent = "Parar 0:00";
+    M.recT = setInterval(() => { if (M.rec) $(".lbl", btn).textContent = "Parar " + fmt((performance.now() - M.rec.ini) / 1000); }, 250);
+    toast("Gravando! A montagem toca sem som enquanto você fala. Clique em Parar (ou Espaço) para terminar.");
+    if (M.m.items.length && M.t < total() - 0.05) play();
+  }
+  function pararNarracao() {
+    const R = M.rec; if (!R || R.parando) return;
+    R.parando = true;
+    clearInterval(M.recT); stop();
+    const btn = $(".mt-narrar", box()); btn.classList.remove("rec"); $(".lbl", btn).textContent = "Enviando…";
+    try { R.mr.stop(); } catch (_) { enviaNarracao(); }
+    R.stream.getTracks().forEach((t) => t.stop());
+  }
+  async function enviaNarracao() {
+    const R = M.rec; M.rec = null; if (!R) return;
+    const btn = $(".mt-narrar", box());
+    const fim = () => { if (btn) $(".lbl", btn).textContent = "Narrar"; };
+    const blob = new Blob(R.partes, { type: R.tipo || "audio/webm" });
+    if (blob.size < 500) { fim(); return toast("A gravação ficou vazia. Confira o microfone.", true); }
+    try {
+      const r = await fetch(`/api/projects/${M.pid}/montagem/narracao`, { method: "POST", body: blob, headers: { "Content-Type": "application/octet-stream" } });
+      if (!r.ok) { let msg = r.statusText; try { msg = (await r.json()).detail || msg; } catch (_) {} throw new Error(msg); }
+      const md = await r.json();
+      if (!media(md.id)) M.m.media.push(md);
+      const before = snapshot();
+      let tr = M.m.tracks.find((t) => t.kind === "audio" && /narra/i.test(t.name) && !t.locked);
+      if (!tr) { tr = newTrack("audio", M.m.tracks.length); tr.name = "Narração"; }
+      const it = { id: uid("i"), type: "audio", track: null, src: md.id, start: R.t0, dur: q(Math.max(1 / fps(), md.duration || 1)), in: 0,
+        x: 0.5, y: 0.5, scale: 1, rot: 0, opacity: 1, volume: 1, fadeIn: 0, fadeOut: 0, speed: 1, fit: "contain" };
+      M.m.items.push(it); place(it, tr.id);
+      M.sel = it.id; commit(before); renderMedia();
+      toast("Narração na linha do tempo! Dica: em Ajustes, marque \"Voz de estúdio\".");
+    } catch (e) { toast("Não deu para usar a gravação: " + e.message, true); }
+    fim();
+  }
+
   /* ---------------- teclado ---------------- */
 
   function keys(e) {
@@ -2234,13 +2611,20 @@ const Montagem = (() => {
     const tag = (e.target.tagName || "").toLowerCase();
     if (["input", "select", "textarea"].includes(tag) || e.target.isContentEditable) return;
     const ctrl = e.ctrlKey || e.metaKey;
+    if (M.rec && (e.code === "Space" || e.key === "Escape")) { e.preventDefault(); pararNarracao(); return; }
     if (e.code === "Space") { e.preventDefault(); toggle(); return; }
+    if (ctrl && e.altKey && (e.code === "KeyC" || e.code === "KeyV")) {
+      const it = itemById(M.sel);
+      if (it) { e.preventDefault(); if (e.code === "KeyC") copiarAjustes(it); else colarAjustes(it); }
+      return;
+    }
     if (ctrl && e.key.toLowerCase() === "z") { e.preventDefault(); if (e.shiftKey) redo(); else undo(); return; }
     if (ctrl && e.key.toLowerCase() === "y") { e.preventDefault(); redo(); return; }
     if (ctrl && e.key.toLowerCase() === "d") { e.preventDefault(); duplicate(); return; }
     if (ctrl) return;
     if (e.key.toLowerCase() === "s") { e.preventDefault(); split(); }
     if (e.key.toLowerCase() === "m") { e.preventDefault(); marcador(); }
+    if (e.key.toLowerCase() === "f") { const it = itemById(M.sel); if (it && it.type === "video") { e.preventDefault(); congelar(it); } }
     if (e.key === "," || e.key === ".") { e.preventDefault(); pulaMarcador(e.key === "." ? 1 : -1); }
     if (e.key.toLowerCase() === "k") {
       const it = itemById(M.sel);
@@ -2260,5 +2644,5 @@ const Montagem = (() => {
     if (e.key === "Escape" && M.sel) { M.sel = null; renderTimeline(); renderProps(); draw(); }
   }
 
-  return { open, close, flush, get state() { return M; } };
+  return { open, close, flush, get state() { return M; }, marcaFala };
 })();
