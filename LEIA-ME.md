@@ -1,4 +1,32 @@
-# VOX Editor — edição de vídeo com cortes inteligentes e montagem manual (versão 1.13)
+# VOX Editor — edição de vídeo com cortes inteligentes e montagem manual (versão 1.14)
+
+## Correção da versão 1.14.1
+
+- No programa do PC, o botão **Baixar** dos vídeos exportados dava "is not a valid file filter" e não salvava. Agora
+  abre a janela Salvar do Windows normalmente.
+
+## Novidades da versão 1.14 — Super Pacote 3 (parte 1): Resumo do Culto
+
+Menu **Resumo do Culto** (ou botão **Novo → Resumo do Culto**, ou o cartão na tela inicial).
+
+- **Envie tudo de uma vez**: vários vídeos e fotos do culto (do PC ou do celular). Eles começam a subir na hora,
+  enquanto você escolhe as opções. Uma música (MP3) enviada junto vira a trilha do resumo.
+- **Na ordem do culto**: o programa lê a hora em que cada vídeo e foto foi gravado (dados do celular/câmera) e monta
+  na sequência em que aconteceu. Dá para desmarcar e usar a ordem de envio.
+- **Ele entende o que aconteceu**: mede o som de cada vídeo (música/canto ou fala), transcreve as falas mais fortes
+  e separa **Louvor**, **Oração** e **Palavra**. Vídeo escuro, tremido ou fora de foco aparece pouco; fotos repetidas
+  (rajada) entram uma vez só; fotos com pessoas ganham preferência.
+- **Momentos com som original**: uma frase forte da pregação (com legenda animada) e um trecho do louvor; a música
+  de fundo abaixa sozinha nesses momentos.
+- **Cortes no ritmo da música**, nome de cada parte na tela, abertura com o nome e a data por extenso, encerramento
+  com a sua marca, cor (natural, viva, cinema, quente, dourada, suave) e câmera lenta nos vídeos gravados em 60 quadros.
+- **Duração**: 30 s, 1 min, 1min30 ou 3 min. **Ritmo**: emocionante ou animado. Formatos 9:16, 16:9 e 1:1.
+- Enquadramento automático: no vertical, o vídeo deitado segue o rosto de quem está na frente; a foto deitada aparece
+  inteira com o fundo desfocado.
+- **IA opcional** (Claude ou outra): escolhe as frases e dá o título. Custa centavos. Sem IA, o programa escolhe sozinho.
+- **Seus resumos**: refaça com outra duração, formato ou ritmo em segundos — a análise dos arquivos fica guardada.
+- O resultado abre na **Montagem**, com marcadores nos momentos: troque pedaços, mexa nos textos e exporte.
+- IA: o **Claude Haiku 5.5** entrou na lista e virou o recomendado (custa cerca de 10 vezes menos que o Haiku 4.5).
 
 ## Novidades da versão 1.13 — Super Pacote 2 (parte 2): fundo desfocado, figurinhas e seleção de vários
 

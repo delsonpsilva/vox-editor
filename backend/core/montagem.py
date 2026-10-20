@@ -380,7 +380,7 @@ def adicionar_midia(pid: str, origem: Path, nome: str, extra: dict | None = None
             "fps": info.get("fps", 30), "size": origem.stat().st_size, "added": time.time()}
     if extra:  # ex.: crédito e licença de uma trilha da biblioteca livre
         item.update({k: v for k, v in extra.items() if k in ("credito", "licenca", "trilha", "banco", "alpha",
-                                                              "substitui", "semfundo")})
+                                                              "substitui", "semfundo", "quando", "auto")})
     if kind == "image" and Path(nome).suffix.lower() == ".gif":
         item["kind"] = "image"
     if kind == "video" and item.get("alpha"):

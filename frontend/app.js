@@ -64,7 +64,7 @@ async function boot() {
 function route() {
   const m = location.hash.match(/^#\/p\/([0-9a-f]+)(\/cortes|\/montagem)?/);
   if (m) { S.mode = m[2] === "/cortes" ? "studio" : m[2] === "/montagem" ? "montage" : "edit"; openProject(m[1]); return; }
-  const pg = (location.hash.match(/^#\/(projetos|exportados|marca|publicacoes|modelos|redes|ia|usuarios|conta|historia)/) || [])[1] || "inicio";
+  const pg = (location.hash.match(/^#\/(projetos|exportados|marca|publicacoes|modelos|redes|ia|usuarios|conta|historia|resumo)/) || [])[1] || "inicio";
   goHome(pg);
 }
 window.addEventListener("hashchange", () => READY.then(route));
@@ -96,6 +96,7 @@ async function goHome(page = "inicio") {
   if (page === "redes") renderRedes();
   if (window.V17) V17.onHome(page);
   if (window.V19) V19.onHome(page);
+  if (window.V114) V114.onHome(page);
   if (page === "ia" && !(S.prevPage === "ia" && $("#ia-form").dataset.loaded)) renderIA();
   if (page !== "ia") delete $("#ia-form").dataset.loaded;
   refreshQueueCount();
@@ -2054,13 +2055,13 @@ const PRESETS = {
   groq: { "transcription.api_base": "https://api.groq.com/openai/v1", "transcription.api_model": "whisper-large-v3-turbo" },
   openai: { "transcription.api_base": "https://api.openai.com/v1", "transcription.api_model": "whisper-1" },
 };
-const AI_MODELS = { anthropic: "claude-haiku-4-5-20251001", openai_compat: "gpt-4o-mini" };
+const AI_MODELS = { anthropic: "claude-haiku-5-5", openai_compat: "gpt-4o-mini" };
 const AI_MODEL_LIST = {
-  anthropic: [["claude-haiku-4-5-20251001", "Haiku 4.5 — rápido e barato (recomendado)"], ["claude-sonnet-5-5", "Sonnet 5.5 — escreve melhor, custa o dobro"]],
+  anthropic: [["claude-haiku-5-5", "Haiku 5.5 — o mais rápido e barato (recomendado)"], ["claude-haiku-4-5-20251001", "Haiku 4.5 — anterior, custa 10x mais"], ["claude-sonnet-5-5", "Sonnet 5.5 — escreve melhor, custa mais"]],
   openai_compat: [["gpt-4o-mini", "GPT-4o mini — barato"], ["gpt-4.1-mini", "GPT-4.1 mini"], ["gpt-4.1", "GPT-4.1"]],
 };
 // custo aproximado por hora de vídeo (texto da transcrição + respostas), pelos preços oficiais da Anthropic
-const AI_COST = { "claude-haiku-4-5": 0.10, "claude-sonnet-5-5": 0.20, "claude-opus-5-5": 0.40 };
+const AI_COST = { "claude-haiku-5-5": 0.01, "claude-haiku-4-5": 0.10, "claude-sonnet-5-5": 0.20, "claude-opus-5-5": 0.40 };
 const AI_WHERE = {
   anthropic: ["platform.claude.com", "https://platform.claude.com/settings/keys"],
   openai_compat: ["platform.openai.com", "https://platform.openai.com/api-keys"],
@@ -2151,7 +2152,7 @@ function iaExtras() {
   const form = $("#ia-form"), prov = formVal(form, "ai.provider");
   $("#ia-models").innerHTML = (AI_MODEL_LIST[prov] || []).map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join("");
   const w = AI_WHERE[prov];
-  $("#ia-where").innerHTML = w ? `Onde pegar a chave: <a href="${w[1]}" target="_blank" rel="noopener" data-ext>${w[0]}</a>. É preciso colocar crédito na conta (a partir de US$ 5).` : "";
+  $("#ia-where").innerHTML = w ? `Onde pegar a chave: <a href="${w[1]}" target="_blank" rel="noopener" data-ext>${w[0]}</a>. É preciso ter crédito na conta (a partir de US$ 5; no plano Max do Claude vem crédito todo mês).` : "";
   const model = form.elements["ai.model"].value || "";
   const k = Object.keys(AI_COST).find((x) => model.startsWith(x));
   $("#ia-cost").innerHTML = prov === "none" ? "" : k

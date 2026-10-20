@@ -22,7 +22,7 @@ DEFAULT_CONFIG = {
     "app": {"name": "Editor IA", "tagline": "Do vídeo longo ao Reels pronto, com legenda.", "accent": "#FF8A3D"},
     "transcription": {"provider": "local", "local_model": "small", "device": "auto", "language": "pt",
                       "api_base": "https://api.groq.com/openai/v1", "api_key": "", "api_model": "whisper-large-v3-turbo"},
-    "ai": {"provider": "none", "api_key": "", "model": "claude-haiku-4-5-20251001",
+    "ai": {"provider": "none", "api_key": "", "model": "claude-haiku-5-5",
            "base_url": "https://api.openai.com/v1"},
     "render": {"encoder": "auto", "quality": "alta"},
     "defaults": {},
@@ -226,7 +226,7 @@ def list_projects(todos: bool = False) -> list[dict]:
                         "has_video": bool(p.get("media", {}).get("has_video")),
                         "clips": len(p.get("clips") or []), "renders": len(p.get("renders") or []),
                         "size": p.get("size", 0), "kind": p.get("kind") or "", "recebidos": bool(p.get("recebidos")),
-                        "montagem": (f.parent / "montagem.json").exists()})
+                        "montagem": (f.parent / "montagem.json").exists(), "resumo": bool(p.get("resumo"))})
         except Exception:
             continue
     return sorted(out, key=lambda x: -x["created"])

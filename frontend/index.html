@@ -44,7 +44,8 @@ try{var t=localStorage.getItem("vox_tema");if(t==="claro"){document.documentElem
           <span class="nav-group"><i class="nav-dot"></i>Criar</span>
           <a href="#/" data-page="inicio" data-tip="Início"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg><span class="lbl">Início</span></a>
           <a href="#/projetos" data-page="projetos" data-tip="Projetos"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 9h18M8 4v5M16 4v5"/></svg><span class="lbl">Projetos</span> <span class="count" id="nav-count-p"></span></a>
-          <a href="#/historia" data-page="historia" data-tip="História → Vídeo"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5V5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2.5z"/><path d="M10 8l5 3-5 3z"/></svg><span class="lbl">História → Vídeo</span> <span class="count ok">novo</span></a>
+          <a href="#/historia" data-page="historia" data-tip="História → Vídeo"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5V5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2.5z"/><path d="M10 8l5 3-5 3z"/></svg><span class="lbl">História → Vídeo</span></a>
+          <a href="#/resumo" data-page="resumo" data-tip="Resumo do Culto"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="9" height="12" rx="1.5"/><rect x="13" y="3" width="9" height="8" rx="1.5"/><rect x="13" y="13" width="9" height="8" rx="1.5"/><path d="M5.5 10.5l2 1.5-2 1.5z"/></svg><span class="lbl">Resumo do Culto</span> <span class="count ok">novo</span></a>
           <a href="#/exportados" data-page="exportados" data-tip="Exportados"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg><span class="lbl">Exportados</span> <span class="count" id="nav-count-r"></span></a>
         </div>
         <div class="nav-card" data-area="publicar">
@@ -95,6 +96,7 @@ try{var t=localStorage.getItem("vox_tema");if(t==="claro"){document.documentElem
               <button type="button" data-new="arquivo" role="menuitem"><b>Enviar vídeo</b><span>Do computador ou do celular</span></button>
               <button type="button" data-new="link" role="menuitem"><b>Importar por link</b><span>YouTube e outros sites</span></button>
               <button type="button" data-new="historia" role="menuitem"><b>História → Vídeo</b><span>Texto, áudio ou narração ao vivo</span></button>
+              <button type="button" data-new="resumo" role="menuitem"><b>Resumo do Culto</b><span>Vídeos e fotos viram um resumão com música</span></button>
               <hr>
               <button type="button" data-new="9:16" role="menuitem"><b>Montagem vertical 9:16</b><span>Reels, Shorts e TikTok</span></button>
               <button type="button" data-new="16:9" role="menuitem"><b>Montagem horizontal 16:9</b><span>YouTube e TV</span></button>
@@ -142,6 +144,11 @@ try{var t=localStorage.getItem("vox_tema");if(t==="claro"){document.documentElem
               <span class="ac-ic" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5V5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2.5z"/><path d="M10 8l5 3-5 3z"/></svg></span>
               <b>História → Vídeo</b><span class="ac-txt">Texto, áudio ou narração viram vídeo pronto</span>
               <span class="ac-go">Criar história <svg class="ac-seta" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+            </button>
+            <button type="button" class="acao" data-acao="resumo" data-area="resumo">
+              <span class="ac-ic" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="9" height="12" rx="1.5"/><rect x="13" y="3" width="9" height="8" rx="1.5"/><rect x="13" y="13" width="9" height="8" rx="1.5"/><path d="M5.5 10.5l2 1.5-2 1.5z"/></svg></span>
+              <b>Resumo do Culto</b><span class="ac-txt">Vídeos e fotos do culto viram um resumão com música</span>
+              <span class="ac-go">Criar resumo <svg class="ac-seta" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
             </button>
             <button type="button" class="acao" data-acao="zero" data-area="zero">
               <span class="ac-ic" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="5" rx="1.5"/><rect x="3" y="11" width="11" height="4" rx="1.5"/><rect x="3" y="17" width="15" height="4" rx="1.5"/></svg></span>
@@ -217,6 +224,91 @@ try{var t=localStorage.getItem("vox_tema");if(t==="claro"){document.documentElem
         </div>
       </section>
 
+
+      <!-- Resumo do Culto (v1.14) -->
+      <section class="page hidden" id="pg-resumo">
+        <header class="page-head">
+          <div><h1>Resumo do Culto</h1><p>Envie os vídeos e as fotos que você fez no culto. O programa escolhe os melhores momentos — louvor, oração e pregação —, coloca na ordem em que aconteceram e monta o resumão com música, títulos e a sua marca.</p></div>
+        </header>
+        <div class="hs-grid">
+          <div class="hs-main">
+            <section class="pane">
+              <label class="rs-drop" id="rs-drop" for="rs-arquivos">
+                <input id="rs-arquivos" type="file" multiple accept="video/*,image/*,audio/*,.mov,.mkv,.mts,.m4a,.mp3" hidden>
+                <span class="rs-drop-ic" aria-hidden="true"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M7 8l5-5 5 5"/><path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg></span>
+                <b>Arraste aqui os vídeos e as fotos do culto</b>
+                <span>ou clique para escolher — pode mandar vários de uma vez, até do celular. Uma música (MP3) enviada junto vira a trilha do resumo.</span>
+              </label>
+              <div class="row between rs-info hidden" id="rs-info">
+                <span id="rs-conta"></span>
+                <button type="button" class="btn ghost small" id="rs-novo">Começar outro resumo</button>
+              </div>
+              <p class="hint hidden" id="rs-refazendo"></p>
+              <div class="rs-lista" id="rs-lista"></div>
+            </section>
+            <section class="pane hidden" id="rs-andamento">
+              <div class="row between"><b id="rs-and-tit">Montando o resumo…</b><span class="hint" id="rs-and-pct">0%</span></div>
+              <div class="bar hs-bar"><i id="rs-and-bar"></i></div>
+              <p class="hint" id="rs-and-msg">Começando…</p>
+            </section>
+
+          </div>
+          <aside class="pane hs-opcoes">
+            <h2>Como vai ficar</h2>
+            <label class="field">Nome do resumo <input id="rs-nome" placeholder="Ex.: Culto da Família"></label>
+            <div class="grid2">
+              <label class="field">Tipo <select id="rs-evento"></select></label>
+              <label class="field">Data <input id="rs-data" type="date"></label>
+            </div>
+            <div class="field">Formato
+              <div class="chips" id="rs-formato">
+                <button type="button" class="chip-btn active" data-v="9:16">9:16 Reels</button>
+                <button type="button" class="chip-btn" data-v="16:9">16:9 YouTube</button>
+                <button type="button" class="chip-btn" data-v="1:1">1:1 Feed</button>
+              </div>
+            </div>
+            <div class="field">Duração
+              <div class="chips" id="rs-duracao">
+                <button type="button" class="chip-btn" data-v="30">30 s</button>
+                <button type="button" class="chip-btn active" data-v="60">1 min</button>
+                <button type="button" class="chip-btn" data-v="90">1min30</button>
+                <button type="button" class="chip-btn" data-v="180">3 min</button>
+              </div>
+            </div>
+            <div class="field">Ritmo
+              <div class="chips" id="rs-ritmo">
+                <button type="button" class="chip-btn active" data-v="calmo">Emocionante</button>
+                <button type="button" class="chip-btn" data-v="animado">Animado</button>
+              </div>
+            </div>
+            <label class="field">Música <select id="rs-musica"></select></label>
+            <div class="grid2">
+              <label class="field">Cor <select id="rs-cor">
+                <option value="natural">Natural</option><option value="vivo">Viva</option><option value="cinema">Cinema</option>
+                <option value="quente">Quente</option><option value="dourado">Dourada</option><option value="suave">Suave</option></select></label>
+              <label class="field">Enquadrar <select id="rs-enq">
+                <option value="auto">Automático</option><option value="preencher">Preencher a tela</option>
+                <option value="desfocado">Inteiro + fundo desfocado</option></select></label>
+            </div>
+            <label class="hs-check"><input type="checkbox" id="rs-som" checked> <span>Ouvir o som original nos melhores momentos <em class="hint">(uma frase forte da pregação e um trecho do louvor; a música abaixa sozinha)</em></span></label>
+            <label class="hs-check"><input type="checkbox" id="rs-legenda" checked> Legenda nas frases</label>
+            <label class="field" id="rs-leg-box">Estilo da legenda <select id="rs-leg-estilo"></select></label>
+            <label class="hs-check"><input type="checkbox" id="rs-rotulos" checked> <span>Nome de cada parte na tela <em class="hint" id="rs-rot-ex">(Louvor, Oração, Palavra)</em></span></label>
+            <label class="hs-check"><input type="checkbox" id="rs-abertura" checked> Abertura com o nome e a data</label>
+            <label class="hs-check"><input type="checkbox" id="rs-encerramento" checked> <span>Encerramento com a sua marca <em class="hint" id="rs-marca-msg"></em></span></label>
+            <label class="hs-check"><input type="checkbox" id="rs-logo"> Logo no canto o vídeo todo</label>
+            <label class="hs-check"><input type="checkbox" id="rs-ordem" checked> <span>Seguir a hora em que cada um foi gravado <em class="hint">(desmarque para usar a ordem em que você enviou)</em></span></label>
+            <label class="hs-check"><input type="checkbox" id="rs-ia" checked> <span>Usar a IA para escolher as frases e o título <em class="hint" id="rs-ia-msg"></em></span></label>
+            <button type="button" class="btn primary big" id="rs-criar">Criar o resumo</button>
+            <p class="hint" id="rs-dica">O resumo abre na Montagem: troque pedaços, mexa nos textos e exporte quando quiser.</p>
+          </aside>
+        </div>
+        <section class="pane hidden rs-meus-pane" id="rs-meus">
+              <h2>Seus resumos</h2>
+              <p class="hint">Refaça com outra duração, formato ou ritmo — os arquivos já estão lá e a análise fica guardada.</p>
+              <div class="rs-meus" id="rs-meus-lista"></div>
+            </section>
+      </section>
 
       <!-- História → Vídeo (v1.9) -->
       <section class="page hidden" id="pg-historia">
@@ -1211,5 +1303,6 @@ try{var t=localStorage.getItem("vox_tema");if(t==="claro"){document.documentElem
 <script src="editor-novo.js"></script>
 <script src="contas.js"></script>
 <script src="historia.js"></script>
+<script src="resumo.js"></script>
 </body>
 </html>

@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import os
 import struct
+import re
 import subprocess
 import sys
 import threading
@@ -193,8 +194,16 @@ class Api:
         """Botões "Baixar": abre a janela Salvar do Windows e grava o arquivo direto do programa."""
         import webview
         kind = getattr(getattr(webview, "FileDialog", None), "SAVE", None) or webview.SAVE_DIALOG
-        ext = Path(name).suffix.lstrip(".") or "*"
-        r = self.window.create_file_dialog(kind, save_filename=name, file_types=(f"Arquivo .{ext} (*.{ext})", "Todos os arquivos (*.*)"))
+        ext = re.sub(r"[^A-Za-z0-9]", "", Path(name).suffix) or "*"
+        # o nome do filtro só pode ter letras, números e espaços (um ponto nele dava "is not a valid file filter")
+        rotulo = {"mp4": "Vídeo MP4", "mov": "Vídeo MOV", "webm": "Vídeo WEBM", "mp3": "Áudio MP3", "wav": "Áudio WAV",
+                  "m4a": "Áudio M4A", "srt": "Legenda SRT", "vtt": "Legenda VTT", "vox": "Projeto VOX", "zip": "Arquivo ZIP",
+                  "png": "Imagem PNG", "jpg": "Imagem JPG", "txt": "Texto"}.get(ext.lower(), f"Arquivo {ext.upper()}")
+        try:
+            r = self.window.create_file_dialog(kind, save_filename=name,
+                                               file_types=(f"{rotulo} (*.{ext})", "Todos os arquivos (*.*)"))
+        except ValueError:  # versão do componente que recusa o filtro: abre a janela sem filtro
+            r = self.window.create_file_dialog(kind, save_filename=name)
         if not r:
             return None
         dest = r if isinstance(r, str) else r[0]
