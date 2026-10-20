@@ -1,0 +1,563 @@
+{
+ "v": 1,
+ "entrada": 0.45,
+ "saida": 0.35,
+ "sobe_vertical": 0.09,
+ "paletas": [
+  {
+   "id": "vox",
+   "nome": "VOX",
+   "c1": "#111214",
+   "c2": "#FF8A3D",
+   "t1": "#FFFFFF",
+   "t2": "#111111"
+  },
+  {
+   "id": "azul",
+   "nome": "Azul",
+   "c1": "#0B2545",
+   "c2": "#13C4FF",
+   "t1": "#FFFFFF",
+   "t2": "#0B2545"
+  },
+  {
+   "id": "vinho",
+   "nome": "Vinho",
+   "c1": "#3B0D1A",
+   "c2": "#E0B04A",
+   "t1": "#FFFFFF",
+   "t2": "#3B0D1A"
+  },
+  {
+   "id": "verde",
+   "nome": "Verde",
+   "c1": "#0F3D2E",
+   "c2": "#39E75F",
+   "t1": "#FFFFFF",
+   "t2": "#0F3D2E"
+  },
+  {
+   "id": "branco",
+   "nome": "Branco",
+   "c1": "#FFFFFF",
+   "c2": "#111111",
+   "t1": "#111111",
+   "t2": "#FFFFFF"
+  },
+  {
+   "id": "roxo",
+   "nome": "Roxo",
+   "c1": "#2A1050",
+   "c2": "#B57BFF",
+   "t1": "#FFFFFF",
+   "t2": "#2A1050"
+  },
+  {
+   "id": "vermelho",
+   "nome": "Vermelho",
+   "c1": "#141414",
+   "c2": "#E53935",
+   "t1": "#FFFFFF",
+   "t2": "#FFFFFF"
+  },
+  {
+   "id": "dourado",
+   "nome": "Dourado",
+   "c1": "#000000",
+   "c2": "#D4AF37",
+   "t1": "#FFFFFF",
+   "t2": "#000000"
+  },
+  {
+   "id": "ceu",
+   "nome": "Céu",
+   "c1": "#1565C0",
+   "c2": "#FFFFFF",
+   "t1": "#FFFFFF",
+   "t2": "#1565C0"
+  },
+  {
+   "id": "rosa",
+   "nome": "Rosa",
+   "c1": "#2B0B1E",
+   "c2": "#FF5FA2",
+   "t1": "#FFFFFF",
+   "t2": "#2B0B1E"
+  }
+ ],
+ "modelos": [
+  {
+   "id": "classica",
+   "nome": "Clássica",
+   "l1": "Pr. Nome Sobrenome",
+   "l2": "Igreja ou cargo",
+   "camadas": [
+    {
+     "k": "r",
+     "x": 0.05,
+     "y": 0.764,
+     "w": 0.0168,
+     "h": 0.15,
+     "cor": "c2",
+     "atraso": 0,
+     "dx": -0.04
+    },
+    {
+     "k": "t",
+     "linha": 1,
+     "x": 0.075,
+     "y": 0.8,
+     "tam": 0.06,
+     "fonte": "Poppins ExtraBold",
+     "cor": "t1",
+     "caixa": "c1",
+     "alfa": 0.92,
+     "atraso": 0.08,
+     "dx": -0.06
+    },
+    {
+     "k": "t",
+     "linha": 2,
+     "x": 0.075,
+     "y": 0.8804,
+     "tam": 0.0384,
+     "fonte": "Poppins",
+     "cor": "t2",
+     "caixa": "c2",
+     "atraso": 0.18,
+     "dx": -0.06
+    }
+   ]
+  },
+  {
+   "id": "moderna",
+   "nome": "Moderna",
+   "l1": "NOME SOBRENOME",
+   "l2": "Cargo ou ministério",
+   "camadas": [
+    {
+     "k": "r",
+     "x": 0.05,
+     "y": 0.746,
+     "w": 0.0096,
+     "h": 0.18,
+     "cor": "c2",
+     "atraso": 0,
+     "dy": 0.03
+    },
+    {
+     "k": "t",
+     "linha": 1,
+     "x": 0.07,
+     "y": 0.794,
+     "tam": 0.09,
+     "fonte": "Bebas Neue",
+     "cor": "t1",
+     "contorno": 0.05,
+     "atraso": 0.1,
+     "dx": -0.05
+    },
+    {
+     "k": "t",
+     "linha": 2,
+     "x": 0.07,
+     "y": 0.872,
+     "tam": 0.0408,
+     "fonte": "Poppins",
+     "cor": "c2",
+     "contorno": 0.08,
+     "atraso": 0.2,
+     "dx": -0.05
+    }
+   ]
+  },
+  {
+   "id": "faixa",
+   "nome": "Faixa de TV",
+   "l1": "Nome Sobrenome",
+   "l2": "AO VIVO",
+   "camadas": [
+    {
+     "k": "r",
+     "x": 0,
+     "y": 0.812,
+     "w": 1,
+     "lw": true,
+     "h": 0.102,
+     "cor": "c1",
+     "alfa": 0.88,
+     "atraso": 0,
+     "dx": -1
+    },
+    {
+     "k": "t",
+     "linha": 2,
+     "x": 0.06,
+     "y": 0.782,
+     "tam": 0.036,
+     "fonte": "Poppins ExtraBold",
+     "cor": "t2",
+     "caixa": "c2",
+     "maius": true,
+     "atraso": 0.3,
+     "dy": 0.02
+    },
+    {
+     "k": "t",
+     "linha": 1,
+     "x": 0.06,
+     "y": 0.8636,
+     "tam": 0.0552,
+     "fonte": "Poppins ExtraBold",
+     "cor": "t1",
+     "atraso": 0.2,
+     "dx": -0.04
+    }
+   ]
+  },
+  {
+   "id": "minimal",
+   "nome": "Minimalista",
+   "l1": "Nome Sobrenome",
+   "l2": "Igreja ou cargo",
+   "camadas": [
+    {
+     "k": "t",
+     "linha": 1,
+     "x": 0.06,
+     "y": 0.794,
+     "tam": 0.066,
+     "fonte": "Poppins ExtraBold",
+     "cor": "t1",
+     "contorno": 0.06,
+     "atraso": 0,
+     "dy": 0.02
+    },
+    {
+     "k": "r",
+     "x": 0.06,
+     "y": 0.8396,
+     "w": 0.264,
+     "h": 0.0072,
+     "cor": "c2",
+     "atraso": 0.12,
+     "dx": -0.08
+    },
+    {
+     "k": "t",
+     "linha": 2,
+     "x": 0.06,
+     "y": 0.8804,
+     "tam": 0.0384,
+     "fonte": "Poppins",
+     "cor": "t1",
+     "contorno": 0.08,
+     "atraso": 0.22,
+     "dy": 0.02
+    }
+   ]
+  },
+  {
+   "id": "bloco",
+   "nome": "Bloco lateral",
+   "l1": "Nome Sobrenome",
+   "l2": "Igreja ou cargo",
+   "camadas": [
+    {
+     "k": "r",
+     "x": 0.05,
+     "y": 0.758,
+     "w": 0.156,
+     "h": 0.156,
+     "cor": "c2",
+     "atraso": 0,
+     "dx": -0.05
+    },
+    {
+     "k": "t",
+     "linha": 1,
+     "x": 0.05,
+     "y": 0.8,
+     "tam": 0.0576,
+     "fonte": "Poppins ExtraBold",
+     "cor": "t1",
+     "caixa": "c1",
+     "alfa": 0.95,
+     "atraso": 0.12,
+     "dx": -0.03,
+     "recuo": 0.18
+    },
+    {
+     "k": "t",
+     "linha": 2,
+     "x": 0.05,
+     "y": 0.8756,
+     "tam": 0.0384,
+     "fonte": "Poppins",
+     "cor": "t1",
+     "caixa": "c1",
+     "alfa": 0.75,
+     "atraso": 0.2,
+     "dx": -0.03,
+     "recuo": 0.18
+    }
+   ]
+  },
+  {
+   "id": "duascores",
+   "nome": "Duas cores",
+   "l1": "Nome Sobrenome",
+   "l2": "Igreja ou cargo",
+   "camadas": [
+    {
+     "k": "t",
+     "linha": 1,
+     "x": 0.06,
+     "y": 0.794,
+     "tam": 0.06,
+     "fonte": "Poppins ExtraBold",
+     "cor": "t1",
+     "caixa": "c1",
+     "atraso": 0,
+     "dx": -0.06
+    },
+    {
+     "k": "t",
+     "linha": 2,
+     "x": 0.095,
+     "y": 0.8756,
+     "tam": 0.0408,
+     "fonte": "Poppins ExtraBold",
+     "cor": "t2",
+     "caixa": "c2",
+     "atraso": 0.15,
+     "dx": -0.06
+    }
+   ]
+  },
+  {
+   "id": "destaque",
+   "nome": "Destaque",
+   "l1": "NOME SOBRENOME",
+   "l2": "Cargo ou ministério",
+   "camadas": [
+    {
+     "k": "t",
+     "linha": 1,
+     "x": 0.06,
+     "y": 0.794,
+     "tam": 0.0744,
+     "fonte": "Anton",
+     "cor": "t2",
+     "caixa": "c2",
+     "maius": true,
+     "atraso": 0,
+     "dx": -0.07
+    },
+    {
+     "k": "t",
+     "linha": 2,
+     "x": 0.06,
+     "y": 0.8804,
+     "tam": 0.0408,
+     "fonte": "Poppins",
+     "cor": "t1",
+     "caixa": "c1",
+     "atraso": 0.14,
+     "dx": -0.07
+    }
+   ]
+  },
+  {
+   "id": "elegante",
+   "nome": "Elegante",
+   "l1": "Nome Sobrenome",
+   "l2": "IGREJA OU CARGO",
+   "camadas": [
+    {
+     "k": "r",
+     "x": 0.06,
+     "y": 0.752,
+     "w": 0.36,
+     "h": 0.0048,
+     "cor": "c2",
+     "atraso": 0,
+     "dx": -0.08
+    },
+    {
+     "k": "t",
+     "linha": 1,
+     "x": 0.06,
+     "y": 0.794,
+     "tam": 0.06,
+     "fonte": "Poppins",
+     "cor": "t1",
+     "contorno": 0.05,
+     "atraso": 0.1,
+     "dy": 0.015
+    },
+    {
+     "k": "t",
+     "linha": 2,
+     "x": 0.06,
+     "y": 0.866,
+     "tam": 0.0336,
+     "fonte": "Poppins ExtraBold",
+     "cor": "c2",
+     "contorno": 0.08,
+     "maius": true,
+     "atraso": 0.18,
+     "dy": 0.015
+    },
+    {
+     "k": "r",
+     "x": 0.06,
+     "y": 0.902,
+     "w": 0.36,
+     "h": 0.0048,
+     "cor": "c2",
+     "atraso": 0.05,
+     "dx": -0.08
+    }
+   ]
+  },
+  {
+   "id": "redes",
+   "nome": "Redes sociais",
+   "l1": "@seuperfil",
+   "l2": "Siga nas redes",
+   "camadas": [
+    {
+     "k": "t",
+     "linha": 2,
+     "x": 0.06,
+     "y": 0.782,
+     "tam": 0.036,
+     "fonte": "Poppins ExtraBold",
+     "cor": "t2",
+     "caixa": "c2",
+     "atraso": 0,
+     "dy": 0.02
+    },
+    {
+     "k": "t",
+     "linha": 1,
+     "x": 0.06,
+     "y": 0.86,
+     "tam": 0.06,
+     "fonte": "Poppins ExtraBold",
+     "cor": "t1",
+     "caixa": "c1",
+     "alfa": 0.92,
+     "atraso": 0.12,
+     "dx": -0.06
+    }
+   ]
+  },
+  {
+   "id": "aovivo",
+   "nome": "Ao vivo",
+   "l1": "Culto de domingo",
+   "l2": "AO VIVO",
+   "camadas": [
+    {
+     "k": "t",
+     "linha": 2,
+     "x": 0.06,
+     "y": 0.782,
+     "tam": 0.0384,
+     "fonte": "Poppins ExtraBold",
+     "cor": "#FFFFFF",
+     "caixa": "#E53935",
+     "maius": true,
+     "atraso": 0,
+     "dx": -0.04
+    },
+    {
+     "k": "t",
+     "linha": 1,
+     "x": 0.06,
+     "y": 0.86,
+     "tam": 0.0552,
+     "fonte": "Poppins ExtraBold",
+     "cor": "t1",
+     "caixa": "c1",
+     "alfa": 0.92,
+     "atraso": 0.15,
+     "dx": -0.05
+    }
+   ]
+  },
+  {
+   "id": "versiculo",
+   "nome": "Versículo",
+   "l1": "Porque Deus amou o mundo de tal maneira",
+   "l2": "JOÃO 3:16",
+   "camadas": [
+    {
+     "k": "t",
+     "linha": 1,
+     "x": 0.5,
+     "y": 0.794,
+     "tam": 0.0504,
+     "fonte": "Poppins",
+     "cor": "t1",
+     "caixa": "c1",
+     "alfa": 0.8,
+     "alinha": "centro",
+     "atraso": 0,
+     "dy": 0.03
+    },
+    {
+     "k": "t",
+     "linha": 2,
+     "x": 0.5,
+     "y": 0.878,
+     "tam": 0.054,
+     "fonte": "Bebas Neue",
+     "cor": "c2",
+     "contorno": 0.06,
+     "alinha": "centro",
+     "atraso": 0.2,
+     "dy": 0.03
+    }
+   ]
+  },
+  {
+   "id": "chamada",
+   "nome": "Chamada",
+   "l1": "INSCREVA-SE",
+   "l2": "Ative o sininho",
+   "camadas": [
+    {
+     "k": "t",
+     "linha": 1,
+     "x": 0.5,
+     "y": 0.794,
+     "tam": 0.072,
+     "fonte": "Anton",
+     "cor": "t2",
+     "caixa": "c2",
+     "maius": true,
+     "alinha": "centro",
+     "atraso": 0,
+     "dy": 0.04
+    },
+    {
+     "k": "t",
+     "linha": 2,
+     "x": 0.5,
+     "y": 0.8804,
+     "tam": 0.0384,
+     "fonte": "Poppins ExtraBold",
+     "cor": "t1",
+     "caixa": "c1",
+     "alinha": "centro",
+     "atraso": 0.15,
+     "dy": 0.04
+    }
+   ]
+  }
+ ],
+ "ancora": 0.83
+}
