@@ -64,7 +64,7 @@ async function boot() {
 function route() {
   const m = location.hash.match(/^#\/p\/([0-9a-f]+)(\/cortes|\/montagem)?/);
   if (m) { S.mode = m[2] === "/cortes" ? "studio" : m[2] === "/montagem" ? "montage" : "edit"; openProject(m[1]); return; }
-  const pg = (location.hash.match(/^#\/(projetos|exportados|marca|publicacoes|modelos|redes|ia|usuarios|conta|historia|resumo)/) || [])[1] || "inicio";
+  const pg = (location.hash.match(/^#\/(projetos|exportados|marca|publicacoes|modelos|redes|ia|usuarios|conta|historia|resumo|stories)/) || [])[1] || "inicio";
   goHome(pg);
 }
 window.addEventListener("hashchange", () => READY.then(route));
@@ -97,6 +97,7 @@ async function goHome(page = "inicio") {
   if (window.V17) V17.onHome(page);
   if (window.V19) V19.onHome(page);
   if (window.V114) V114.onHome(page);
+  if (window.V115) V115.onHome(page);
   if (page === "ia" && !(S.prevPage === "ia" && $("#ia-form").dataset.loaded)) renderIA();
   if (page !== "ia") delete $("#ia-form").dataset.loaded;
   refreshQueueCount();
@@ -265,7 +266,8 @@ async function renderLibrary() {
 
 /* ---------- publicações ---------- */
 
-const NET_COLORS = new Proxy({ youtube: "#FF3040", instagram: "#E1306C", facebook: "#3B8CFF", tiktok: "#25F4EE" },
+const NET_COLORS = new Proxy({ youtube: "#FF3040", instagram: "#E1306C", facebook: "#3B8CFF", tiktok: "#25F4EE",
+  instagram_story: "#E1306C", facebook_story: "#3B8CFF" },
   { get: (o, k) => o[k] || "#A78BFA" });  // destinos próprios (web TV, site…) em lilás
 const DAYS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
 
@@ -354,11 +356,13 @@ async function openPublish(r) {
   $("#pub-thumb").src = `/api/projects/${r.project}/renders/${encodeURIComponent(r.file)}/thumb`;
   $("#pub-label").textContent = r.label || r.file;
   $("#pub-meta").textContent = `${r.project_name || ""} · ${fmt(r.duration)}`;
-  let suggest = { ig_reels: "instagram", ig_stories: "instagram", yt_shorts: "youtube", tiktok: "tiktok", fb_reels: "facebook" }[r.platform];
+  let suggest = { ig_reels: "instagram", ig_stories: r.story ? "instagram_story" : "instagram", yt_shorts: "youtube", tiktok: "tiktok", fb_reels: "facebook" }[r.platform];
   if (suggest && !(st.networks[suggest] || {}).connected) suggest = null;
   const alvos = st.targets || st.networks;
+  // v1.15: Stories só vêm marcados quando o vídeo é um story; nos outros, ficam disponíveis mas desmarcados
+  const marcar = (k, n) => n.connected && (k === suggest || (r.story && k === "facebook_story") || (!suggest && !k.startsWith("dest:") && !n.story));
   $("#pub-nets").innerHTML = Object.entries(alvos).map(([k, n]) => `
-    <label class="${n.connected ? "" : "off"}"><input type="checkbox" value="${k}" ${n.connected ? "" : "disabled"} ${n.connected && (k === suggest || (!suggest && !k.startsWith("dest:"))) ? "checked" : ""}>
+    <label class="${n.connected ? "" : "off"}"><input type="checkbox" value="${k}" ${n.connected ? "" : "disabled"} ${marcar(k, n) ? "checked" : ""}>
       <span><i class="net-dot" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${NET_COLORS[k]};margin-right:5px"></i>${esc(n.name)}
       <small>${n.connected ? esc(n.account) : "não conectado"}</small></span></label>`).join("");
   $("#pub-title").value = (r.title || r.label || "").slice(0, 100);
@@ -432,9 +436,9 @@ async function renderRedes() {
   let st;
   try { st = await api("GET", "/api/publish/status"); } catch (e) { toast(e.message, true); return; }
   S.pubStatus = st;
-  const notes = { youtube: "Privado até a aprovação do projeto no Google.", instagram: "Reels pela conta profissional ligada à página.",
-    facebook: "Reels na página do Facebook escolhida.", tiktok: "Privado até a aprovação do app pelo TikTok." };
-  $("#net-cards").innerHTML = Object.entries(st.networks).map(([k, n]) => `
+  const notes = { youtube: "Privado até a aprovação do projeto no Google.", instagram: "Reels e Stories pela conta profissional ligada à página.",
+    facebook: "Reels e Stories na página do Facebook escolhida.", tiktok: "Privado até a aprovação do app pelo TikTok." };
+  $("#net-cards").innerHTML = Object.entries(st.networks).filter(([, n]) => !n.story).map(([k, n]) => `
     <div class="nc" data-net="${k}" data-app="${n.app}">
       <div class="hd"><i style="background:${NET_COLORS[k]}"></i><b>${esc(n.name)}</b></div>
       <div class="acc ${n.connected ? "ok" : ""}">${n.connected ? (n.via_online ? "Conectado (salvo no online): " : "Conectado: ") + esc(n.account) : n.warn ? esc(n.warn) : n.system_app ? "Pronto: clique em Conectar e entre com a sua conta" : n.app_ready ? "Pronto para conectar" : "Falta configurar o app desta rede"}</div>

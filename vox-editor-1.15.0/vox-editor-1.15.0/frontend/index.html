@@ -45,7 +45,8 @@ try{var t=localStorage.getItem("vox_tema");if(t==="claro"){document.documentElem
           <a href="#/" data-page="inicio" data-tip="Início"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg><span class="lbl">Início</span></a>
           <a href="#/projetos" data-page="projetos" data-tip="Projetos"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 9h18M8 4v5M16 4v5"/></svg><span class="lbl">Projetos</span> <span class="count" id="nav-count-p"></span></a>
           <a href="#/historia" data-page="historia" data-tip="História → Vídeo"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5V5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2.5z"/><path d="M10 8l5 3-5 3z"/></svg><span class="lbl">História → Vídeo</span></a>
-          <a href="#/resumo" data-page="resumo" data-tip="Resumo do Culto"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="9" height="12" rx="1.5"/><rect x="13" y="3" width="9" height="8" rx="1.5"/><rect x="13" y="13" width="9" height="8" rx="1.5"/><path d="M5.5 10.5l2 1.5-2 1.5z"/></svg><span class="lbl">Resumo do Culto</span> <span class="count ok">novo</span></a>
+          <a href="#/resumo" data-page="resumo" data-tip="Resumo do Culto"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="9" height="12" rx="1.5"/><rect x="13" y="3" width="9" height="8" rx="1.5"/><rect x="13" y="13" width="9" height="8" rx="1.5"/><path d="M5.5 10.5l2 1.5-2 1.5z"/></svg><span class="lbl">Resumo do Culto</span></a>
+          <a href="#/stories" data-page="stories" data-tip="Stories do Culto"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M6 15h12"/><path d="M9 18h6"/><circle cx="12" cy="8" r="2.2"/></svg><span class="lbl">Stories do Culto</span> <span class="count ok">novo</span></a>
           <a href="#/exportados" data-page="exportados" data-tip="Exportados"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg><span class="lbl">Exportados</span> <span class="count" id="nav-count-r"></span></a>
         </div>
         <div class="nav-card" data-area="publicar">
@@ -97,6 +98,7 @@ try{var t=localStorage.getItem("vox_tema");if(t==="claro"){document.documentElem
               <button type="button" data-new="link" role="menuitem"><b>Importar por link</b><span>YouTube e outros sites</span></button>
               <button type="button" data-new="historia" role="menuitem"><b>História → Vídeo</b><span>Texto, áudio ou narração ao vivo</span></button>
               <button type="button" data-new="resumo" role="menuitem"><b>Resumo do Culto</b><span>Vídeos e fotos viram um resumão com música</span></button>
+              <button type="button" data-new="stories" role="menuitem"><b>Stories do Culto</b><span>Vídeo ou foto com a capa do evento, direto nos Stories</span></button>
               <hr>
               <button type="button" data-new="9:16" role="menuitem"><b>Montagem vertical 9:16</b><span>Reels, Shorts e TikTok</span></button>
               <button type="button" data-new="16:9" role="menuitem"><b>Montagem horizontal 16:9</b><span>YouTube e TV</span></button>
@@ -149,6 +151,11 @@ try{var t=localStorage.getItem("vox_tema");if(t==="claro"){document.documentElem
               <span class="ac-ic" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="9" height="12" rx="1.5"/><rect x="13" y="3" width="9" height="8" rx="1.5"/><rect x="13" y="13" width="9" height="8" rx="1.5"/><path d="M5.5 10.5l2 1.5-2 1.5z"/></svg></span>
               <b>Resumo do Culto</b><span class="ac-txt">Vídeos e fotos do culto viram um resumão com música</span>
               <span class="ac-go">Criar resumo <svg class="ac-seta" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+            </button>
+            <button type="button" class="acao" data-acao="stories" data-area="stories">
+              <span class="ac-ic" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M6 15h12"/><path d="M9 18h6"/><circle cx="12" cy="8" r="2.2"/></svg></span>
+              <b>Stories do Culto</b><span class="ac-txt">Vídeo ou foto com a capa do evento, direto nos Stories</span>
+              <span class="ac-go">Criar story <svg class="ac-seta" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
             </button>
             <button type="button" class="acao" data-acao="zero" data-area="zero">
               <span class="ac-ic" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="5" rx="1.5"/><rect x="3" y="11" width="11" height="4" rx="1.5"/><rect x="3" y="17" width="15" height="4" rx="1.5"/></svg></span>
@@ -308,6 +315,65 @@ try{var t=localStorage.getItem("vox_tema");if(t==="claro"){document.documentElem
               <p class="hint">Refaça com outra duração, formato ou ritmo — os arquivos já estão lá e a análise fica guardada.</p>
               <div class="rs-meus" id="rs-meus-lista"></div>
             </section>
+      </section>
+
+      <!-- Stories do Culto (v1.15) -->
+      <section class="page hidden" id="pg-stories">
+        <header class="page-head">
+          <div><h1>Stories do Culto</h1><p>Envie o vídeo ou a foto, clique no evento e escolha o modelo. A capa sai pronta — tarja desfocada, o nome do culto em destaque e o logo da igreja — e o story já vai para o Instagram e o Facebook.</p></div>
+        </header>
+        <div class="hs-grid">
+          <div class="hs-main">
+            <section class="pane">
+              <label class="rs-drop st-drop" id="st-drop" for="st-arquivos">
+                <input id="st-arquivos" type="file" multiple accept="video/*,image/*,.mov,.mkv,.mts" hidden>
+                <span class="rs-drop-ic" aria-hidden="true"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M7 8l5-5 5 5"/><path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg></span>
+                <b>Arraste aqui o vídeo ou a foto do culto</b>
+                <span>ou clique para escolher — pode mandar vários: todos saem com a mesma capa. Vídeo com mais de 1 minuto vira partes de 60 s.</span>
+              </label>
+              <div class="st-arqs" id="st-arqs"></div>
+              <p class="hint st-arqs-dica hidden" id="st-arqs-dica">Os marcados viram story. Clique numa miniatura para marcar ou desmarcar.</p>
+            </section>
+            <section class="pane">
+              <div class="row between st-mod-cab"><h2>Escolha o modelo</h2><span class="hint" id="st-mod-hint">Envie um vídeo ou foto para ver as prévias</span></div>
+              <div class="st-modelos" id="st-modelos"></div>
+            </section>
+            <section class="pane hidden" id="st-andamento">
+              <div class="row between"><b id="st-and-tit">Criando os stories…</b><span class="hint" id="st-and-pct">0%</span></div>
+              <div class="bar hs-bar"><i id="st-and-bar"></i></div>
+              <p class="hint" id="st-and-msg">Começando…</p>
+            </section>
+            <section class="pane hidden" id="st-prontos-pane">
+              <h2>Stories prontos</h2>
+              <p class="hint">Também ficam em Exportados. Baixe para postar pelo celular (Status do WhatsApp, por exemplo) ou mande para as redes.</p>
+              <div class="st-prontos" id="st-prontos"></div>
+            </section>
+          </div>
+          <aside class="pane hs-opcoes st-lado">
+            <h2>Qual é o evento?</h2>
+            <div class="st-sug" id="st-sug"></div>
+            <input id="st-busca" class="st-busca" type="search" placeholder="Procurar: ceia, jovens, congresso…" autocomplete="off">
+            <div class="st-eventos" id="st-eventos"></div>
+            <div class="st-textos">
+              <label class="field">Linha de cima <input id="st-l1" maxlength="40" placeholder="Ex.: Culto de"></label>
+              <label class="field">Destaque <input id="st-l2" maxlength="40" placeholder="Ex.: Ação de Graças"></label>
+              <label class="field">Linha de baixo <em class="hint">(opcional)</em> <input id="st-l3" maxlength="60" placeholder="Ex.: Pr. Delson Silva · tema da noite"></label>
+              <label class="hs-check"><input type="checkbox" id="st-data"> <span>Colocar a data</span> <input id="st-dia" type="date"></label>
+            </div>
+            <div class="field">Cor do destaque <div class="st-cores" id="st-cores"></div></div>
+            <div class="field">Logo da igreja
+              <div class="st-logos" id="st-logos"></div>
+              <input id="st-logo-arq" type="file" accept="image/*" hidden>
+            </div>
+            <div class="grid2">
+              <label class="field">Enquadrar <select id="st-enq"></select></label>
+              <label class="field">Vídeo longo <select id="st-tam"></select></label>
+            </div>
+            <div class="field">Postar nos Stories <div class="st-redes" id="st-redes"></div></div>
+            <button type="button" class="btn primary big" id="st-criar">Criar story</button>
+            <p class="hint" id="st-dica">Dica: no modelo, clique em <b>Criar com este</b> para fazer tudo de uma vez.</p>
+          </aside>
+        </div>
       </section>
 
       <!-- História → Vídeo (v1.9) -->
@@ -1304,5 +1370,6 @@ try{var t=localStorage.getItem("vox_tema");if(t==="claro"){document.documentElem
 <script src="contas.js"></script>
 <script src="historia.js"></script>
 <script src="resumo.js"></script>
+<script src="stories.js"></script>
 </body>
 </html>

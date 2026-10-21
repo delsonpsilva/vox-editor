@@ -1,12 +1,12 @@
-VOX Editor 1.14.1 — correção do botão Baixar (e o Resumo do Culto da 1.14.0)
-==========================================================================
-(Este pacote já inclui tudo das versões anteriores, inclusive a 1.13.)
+VOX Editor 1.15.0 — Stories do Culto
+====================================
+(Este pacote já inclui tudo das versões anteriores.)
 
 NO PC (Windows)
 1. Feche o VOX Editor, se estiver aberto.
-2. Extraia o vox-editor-1.14.1.zip (botão direito > Extrair tudo) e dê dois cliques no INSTALAR-1.14.1.bat.
+2. Extraia o vox-editor-1.15.0.zip (botão direito > Extrair tudo) e dê dois cliques no INSTALAR-1.15.0.bat.
    Ele guarda uma cópia dos arquivos antigos e copia a versão nova para C:\editor-ia.
-3. Abra o programa. Embaixo, à esquerda, deve aparecer "versão 1.14.1".
+3. Abra o programa. Embaixo, à esquerda, deve aparecer "versão 1.15.0".
    Se a tela não mudar: feche o programa e dê dois cliques no LIMPAR-CACHE-DA-TELA.bat.
    (Não precisa rodar o ATUALIZAR.bat: esta versão não instala nada novo.)
 4. Quando estiver tudo certo, dois cliques no PUBLICAR.bat.
@@ -14,17 +14,17 @@ NO PC (Windows)
 NA VPS
 5. sudo vox-atualizar
 
-TESTAR O BAIXAR
-- Abra o resumo, em Exportados da montagem clique em Baixar e salve onde quiser.
+TESTAR (menu Stories do Culto)
+- Arraste um vídeo ou foto do culto.
+- Clique no evento (ex.: Culto de Ação de Graças). As 6 prévias aparecem com o seu vídeo.
+- Em "Logo da igreja", clique em "+ Enviar logo" e escolha o PNG da igreja (fica guardado).
+- No modelo que gostar, clique em "Criar com este".
+- Pronto: o story aparece em "Stories prontos" (e em Exportados) para baixar ou publicar.
 
-TESTAR (menu Resumo do Culto)
-- Arraste os vídeos e as fotos de um culto (se tiver, uma música MP3 junto).
-- Escolha 1 min, 9:16, Emocionante e clique em "Criar o resumo".
-- O resumo abre na Montagem: confira a abertura, os nomes das partes, a frase com legenda e a música.
-- Volte ao Resumo do Culto, em "Seus resumos" clique em Refazer e troque para 30 s ou Animado.
-
-DICA DE IA
-- Em Inteligência artificial, escolha o modelo "Haiku 5.5" (custa uns 10x menos que o Haiku 4.5).
+POSTAR SOZINHO NOS STORIES
+- Funciona com a mesma conexão do Instagram/Facebook em Redes sociais (não precisa conectar de novo).
+- Se o Instagram já estava conectado antes desta versão e o story der erro de permissão,
+  vá em Redes sociais > Desconectar e Conectar de novo (a Meta libera os Stories no novo login).
 
 SE ALGO FICAR ESTRANHO NA VPS
 - sudo vox-atualizar --voltar   (volta para a versão anterior em um minuto; seus dados não são tocados)

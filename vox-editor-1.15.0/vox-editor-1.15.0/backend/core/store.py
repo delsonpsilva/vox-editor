@@ -226,7 +226,8 @@ def list_projects(todos: bool = False) -> list[dict]:
                         "has_video": bool(p.get("media", {}).get("has_video")),
                         "clips": len(p.get("clips") or []), "renders": len(p.get("renders") or []),
                         "size": p.get("size", 0), "kind": p.get("kind") or "", "recebidos": bool(p.get("recebidos")),
-                        "montagem": (f.parent / "montagem.json").exists(), "resumo": bool(p.get("resumo"))})
+                        "montagem": (f.parent / "montagem.json").exists(), "resumo": bool(p.get("resumo")),
+                        "stories_proj": bool(p.get("stories_proj"))})
         except Exception:
             continue
     return sorted(out, key=lambda x: -x["created"])

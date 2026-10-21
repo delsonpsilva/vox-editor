@@ -1,4 +1,17 @@
-# VOX Editor — edição de vídeo com cortes inteligentes e montagem manual (versão 1.14)
+# VOX Editor — edição de vídeo com cortes inteligentes e montagem manual (versão 1.15)
+
+## Novidades da versão 1.15 — Stories do Culto
+
+Menu novo **Stories do Culto** (e cartão na tela inicial): o vídeo ou a foto do culto vira story 9:16 com capa pronta, sem montar nada à mão.
+
+- **Envie e clique no evento**: mais de 70 eventos já prontos — cultos (Celebração, Ação de Graças, Santa Ceia, Doutrina, Missões…), departamentos (Jovens, Adolescentes, Crianças, Círculo de Oração, Senhoras, Varões, EBD…), encontros e congressos, e datas especiais (Virada, Natal, Páscoa, Dia das Mães…). Tem busca e a opção **Outro nome…** para escrever o que quiser.
+- **Sugestão automática**: pela data do arquivo o programa já marca o evento provável (31/12 = Culto da Virada, domingo = Celebração/EBD, Páscoa, Dia das Mães…) e aprende os que você mais usa.
+- **6 modelos com prévia de verdade** (feita com o seu vídeo): Ouro desfocado (igual aos destaques: tarja desfocada embaixo e o nome dourado com brilho), Assinatura (letra cursiva), Faixa forte, Neon, Cartão de vidro e Título no topo. 8 cores para o destaque.
+- **Logos das igrejas**: envie quantos quiser (sede e congregações); ficam guardados. O logo da Marca também aparece.
+- **Clique em "Criar com este"** e pronto: o story é criado e, com o Instagram/Facebook conectado, já vai para os **Stories** (Instagram Stories e Facebook Stories). No PC, se a conta está conectada só no online, ele manda pelo online.
+- Vídeo com mais de 1 minuto vira **partes de até 60 s** (limite dos Stories); dá para escolher "só o primeiro minuto" ou "inteiro (só para baixar)". Vários arquivos de uma vez saem com a mesma capa.
+- Foto vira um story de 7 s com zoom leve (para poder ir aos Stories) e também sai em **JPG** para baixar.
+- Os stories prontos ficam na própria tela e em **Exportados**; o botão Publicar também oferece Instagram/Facebook Stories.
 
 ## Correção da versão 1.14.1
 

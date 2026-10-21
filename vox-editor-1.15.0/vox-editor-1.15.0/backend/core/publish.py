@@ -30,6 +30,9 @@ NETWORKS = {
     "instagram": {"name": "Instagram Reels", "app": "meta"},
     "facebook": {"name": "Facebook Reels", "app": "meta"},
     "tiktok": {"name": "TikTok", "app": "tiktok"},
+    # v1.15: Stories (mesma conta da Meta; não aparecem como cartão separado em Redes sociais)
+    "instagram_story": {"name": "Instagram Stories", "app": "meta", "story": True},
+    "facebook_story": {"name": "Facebook Stories", "app": "meta", "story": True},
 }
 
 
@@ -132,14 +135,14 @@ def public_status() -> dict:
         cred = app_cred(info["app"])
         ready = bool(cred)
         entry = {"name": info["name"], "app": info["app"], "app_ready": ready, "connected": False, "account": "",
-                 "system_app": cred.get("via") == "sistema"}
+                 "system_app": cred.get("via") == "sistema", "story": bool(info.get("story"))}
         if net == "youtube" and a.get("refresh_token"):
             entry.update(connected=True, account=a.get("channel", ""))
         if net == "tiktok" and a.get("refresh_token"):
             entry.update(connected=True, account=a.get("user", ""))
-        if net in ("instagram", "facebook") and a.get("pages"):
+        if info["app"] == "meta" and a.get("pages"):
             page = next((p for p in a["pages"] if p["id"] == a.get("page_id")), a["pages"][0])
-            if net == "facebook":
+            if net.startswith("facebook"):
                 entry.update(connected=True, account=page["name"])
             elif page.get("ig_id"):
                 entry.update(connected=True, account="@" + (page.get("ig_user") or "instagram"))
@@ -414,7 +417,63 @@ def post_tiktok(path: Path, it: dict, log) -> str:
     return ""
 
 
-POSTERS = {"youtube": post_youtube, "instagram": post_instagram, "facebook": post_facebook, "tiktok": post_tiktok}
+def _ig_esperar(cid: str, tok: str, log, nome: str = "vídeo") -> None:
+    for k in range(30):  # o Instagram processa o vídeo antes de publicar
+        log(0.5 + k / 70, f"O Instagram está processando o {nome}…")
+        st = httpx.get(f"{GRAPH}/{cid}", params={"fields": "status_code,status", "access_token": tok}, timeout=30).json()
+        code = st.get("status_code")
+        if code == "FINISHED":
+            return
+        if code in ("ERROR", "EXPIRED"):
+            raise RuntimeError(f"O Instagram não aceitou o {nome}: {st.get('status', code)}")
+        time.sleep(10 if k < 6 else 20)
+    raise RuntimeError("O Instagram demorou demais para processar. Tente de novo mais tarde.")
+
+
+def post_instagram_story(path: Path, it: dict, log) -> str:
+    """v1.15: story de vídeo (até 60 s, 9:16) pela API oficial, envio direto do arquivo."""
+    page = _meta_page()
+    if not page.get("ig_id"):
+        raise RuntimeError("A página escolhida não tem um Instagram profissional ligado.")
+    tok, ig = page["token"], page["ig_id"]
+    r = httpx.post(f"{GRAPH}/{ig}/media", data={"media_type": "STORIES", "upload_type": "resumable",
+                                                "access_token": tok}, timeout=60)
+    cid = _ok(r, "Instagram")["id"]
+    size = path.stat().st_size
+    log(0.2, "Enviando o story para o Instagram…")
+    with open(path, "rb") as fh:
+        r = httpx.post(f"https://rupload.facebook.com/ig-api-upload/v21.0/{cid}", content=fh,
+                       headers={"Authorization": f"OAuth {tok}", "offset": "0", "file_size": str(size)}, timeout=None)
+    _ok(r, "Instagram")
+    _ig_esperar(cid, tok, log, "story")
+    r = httpx.post(f"{GRAPH}/{ig}/media_publish", data={"creation_id": cid, "access_token": tok}, timeout=60)
+    _ok(r, "Instagram")
+    user = page.get("ig_user") or ""
+    return f"https://www.instagram.com/stories/{user}/" if user else ""
+
+
+def post_facebook_story(path: Path, it: dict, log) -> str:
+    """v1.15: story de vídeo na página do Facebook (video_stories)."""
+    page = _meta_page()
+    tok, pid = page["token"], page["id"]
+    r = httpx.post(f"{GRAPH}/{pid}/video_stories", data={"upload_phase": "start", "access_token": tok}, timeout=60)
+    js = _ok(r, "Facebook")
+    vid = js["video_id"]
+    url = js.get("upload_url") or f"https://rupload.facebook.com/video-upload/v21.0/{vid}"
+    size = path.stat().st_size
+    log(0.2, "Enviando o story para o Facebook…")
+    with open(path, "rb") as fh:
+        r = httpx.post(url, content=fh, headers={"Authorization": f"OAuth {tok}", "offset": "0",
+                                                 "file_size": str(size)}, timeout=None)
+    _ok(r, "Facebook")
+    r = httpx.post(f"{GRAPH}/{pid}/video_stories", data={"upload_phase": "finish", "video_id": vid,
+                                                         "access_token": tok}, timeout=60)
+    _ok(r, "Facebook")
+    return f"https://www.facebook.com/stories/{pid}"
+
+
+POSTERS = {"youtube": post_youtube, "instagram": post_instagram, "facebook": post_facebook, "tiktok": post_tiktok,
+           "instagram_story": post_instagram_story, "facebook_story": post_facebook_story}
 
 
 # ----------------------------- fila e agenda -----------------------------
