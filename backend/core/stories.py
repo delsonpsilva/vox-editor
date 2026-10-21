@@ -200,14 +200,23 @@ def pasta_logos() -> Path:
 
 def projeto() -> dict:
     """Projeto (um por pessoa) que guarda os arquivos e os stories prontos — eles aparecem em Exportados."""
+    # v1.16: cada espaço tem o seu (responsável e equipe usam o do responsável; cliente/Igreja, o próprio)
+    alvo = "" if contas.ve_tudo() else contas.id_atual()
     for p in store.list_projects():
-        if p.get("stories_proj"):
+        if p.get("stories_proj") and (p.get("owner") or "") == alvo:
             try:
                 return store.load(p["id"])
             except Exception:
                 continue
     proj = montagem.projeto_em_branco("Stories do culto", "9:16")
-    return store.update(proj["id"], lambda p: p.update(stories_proj=True, stories={"itens": [], "usados": {}, "ultimo": {}}))
+
+    def marcar(p):
+        p.update(stories_proj=True, stories={"itens": [], "usados": {}, "ultimo": {}})
+        if alvo:
+            p["owner"] = alvo
+        else:
+            p.pop("owner", None)
+    return store.update(proj["id"], marcar)
 
 
 def pasta(pid: str) -> Path:
@@ -305,7 +314,7 @@ def data_por_extenso(iso: str) -> str:
 # --------------------------------------------------------------------------------------------
 def logos() -> list[dict]:
     out = []
-    if (store.BRAND_DIR / "logo.png").exists():
+    if (store.marca_dir() / "logo.png").exists():
         out.append({"id": "marca", "nome": "Logo da Marca"})
     for f in sorted(pasta_logos().glob("*.png"), key=lambda x: x.stat().st_mtime):
         meta = f.with_suffix(".json")
@@ -323,7 +332,7 @@ def arquivo_logo(lid: str) -> Path | None:
     if not lid or lid == "nenhum":
         return None
     if lid == "marca":
-        f = store.BRAND_DIR / "logo.png"
+        f = store.marca_dir() / "logo.png"
         return f if f.exists() else None
     if not re.fullmatch(r"[0-9a-f]{10}", lid):
         return None

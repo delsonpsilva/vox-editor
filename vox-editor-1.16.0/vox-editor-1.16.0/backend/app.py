@@ -5,7 +5,7 @@ Aqui ficam só a criação do app, a entrada, as proteções (middlewares), a or
 from __future__ import annotations
 
 # os instaladores (PUBLICAR.bat, vox-atualizar) leem a versão da linha abaixo: deixe só VERSION = "x.y.z"
-VERSION = "1.15.2"
+VERSION = "1.16.0"
 
 from .rotas.comum import *  # noqa: F401,F403  (senha, contas, store, jobs... usados abaixo e pelos testes)
 from .rotas import ROTEADORES
@@ -40,6 +40,10 @@ async def sem_cache_da_tela(request: Request, call_next):
     return resp
 
 
+_RE_IGREJA = re.compile(r"^/api/(publish/(page|account/[a-z]+)|oauth/[a-z]+/ticket)$")
+_AREAS_API = (("/api/stories", "stories"), ("/api/resumo", "resumo"), ("/api/historia", "historia"))
+
+
 @app.middleware("http")
 async def auth(request: Request, call_next):
     path = request.url.path
@@ -55,8 +59,19 @@ async def auth(request: Request, call_next):
         return _negado("login necessário", 401)
     papel, metodo = u["papel"], request.method
     if papel not in ("dono", "admin"):
-        if any(_bate(r, metodo, path) for r in _SO_DONO):
+        # v1.16: a conta Igreja cuida da própria marca e das próprias redes
+        livre_igreja = papel == "igreja" and (path.startswith("/api/brand/") or _RE_IGREJA.match(path))
+        if not livre_igreja and any(_bate(r, metodo, path) for r in _SO_DONO):
             return _negado("Só o responsável pela conta do VOX Editor pode mudar isso.")
+        area = next((a for pre, a in _AREAS_API if path.startswith(pre)), None)
+        if area and papel in ("cliente", "igreja") and (u.get("areas") or []) and area not in u["areas"]:
+            return _negado("Esta área não está liberada para a sua conta. Fale com o responsável.")
+        if papel == "igreja":
+            m = _RE_PROJ.match(path)
+            if m:
+                dono = _dono_do_projeto(m.group(1))
+                if dono is not None and dono != u["id"]:
+                    return _negado("Projeto não encontrado", 404)
         if papel == "cliente":
             if path == "/api/publish/queue" and metodo == "GET":
                 return JSONResponse([])

@@ -32,7 +32,9 @@ def publish_status():
                          app_ready=True, system_app=True, warn=o.get("warn"))
                 if o.get("pages"):
                     n.update(pages=o["pages"], page_id=o.get("page_id"))
-    dests = destinos.publicos()
+    dests = destinos.publicos() if not contas.conta_propria() else []  # destinos (web TV...) são do responsável
+    if contas.conta_propria():
+        apps = {k: {"client_id": "", "secret_set": False, "system": v["system"]} for k, v in apps.items()}
     targets = dict(nets)
     for d in dests:  # no diálogo de publicar, os destinos próprios aparecem junto das redes
         targets["dest:" + d["id"]] = {"name": d["name"], "connected": True, "account": destinos.descricao(d),
@@ -90,13 +92,18 @@ def oauth_ticket(app_name: str, request: Request, data: dict = Body(default={}))
 @router.get("/api/oauth/{app_name}/start")
 def oauth_start(app_name: str, request: Request, desk: str = "", ticket: str = ""):
     # Começar um login troca a conta conectada: só quem está logado no editor (ou tem um link assinado) pode.
+    conta_t = _ticket_conta(app_name, ticket) if ticket else None
+    papel_u = (contas.eu() or {}).get("papel")
     if _senha_base() and not (hmac.compare_digest(request.cookies.get("editor_auth", ""), _token())
-                              or (contas.eu() or {}).get("papel") == "admin" or _ticket_ok(app_name, ticket)):
+                              or papel_u in ("admin", "igreja") or conta_t is not None):
         return Response(_DONE_PAGE.format(title="Link expirado", color="#f87171",
                                           msg="Este link de login vale por 10 minutos. Volte ao VOX Editor e clique "
                                               "em Conectar de novo."), media_type="text/html", status_code=403)
+    # v1.16: de quem é este login (o link assinado vale mais; senão, a conta Igreja que está logada)
+    dona = conta_t if conta_t is not None else contas.conta_propria()
     try:
-        r = RedirectResponse(publish.auth_url(app_name, _redirect_uri(request, app_name)))
+        with publish.com_conta(dona):
+            r = RedirectResponse(publish.auth_url(app_name, _redirect_uri(request, app_name)))
     except Exception as e:
         from urllib.parse import quote
         return RedirectResponse(f"/#/redes?erro={quote(str(e))}")
@@ -110,10 +117,12 @@ def oauth_callback(app_name: str, request: Request, code: str = "", state: str =
                    error_description: str = ""):
     if error or not code:
         return _oauth_done(request, False, error_description or error or "Login cancelado")
-    if publish.check_state(state) != app_name:
+    app_st, dona = publish.check_state_conta(state)
+    if app_st != app_name:
         return _oauth_done(request, False, "Login expirado. Tente conectar de novo.")
     try:
-        publish.finish_login(app_name, code, _redirect_uri(request, app_name))
+        with publish.com_conta(dona):  # a conta conectada fica com quem começou o login
+            publish.finish_login(app_name, code, _redirect_uri(request, app_name))
     except Exception as e:
         return _oauth_done(request, False, str(e)[:300])
     return _oauth_done(request, True, "", app_name)
@@ -177,8 +186,11 @@ def publish_disconnect(app_name: str):
 @router.get("/api/publish/queue")
 def publish_queue():
     names = {p["id"]: p["name"] for p in store.list_projects()}
+    minha = contas.conta_propria()
     out = []
     for it in publish.queue():
+        if minha and (it.get("conta") or "") != minha:
+            continue  # v1.16: a conta Igreja só vê as publicações dela
         out.append({**it, "project_name": names.get(it["project"], "Projeto apagado")})
     if not PASSWORD and online.configurado():
         for it in online.fila_online():
@@ -191,6 +203,11 @@ def publish_queue():
 def publish_add(data: dict = Body(...)):
     pid, file = str(data.get("project", "")), str(data.get("file", ""))
     if "/" in file or "\\" in file or not (store.pdir(pid) / "renders" / file).exists():
+        raise HTTPException(404, "Vídeo exportado não encontrado")
+    try:
+        if not contas.pode_ver(store.load(pid)):  # v1.16: cada conta só publica os vídeos dela
+            raise HTTPException(404, "Vídeo exportado não encontrado")
+    except FileNotFoundError:
         raise HTTPException(404, "Vídeo exportado não encontrado")
     nets = [str(n) for n in data.get("nets", [])]
     remotas = _pelo_online(nets)
@@ -251,11 +268,19 @@ async def publish_receber(request: Request):
         raise
 
 
+def _minha_publicacao(iid: str) -> None:
+    """v1.16: conta Igreja só mexe nas publicações dela."""
+    minha = contas.conta_propria()
+    if minha and not any(it["id"] == iid and (it.get("conta") or "") == minha for it in publish.queue()):
+        raise HTTPException(404, "Publicação não encontrada")
+
+
 @router.delete("/api/publish/queue/{iid}")
 def publish_remove(iid: str):
     if iid.startswith(ON):
         online.fila_acao("DELETE", f"/api/publish/queue/{iid[len(ON):]}")
         return {"ok": True}
+    _minha_publicacao(iid)
     with publish._lock:
         q = [it for it in publish.queue() if not (it["id"] == iid and it["status"] != "publicando")]
         publish._save_queue(q)
@@ -267,6 +292,7 @@ def publish_retry(iid: str):
     if iid.startswith(ON):
         online.fila_acao("POST", f"/api/publish/queue/{iid[len(ON):]}/retry")
         return {"ok": True}
+    _minha_publicacao(iid)
     publish.update_item(iid, status="agendado", when=time.time(), error="", msg="", pct=0)
     return {"ok": True}
 
@@ -276,6 +302,7 @@ def publish_edit(iid: str, data: dict = Body(...)):
     if iid.startswith(ON):
         online.fila_acao("PUT", f"/api/publish/queue/{iid[len(ON):]}", data)
         return {"ok": True}
+    _minha_publicacao(iid)
     fields = {}
     if "when" in data:
         fields["when"] = float(data["when"])

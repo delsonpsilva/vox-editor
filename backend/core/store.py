@@ -58,7 +58,8 @@ def _write_json(path: Path, data) -> None:
     os.replace(tmp, path)
 
 
-def load_config() -> dict:
+def load_config(propria: bool = True) -> dict:
+    """propria=False: o arquivo do responsável sem a marca da conta Igreja (para gravar)."""
     cfg = json.loads(json.dumps(DEFAULT_CONFIG))
     if CONFIG_FILE.exists():
         try:
@@ -68,7 +69,50 @@ def load_config() -> dict:
                     cfg.setdefault(k, {}).update(v)
         except json.JSONDecodeError:
             pass
+    conta = _conta_marca() if propria else ""
+    if conta:  # v1.16: conta Igreja usa a própria marca (logo, @, cores), nunca a do responsável
+        cfg["brand"] = {**json.loads(json.dumps(DEFAULT_CONFIG["brand"])), **marca_cfg(conta)}
     return cfg
+
+
+# ---------- v1.16: marca própria de cada conta Igreja ----------
+
+def _conta_marca() -> str:
+    try:
+        from . import contas
+        return contas.conta_propria()
+    except Exception:
+        return ""
+
+
+def marca_dir(conta: str | None = None) -> Path:
+    """Pasta da marca de quem está usando: a do responsável ou a da conta Igreja."""
+    conta = _conta_marca() if conta is None else conta
+    if not conta:
+        return BRAND_DIR
+    d = BRAND_DIR / "contas" / "".join(c for c in conta if c.isalnum())
+    (d / "icones").mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def marca_cfg(conta: str) -> dict:
+    f = marca_dir(conta) / "marca.json"
+    try:
+        return json.loads(f.read_text(encoding="utf-8")) if f.exists() else {}
+    except Exception:
+        return {}
+
+
+def salvar_marca(dados: dict) -> None:
+    """Salva os campos da marca de quem está usando (responsável -> config.json; Igreja -> a pasta dela)."""
+    dados = {k: v for k, v in (dados or {}).items() if k in DEFAULT_CONFIG["brand"]}
+    conta = _conta_marca()
+    if not conta:
+        save_config({"brand": dados})
+        return
+    atual = marca_cfg(conta)
+    atual.update(dados)
+    _write_json(marca_dir(conta) / "marca.json", atual)
 
 
 def public_config(cfg: dict) -> dict:
@@ -94,7 +138,7 @@ def public_config(cfg: dict) -> dict:
 
 
 def save_config(update: dict) -> dict:
-    cfg = load_config()
+    cfg = load_config(propria=False)
     for sec, vals in (update or {}).items():
         if sec not in cfg or not isinstance(vals, dict) or sec == "security":
             continue  # a senha do programa só muda por set_password (exige a senha atual)

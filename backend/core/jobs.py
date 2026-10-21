@@ -46,7 +46,7 @@ def _padrao_renders() -> int:
 
 LIMITES = {"analysis": _env_int("VOX_ANALISES", 1), "render": _env_int("VOX_RENDERS", _padrao_renders()),
            "download": _env_int("VOX_DOWNLOADS", 2)}
-PRIORIDADE = {"dono": 0, "admin": 0, "equipe": 1, "cliente": 2}
+PRIORIDADE = {"dono": 0, "admin": 0, "equipe": 1, "cliente": 2, "igreja": 2}
 GUARDAR_HORAS = 24  # tarefas terminadas ficam visíveis por um dia e depois saem da memória
 
 JOBS: dict[str, dict] = {}
@@ -83,7 +83,7 @@ def submit(kind: str, project_id: str, fn: Callable[[Callable[[float, str], None
     q = _fila(queue)
     job = {"id": jid, "kind": kind, "project": project_id, "label": label, "status": "na fila", "pct": 0.0,
            "msg": "Aguardando na fila…", "result": None, "error": None, "created": time.time(), "fila": q,
-           "prioridade": prio, "pedido_por": dono, "posicao": 0, "cancelar": False, "_fn": fn}
+           "prioridade": prio, "pedido_por": dono, "posicao": 0, "cancelar": False, "_fn": fn, "_usuario": _usuario()}
     with _lock:
         _seq += 1
         job["_seq"] = _seq
@@ -124,7 +124,21 @@ def _despachar(q: str) -> None:
         threading.Thread(target=_executar, args=(job,), name=f"{q}-{job['id']}", daemon=True).start()
 
 
+def _usuario() -> dict | None:
+    try:
+        from . import contas
+        return contas.atual.get()
+    except Exception:
+        return None
+
+
 def _executar(job: dict) -> None:
+    # v1.16: a tarefa roda "em nome" de quem pediu (a conta Igreja usa a própria marca e o próprio espaço)
+    try:
+        from . import contas
+        contas.atual.set(job.pop("_usuario", None))
+    except Exception:
+        job.pop("_usuario", None)
     q = job["fila"]
     fn = job.pop("_fn", None)
     _local.job = job

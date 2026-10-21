@@ -441,7 +441,7 @@ async function renderRedes() {
   $("#net-cards").innerHTML = Object.entries(st.networks).filter(([, n]) => !n.story).map(([k, n]) => `
     <div class="nc" data-net="${k}" data-app="${n.app}">
       <div class="hd"><i style="background:${NET_COLORS[k]}"></i><b>${esc(n.name)}</b></div>
-      <div class="acc ${n.connected ? "ok" : ""}">${n.connected ? (n.via_online ? "Conectado (salvo no online): " : "Conectado: ") + esc(n.account) : n.warn ? esc(n.warn) : n.system_app ? "Pronto: clique em Conectar e entre com a sua conta" : n.app_ready ? "Pronto para conectar" : "Falta configurar o app desta rede"}</div>
+      <div class="acc ${n.connected ? "ok" : ""}">${n.connected ? (n.via_online ? "Conectado (salvo no online): " : "Conectado: ") + esc(n.account) : n.warn ? esc(n.warn) : n.system_app ? "Pronto: clique em Conectar e entre com a sua conta" : n.app_ready ? "Pronto para conectar" : document.body.classList.contains("papel-igreja") ? "Ainda não liberada pelo responsável" : "Falta configurar o app desta rede"}</div>
       ${n.pages && n.pages.length > 1 ? `<label class="field">Página<select data-page>${n.pages.map((pg) => `<option value="${pg.id}" ${pg.id === n.page_id ? "selected" : ""}>${esc(pg.name)}${pg.ig ? " (@" + esc(pg.ig) + ")" : ""}</option>`).join("")}</select></label>` : ""}
       <div class="note">${notes[k]}</div>
       <div class="row">
@@ -458,6 +458,7 @@ async function renderRedes() {
     if (cn) cn.addEventListener("click", (e) => {
       e.preventDefault(); e.stopPropagation();
       const n = st.networks[c.dataset.net];
+      if (!n.app_ready && document.body.classList.contains("papel-igreja")) { toast("Esta rede ainda não foi liberada pelo responsável do VOX Editor.", true); return; }
       if (!n.app_ready) openAppCfg(app); else conectarRede(c.dataset.net, app, !!n.via_online);
     });
     const pg = $("[data-page]", c); if (pg) pg.addEventListener("change", async (e) => { await api("POST", "/api/publish/page", { page_id: e.target.value }); renderRedes(); });
@@ -1883,7 +1884,7 @@ function renderFrameGrid() {
 
 async function saveBrand(patch, regrid = true) {
   try {
-    S.cfg = await api("PUT", "/api/settings", { brand: patch });
+    S.cfg = await api("PUT", "/api/brand", patch);  // v1.16: cada conta Igreja salva a própria marca
     refreshFrameThumb();
     if (regrid && $("#framesdlg").open && S.P) renderFrameGrid();
     if (S.P && S.sel) applyPhoneLook(S.P.clips.find((c) => c.id === S.sel));

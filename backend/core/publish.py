@@ -14,6 +14,8 @@ import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
 
+import contextvars
+
 import httpx
 
 from . import store
@@ -24,6 +26,8 @@ QUEUE = store.DATA / "publicacoes.json"
 _lock = threading.RLock()
 _states: dict[str, tuple[str, float]] = {}
 GRAPH = "https://graph.facebook.com/v21.0"
+# v1.16: de quem são as redes usadas agora ("" = do responsável; id = de uma conta Igreja)
+_conta_forcada: contextvars.ContextVar[str | None] = contextvars.ContextVar("vox_conta_redes", default=None)
 
 NETWORKS = {
     "youtube": {"name": "YouTube Shorts", "app": "youtube"},
@@ -51,23 +55,41 @@ def _write(path: Path, data) -> None:
     os.replace(tmp, path)
 
 
+def conta() -> str:
+    """De quem são as redes desta operação: a conta forçada (tarefa da fila/login) ou quem está usando."""
+    f = _conta_forcada.get()
+    if f is not None:
+        return f
+    from . import contas
+    return contas.conta_propria()
+
+
+def _arq_contas(c: str | None = None) -> Path:
+    c = conta() if c is None else c
+    if not c:
+        return ACCOUNTS
+    return store.DATA / f"contas-redes-{''.join(x for x in c if x.isalnum())}.json"
+
+
 def accounts() -> dict:
     with _lock:
-        return _read(ACCOUNTS, {})
+        return _read(_arq_contas(), {})
 
 
 def save_account(app: str, data: dict) -> None:
     with _lock:
-        acc = _read(ACCOUNTS, {})
+        f = _arq_contas()
+        acc = _read(f, {})
         acc[app] = {**data, "connected": time.time()}
-        _write(ACCOUNTS, acc)
+        _write(f, acc)
 
 
 def remove_account(app: str) -> None:
     with _lock:
-        acc = _read(ACCOUNTS, {})
+        f = _arq_contas()
+        acc = _read(f, {})
         acc.pop(app, None)
-        _write(ACCOUNTS, acc)
+        _write(f, acc)
 
 
 def queue() -> list[dict]:
@@ -158,13 +180,32 @@ def public_status() -> dict:
 
 def new_state(app: str) -> str:
     st = secrets.token_urlsafe(24)
-    _states[st] = (app, time.time())
+    _states[st] = (app, time.time(), conta())
     return st
 
 
 def check_state(st: str) -> str | None:
-    app, t = _states.pop(st, (None, 0))
-    return app if app and time.time() - t < 900 else None
+    return check_state_conta(st)[0]
+
+
+def check_state_conta(st: str) -> tuple[str | None, str]:
+    """(rede, de quem é o login). O login volta para a mesma conta que começou."""
+    app, t, c = (_states.pop(st, None) or (None, 0, ""))
+    return (app if app and time.time() - t < 900 else None), c
+
+
+def com_conta(c: str):
+    """Usa as redes da conta c durante um bloco (with publish.com_conta(...):)."""
+    import contextlib
+
+    @contextlib.contextmanager
+    def _cm():
+        tok = _conta_forcada.set(c or "")
+        try:
+            yield
+        finally:
+            _conta_forcada.reset(tok)
+    return _cm()
 
 
 def auth_url(app: str, redirect: str) -> str:
@@ -241,10 +282,11 @@ def finish_login(app: str, code: str, redirect: str) -> None:
 
 def select_page(page_id: str) -> None:
     with _lock:
-        acc = _read(ACCOUNTS, {})
+        f = _arq_contas()
+        acc = _read(f, {})
         if "meta" in acc and any(p["id"] == page_id for p in acc["meta"]["pages"]):
             acc["meta"]["page_id"] = page_id
-            _write(ACCOUNTS, acc)
+            _write(f, acc)
 
 
 def _ok(r: httpx.Response, who: str) -> dict:
@@ -510,7 +552,7 @@ def new_item(project: str, file: str, net: str, when: float, caption: str, title
              label: str) -> dict:
     return {"id": uuid.uuid4().hex[:10], "project": project, "file": file, "net": net, "when": when,
             "caption": caption, "title": title, "privacy": privacy, "label": label, "status": "agendado",
-            "created": time.time(), "url": "", "error": "", "pct": 0.0, "msg": ""}
+            "created": time.time(), "url": "", "error": "", "pct": 0.0, "msg": "", "conta": conta()}
 
 
 def friendly_error(e: Exception) -> str:
@@ -539,7 +581,8 @@ def _run(it: dict) -> None:
         from . import destinos
         url = destinos.enviar(it["net"][5:], path, it, log)
     else:
-        url = POSTERS[it["net"]](path, it, log)
+        with com_conta(it.get("conta") or ""):  # v1.16: publica com as redes de quem agendou
+            url = POSTERS[it["net"]](path, it, log)
     update_item(it["id"], status="publicado", url=url, posted=time.time(), pct=1.0, msg=it.get("_note") or "Publicado")
 
 

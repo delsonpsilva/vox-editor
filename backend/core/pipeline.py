@@ -282,11 +282,11 @@ def _center_fn(proj: dict, segments: list[list[float]], layout: str):
 def brand_settings(cfg: dict | None = None) -> dict:
     cfg = cfg or store.load_config()
     b = {**frames.DEFAULT_BRAND, **(cfg.get("brand") or {})}
-    logo = store.BRAND_DIR / "logo.png"
+    logo = store.marca_dir() / "logo.png"
     b["logo_path"] = str(logo) if logo.exists() else None
     icons = {}
     for net in socials.NETS:
-        f = store.BRAND_DIR / "icones" / f"{net}.png"
+        f = store.marca_dir() / "icones" / f"{net}.png"
         if f.exists():
             icons[net] = str(f)
     b["icons"] = icons
@@ -620,7 +620,7 @@ def frame_still(pid: str, layout: str, t: float | None = None, clip_id: str | No
     title = (clip or {}).get("hook") or (clip or {}).get("title") or "Título do seu corte aparece aqui"
     kicker = (clip or {}).get("kicker") or brand.get("kicker") or ""
     stamp = [frames.VERSION, 5, platform, layout, round(t, 2), title, kicker, subs, full, st["subtitles"], st["studio"].get("layout"),
-             {k: v for k, v in brand.items()}, (store.BRAND_DIR / "logo.png").stat().st_mtime
+             {k: v for k, v in brand.items()}, (store.marca_dir() / "logo.png").stat().st_mtime
              if brand.get("logo_path") else 0]
     key = hashlib.md5(json.dumps(stamp, sort_keys=True, default=str).encode()).hexdigest()[:12]
     out = folder / "cache" / f"frame-{key}.jpg"

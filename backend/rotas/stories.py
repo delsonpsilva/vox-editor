@@ -29,7 +29,7 @@ def _opcoes(data: dict) -> dict:
 @router.get("/api/stories/status")
 def stories_status():
     st = stories.status()
-    pub = publish.public_status()
+    pub = publish.public_status() if contas.pode_publicar() else {}
     nets = {}
     for n in ("instagram_story", "facebook_story"):
         e = pub.get(n) or {}
@@ -163,6 +163,8 @@ def stories_criar(data: dict = Body(...)):
     if not op["destaque"]:
         raise HTTPException(400, "Escolha o evento (ou escreva o nome em destaque).")
     postar = [n for n in (data.get("postar") or []) if n in ("instagram_story", "facebook_story")]
+    if postar and not contas.pode_publicar():
+        raise HTTPException(403, "Publicar nas redes fica com o responsável pela conta. Crie o story e baixe.")
     if postar:  # confere antes de gastar tempo renderizando
         remotas = _pelo_online(postar)
         st = publish.public_status()
@@ -279,7 +281,7 @@ def stories_resumo(data: dict = Body(...)):
     ev_st = str(o.get("evento") or "")
     titulo = str(o.get("titulo") or "").strip()[:60] or "Resumo do Culto"
     formato = o.get("formato") if o.get("formato") in montagem.FORMATOS else "9:16"
-    marca = (store.BRAND_DIR / "logo.png").exists()
+    marca = (store.marca_dir() / "logo.png").exists()
     opts = {"formato": formato, "duracao": str(o.get("duracao") or "60"), "ritmo": o.get("ritmo") or "calmo",
             "evento": stories.EVENTO_RESUMO.get(ev_st, "culto"), "data": str(o.get("data") or "")[:10],
             "musica": "__auto__", "cor": o.get("cor") or "cinema", "enquadramento": "auto", "som_original": True,

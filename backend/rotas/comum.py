@@ -202,7 +202,9 @@ def _eu_view() -> dict:
            "papel_nome": contas.NOMES_PAPEIS.get(u["papel"], u["papel"]), "contas": bool(PASSWORD),
            "pode_publicar": contas.pode_publicar(), "manda_em_tudo": contas.manda_em_tudo(),
            "login": bool(_senha_base()),
-           "trocar_senha": u["papel"] == "dono" and store.precisa_trocar_senha()}
+           "trocar_senha": u["papel"] == "dono" and store.precisa_trocar_senha(),
+           "areas": u.get("areas") or [], "inicio": u.get("inicio") or "",
+           "areas_nomes": contas.AREAS, "inicios_nomes": contas.INICIOS}
     if u["papel"] != "dono":
         out["uso"] = contas.uso(contas._buscar(u["id"]) or u)
     return out
@@ -359,21 +361,31 @@ def _redirect_uri(request: Request, app_name: str) -> str:
 
 
 def _ticket(app_name: str, validade: int = 600) -> str:
+    """Link de login assinado. v1.16: leva junto de quem é a conta (Igreja) para o login cair no lugar certo."""
     exp = int(time.time()) + validade
-    sig = hmac.new(SECRET.encode(), f"oauth.{app_name}.{exp}".encode(), hashlib.sha256).hexdigest()[:32]
-    return f"{exp}.{sig}"
+    conta = publish.conta()
+    base = f"oauth.{app_name}.{exp}" + (f".{conta}" if conta else "")
+    sig = hmac.new(SECRET.encode(), base.encode(), hashlib.sha256).hexdigest()[:32]
+    return f"{exp}.{conta}.{sig}" if conta else f"{exp}.{sig}"
+
+
+def _ticket_conta(app_name: str, ticket: str) -> str | None:
+    """None = link inválido/vencido; "" = do responsável; id = de uma conta Igreja."""
+    partes = (ticket or "").split(".")
+    try:
+        exp = int(partes[0])
+    except ValueError:
+        return None
+    if exp < time.time() or len(partes) not in (2, 3):
+        return None
+    conta = partes[1] if len(partes) == 3 else ""
+    base = f"oauth.{app_name}.{exp}" + (f".{conta}" if conta else "")
+    certo = hmac.new(SECRET.encode(), base.encode(), hashlib.sha256).hexdigest()[:32]
+    return conta if hmac.compare_digest(certo, partes[-1]) else None
 
 
 def _ticket_ok(app_name: str, ticket: str) -> bool:
-    try:
-        exp_s, sig = ticket.split(".", 1)
-        exp = int(exp_s)
-    except ValueError:
-        return False
-    if exp < time.time():
-        return False
-    certo = hmac.new(SECRET.encode(), f"oauth.{app_name}.{exp}".encode(), hashlib.sha256).hexdigest()[:32]
-    return hmac.compare_digest(certo, sig)
+    return _ticket_conta(app_name, ticket) is not None
 
 
 _DONE_PAGE = """<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>{title}</title><style>
@@ -409,7 +421,7 @@ def _pelo_online(nets: list[str]) -> list[str]:
 
 
 def _enfileirar(pid: str, file: str, data: dict) -> list[dict]:
-    ids_dest = {"dest:" + d["id"] for d in destinos.publicos()}
+    ids_dest = {"dest:" + d["id"] for d in destinos.publicos()} if not contas.conta_propria() else set()
     nets = [n for n in data.get("nets", []) if n in publish.NETWORKS or n in ids_dest]
     if not nets:
         raise HTTPException(400, "Escolha pelo menos uma rede ou destino")

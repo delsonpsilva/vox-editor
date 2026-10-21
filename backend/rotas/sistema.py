@@ -36,7 +36,7 @@ def meta():
             "face_detection": reframe.available(), "layouts": frames.LAYOUTS,
             "geometry": {k: frames.geometry(k, 1080, 1920) for k in frames.LAYOUTS},
             "socials": socials.NETS, "platform_net": socials.PLATFORM_NET,
-            "icons": sorted(f.stem for f in (store.BRAND_DIR / "icones").glob("*.png"))}
+            "icons": sorted(f.stem for f in (store.marca_dir() / "icones").glob("*.png"))}
 
 
 @router.post("/api/login")

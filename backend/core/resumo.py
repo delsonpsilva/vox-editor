@@ -1129,7 +1129,7 @@ def _musica(pid: str, escolha: str, opts: dict, enviadas: list[dict], avisos: li
 
 
 def _logo(pid: str) -> dict | None:
-    logo = store.BRAND_DIR / "logo.png"
+    logo = store.marca_dir() / "logo.png"
     if not logo.exists():
         return None
     m = montagem.carregar(pid)
@@ -1346,7 +1346,7 @@ def status() -> dict:
             "estilos_legenda": ESTILOS_LEGENDA, "musicas": mus,
             "ia": ai.get("provider") not in (None, "none") and bool(ai.get("api_key")), "ia_nome": ia_nome,
             "transcricao": tr.get("provider") == "api" or transcribe.local_available(),
-            "marca": {"logo": (store.BRAND_DIR / "logo.png").exists(),
+            "marca": {"logo": (store.marca_dir() / "logo.png").exists(),
                       "handle": bool((cfg.get("brand") or {}).get("handle"))}}
 
 

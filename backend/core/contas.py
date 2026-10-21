@@ -5,6 +5,9 @@ Papéis:
   - admin: pessoa com conta e os mesmos poderes do dono (vê tudo, cuida das contas e das configurações).
   - equipe: vê e edita todos os projetos e pode publicar nas redes já conectadas. Não mexe em configurações nem contas.
   - cliente: vê só os próprios projetos. Edita, corta, monta e baixa. Não publica e não mexe em configurações.
+  - igreja (v1.16): espaço próprio e separado. Vê só os próprios projetos, tem as PRÓPRIAS redes (Instagram,
+    Facebook, YouTube, TikTok) e a PRÓPRIA marca (logo, @, cores); publica só nas redes dela. O responsável
+    escolhe quais áreas ela usa (ex.: só Stories do Culto) e em qual tela ela abre.
 
 As contas ficam num banco SQLite (dados/vox.db), junto dos projetos. Senhas: só o "hash" (PBKDF2), nunca a senha.
 No programa do PC não há contas: ele continua com uma senha só (ou nenhuma)."""
@@ -24,8 +27,13 @@ import uuid
 from . import store
 
 DB_FILE = store.DATA / "vox.db"
-PAPEIS = ("admin", "equipe", "cliente")
-NOMES_PAPEIS = {"dono": "Dono", "admin": "Administrador", "equipe": "Equipe", "cliente": "Cliente"}
+PAPEIS = ("admin", "equipe", "cliente", "igreja")
+NOMES_PAPEIS = {"dono": "Dono", "admin": "Administrador", "equipe": "Equipe", "cliente": "Cliente", "igreja": "Igreja"}
+# v1.16: áreas que dá para liberar por conta (vazio = todas)
+AREAS = {"editar": "Editar vídeo e cortes", "montagem": "Montagem do zero", "historia": "História → Vídeo",
+         "resumo": "Resumo do Culto", "stories": "Stories do Culto", "link": "Importar link"}
+INICIOS = {"inicio": "Início", "stories": "Stories do Culto", "resumo": "Resumo do Culto", "historia": "História → Vídeo",
+           "projetos": "Projetos", "exportados": "Exportados"}
 DONO = {"id": "", "nome": "Dono", "email": "", "papel": "dono"}
 
 # quem está usando agora (vale durante o pedido; nas tarefas em segundo plano fica vazio = sistema)
@@ -71,6 +79,11 @@ def _iniciar() -> None:
             PRIMARY KEY (usuario, mes)
         );
         """)
+        cols = {r[1] for r in con.execute("PRAGMA table_info(usuarios)")}
+        if "areas" not in cols:  # v1.16: áreas liberadas e tela inicial de cada conta
+            con.execute("ALTER TABLE usuarios ADD COLUMN areas TEXT NOT NULL DEFAULT ''")
+        if "inicio" not in cols:
+            con.execute("ALTER TABLE usuarios ADD COLUMN inicio TEXT NOT NULL DEFAULT ''")
 
 
 _iniciar()
@@ -85,7 +98,18 @@ def _linha(r: sqlite3.Row | None) -> dict | None:
         return None
     d = dict(r)
     d["ativo"] = bool(d["ativo"])
+    ar = d.get("areas") or ""
+    d["areas"] = [a for a in (ar if isinstance(ar, list) else ar.split(",")) if a in AREAS]
+    d["inicio"] = d.get("inicio") if d.get("inicio") in INICIOS else ""
     return d
+
+
+def _areas(v) -> str:
+    """Lista de áreas -> texto guardado ("" = todas)."""
+    if isinstance(v, str):
+        v = v.split(",")
+    lst = [a for a in (v or []) if a in AREAS]
+    return "" if not lst or set(lst) == set(AREAS) else ",".join(lst)
 
 
 def _publico(u: dict) -> dict:
@@ -105,7 +129,7 @@ def _validar(nome: str, email: str, papel: str, senha: str | None, criando: bool
     if not _RE_EMAIL.match(email):
         raise ValueError("Coloque um e-mail válido (é ele que a pessoa usa para entrar).")
     if papel not in PAPEIS:
-        raise ValueError("Escolha o tipo de conta: administrador, equipe ou cliente.")
+        raise ValueError("Escolha o tipo de conta: administrador, equipe, cliente ou igreja.")
     if criando or senha:
         if not senha or len(senha) < 6:
             raise ValueError("A senha precisa ter pelo menos 6 caracteres.")
@@ -126,12 +150,14 @@ def criar(dados: dict) -> dict:
     salt = os.urandom(16)
     u = {"id": uuid.uuid4().hex[:10], "nome": nome, "email": email, "hash": _hash(senha, salt), "salt": salt.hex(),
          "papel": papel, "ativo": 1, "limite_gb": _num(dados.get("limite_gb")), "limite_min": _num(dados.get("limite_min")),
-         "obs": str(dados.get("obs") or "")[:300], "criado": time.time(), "ultimo_acesso": 0}
+         "obs": str(dados.get("obs") or "")[:300], "criado": time.time(), "ultimo_acesso": 0,
+         "areas": _areas(dados.get("areas")), "inicio": dados.get("inicio") if dados.get("inicio") in INICIOS else ""}
     with _lock, _con() as con:
         if con.execute("SELECT 1 FROM usuarios WHERE email=?", (email,)).fetchone():
             raise ValueError("Já existe uma conta com esse e-mail.")
-        con.execute("INSERT INTO usuarios (id,nome,email,hash,salt,papel,ativo,limite_gb,limite_min,obs,criado,ultimo_acesso) "
-                    "VALUES (:id,:nome,:email,:hash,:salt,:papel,:ativo,:limite_gb,:limite_min,:obs,:criado,:ultimo_acesso)", u)
+        con.execute("INSERT INTO usuarios (id,nome,email,hash,salt,papel,ativo,limite_gb,limite_min,obs,criado,ultimo_acesso,"
+                    "areas,inicio) VALUES (:id,:nome,:email,:hash,:salt,:papel,:ativo,:limite_gb,:limite_min,:obs,:criado,"
+                    ":ultimo_acesso,:areas,:inicio)", u)
     _cache.clear()
     return _publico(_linha(_buscar(u["id"])))
 
@@ -147,13 +173,15 @@ def editar(uid: str, dados: dict) -> dict:
               "ativo": 1 if dados.get("ativo", u["ativo"]) else 0,
               "limite_gb": _num(dados.get("limite_gb", u["limite_gb"])),
               "limite_min": _num(dados.get("limite_min", u["limite_min"])),
-              "obs": str(dados.get("obs", u["obs"]) or "")[:300], "id": uid}
+              "obs": str(dados.get("obs", u["obs"]) or "")[:300], "id": uid,
+              "areas": _areas(dados["areas"]) if "areas" in dados else ",".join(u["areas"]),
+              "inicio": (dados.get("inicio") if dados.get("inicio") in INICIOS else "") if "inicio" in dados else u["inicio"]}
     with _lock, _con() as con:
         outro = con.execute("SELECT id FROM usuarios WHERE email=? AND id<>?", (email, uid)).fetchone()
         if outro:
             raise ValueError("Já existe outra conta com esse e-mail.")
         con.execute("UPDATE usuarios SET nome=:nome,email=:email,papel=:papel,ativo=:ativo,limite_gb=:limite_gb,"
-                    "limite_min=:limite_min,obs=:obs WHERE id=:id", campos)
+                    "limite_min=:limite_min,obs=:obs,areas=:areas,inicio=:inicio WHERE id=:id", campos)
         if senha:
             salt = os.urandom(16)
             con.execute("UPDATE usuarios SET hash=?, salt=? WHERE id=?", (_hash(senha, salt), salt.hex(), uid))
@@ -273,6 +301,27 @@ def ve_tudo() -> bool:
 
 def pode_publicar() -> bool:
     return papel() != "cliente"
+
+
+def conta_propria() -> str:
+    """v1.16: id da conta Igreja que está usando agora (ela tem redes e marca próprias). "" = as do responsável."""
+    u = atual.get()
+    return u["id"] if u and u.get("papel") == "igreja" else ""
+
+
+def eh_igreja(uid: str) -> bool:
+    if not uid:
+        return False
+    u = _buscar(uid)
+    return bool(u and u["papel"] == "igreja")
+
+
+def area_liberada(area: str) -> bool:
+    u = atual.get()
+    if not u or u.get("papel") in ("dono", "admin", "equipe"):
+        return True
+    areas = u.get("areas") or []
+    return not areas or area in areas
 
 
 def dono_do_projeto(proj: dict) -> str:

@@ -11,7 +11,18 @@
     admin: ["Administrador", "Faz tudo, como o responsável: configurações, redes, marca e contas."],
     equipe: ["Equipe", "Vê e edita todos os projetos e publica nas redes já conectadas. Não mexe em configurações."],
     cliente: ["Cliente", "Vê só os próprios projetos. Edita, corta, monta e baixa os vídeos. Não publica."],
+    igreja: ["Igreja (espaço próprio)", "Espaço separado: não vê nada do seu. Tem as próprias redes (Instagram, Facebook…), a própria marca e logo, e publica só nas redes dela. Você escolhe as áreas que ela usa."],
   };
+  // v1.16: áreas que dá para liberar e o que cada uma mostra na tela
+  const AREAS_TELA = {
+    editar: ['[data-acao="arquivo"]', '[data-acao="cortes"]', '[data-new="arquivo"]', '#dropzone'],
+    montagem: ['[data-acao="zero"]', '[data-new="9:16"]', '[data-new="16:9"]', '[data-new="1:1"]'],
+    historia: ['a[data-page="historia"]', '[data-acao="historia"]', '[data-new="historia"]'],
+    resumo: ['a[data-page="resumo"]', '[data-acao="resumo"]', '[data-new="resumo"]', '#st-resumo-pane'],
+    stories: ['a[data-page="stories"]', '[data-acao="stories"]', '[data-new="stories"]'],
+    link: ['[data-acao="link"]', '[data-new="link"]', '#link-form', '.envio-nota'],
+  };
+  const PAG_AREA = { historia: "historia", resumo: "resumo", stories: "stories" };
   const C = { eu: null, lista: [], editando: null };
 
   const dataBR = (t) => t ? new Date(t * 1000).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "nunca";
@@ -91,6 +102,11 @@
           <label class="field">Tipo de conta
             <select name="papel">${Object.entries(TIPOS).map(([k, [n]]) => `<option value="${k}">${n}</option>`).join("")}</select></label>
           <p class="hint" id="v17-tipo-desc"></p>
+          <div class="v17-areas hidden" id="v17-areas-box">
+            <span class="lbl">Áreas liberadas <em class="hint">(desmarque o que a conta não vai usar)</em></span>
+            <div class="v17-areas-lst" id="v17-areas"></div>
+            <label class="field">Abre direto em <select name="inicio" id="v17-inicio"></select></label>
+          </div>
           <div class="grid2">
             <label class="field">Limite de espaço (GB)<input name="limite_gb" type="number" min="0" step="0.5" placeholder="0 = sem limite"></label>
             <label class="field">Minutos de vídeo por mês<input name="limite_min" type="number" min="0" step="10" placeholder="0 = sem limite"></label>
@@ -123,7 +139,7 @@
 
     $("#v17-nova").addEventListener("click", () => abrirForm(null));
     $("#v17-gerar").addEventListener("click", () => { $("#v17-form").senha.value = senhaAleatoria(); });
-    $("#v17-form").papel.addEventListener("change", (e) => ($("#v17-tipo-desc").textContent = TIPOS[e.target.value][1]));
+    $("#v17-form").papel.addEventListener("change", (e) => { $("#v17-tipo-desc").textContent = TIPOS[e.target.value][1]; mostrarAreas(); });
     $("#v17-form").addEventListener("submit", salvarForm);
     $("#v17-copiar").addEventListener("click", () => {
       navigator.clipboard.writeText($("#v17-pronto-txt").textContent).then(() => toast("Dados copiados"), () => toast("Selecione o texto e copie", true));
@@ -144,7 +160,19 @@
   function aplicar() {
     const eu = C.eu || { papel: "dono", contas: false, login: false };
     const b = document.body;
-    ["dono", "admin", "equipe", "cliente"].forEach((p) => b.classList.toggle("papel-" + p, eu.papel === p));
+    ["dono", "admin", "equipe", "cliente", "igreja"].forEach((p) => b.classList.toggle("papel-" + p, eu.papel === p));
+    // v1.16: esconde o que não está liberado para esta conta
+    const areas = eu.areas || [];
+    Object.entries(AREAS_TELA).forEach(([a, sels]) => {
+      const fora = areas.length > 0 && !areas.includes(a);
+      sels.forEach((sel) => $$(sel).forEach((el) => el.classList.toggle("v116-fora", fora)));
+    });
+    const env = $("#envio");
+    if (env) env.classList.toggle("v116-fora", !!$("#dropzone.v116-fora") && !!$("#link-form.v116-fora"));
+    if (eu.inicio && eu.inicio !== "inicio" && !C.foiInicio && (!location.hash || location.hash === "#/" || location.hash === "#")) {
+      C.foiInicio = true;
+      location.hash = "#/" + eu.inicio;
+    }
     const chefe = eu.papel === "dono" || eu.papel === "admin";
     b.classList.toggle("v17-restrito", !chefe);
     $$(".v17-so-chefe").forEach((el) => el.classList.toggle("hidden", !(chefe && eu.contas)));
@@ -233,6 +261,13 @@
     $("#v17-ativo-box").classList.toggle("hidden", !u);
     if (!u) f.senha.value = senhaAleatoria();
     $("#v17-tipo-desc").textContent = TIPOS[f.papel.value][1];
+    const nomesA = (C.eu && C.eu.areas_nomes) || {}, nomesI = (C.eu && C.eu.inicios_nomes) || {};
+    const marcadas = u && u.areas && u.areas.length ? u.areas : Object.keys(nomesA);
+    $("#v17-areas").innerHTML = Object.entries(nomesA).map(([k, n]) =>
+      `<label class="v17-check"><input type="checkbox" value="${k}" ${marcadas.includes(k) ? "checked" : ""}> ${esc(n)}</label>`).join("");
+    $("#v17-inicio").innerHTML = Object.entries(nomesI).map(([k, n]) => `<option value="${k}">${esc(n)}</option>`).join("");
+    $("#v17-inicio").value = (u && u.inicio) || "inicio";
+    mostrarAreas();
     $("#v17-dlg").showModal();
     setTimeout(() => f.nome.focus(), 30);
   }
@@ -243,6 +278,11 @@
     const f = e.target, u = C.editando;
     const dados = { nome: f.nome.value, email: f.email.value, papel: f.papel.value, obs: f.obs.value,
       limite_gb: parseFloat(f.limite_gb.value) || 0, limite_min: parseFloat(f.limite_min.value) || 0 };
+    if (["cliente", "igreja"].includes(f.papel.value)) {
+      dados.areas = $$("#v17-areas input:checked").map((x) => x.value);
+      if (!dados.areas.length) { $("#v17-err").textContent = "Deixe pelo menos uma área liberada."; return; }
+      dados.inicio = f.inicio.value === "inicio" ? "" : f.inicio.value;
+    } else { dados.areas = []; dados.inicio = ""; }
     if (f.senha.value) dados.senha = f.senha.value;
     if (u) dados.ativo = f.ativo.checked;
     try {
@@ -255,6 +295,11 @@
         $("#v17-pronto").showModal();
       } else toast("Conta salva");
     } catch (err) { $("#v17-err").textContent = err.message; }
+  }
+
+  function mostrarAreas() {
+    const f = $("#v17-form");
+    $("#v17-areas-box").classList.toggle("hidden", !["cliente", "igreja"].includes(f.papel.value));
   }
 
   function remover(u) {
@@ -305,7 +350,10 @@
   function onHome(page) {
     const eu = C.eu || { papel: "dono" };
     const chefe = eu.papel === "dono" || eu.papel === "admin";
-    if ((!chefe && SO_CHEFE.includes(page)) || (eu.papel === "cliente" && page === "publicacoes")) {
+    const igreja = eu.papel === "igreja";
+    const bloqueada = PAG_AREA[page] && (eu.areas || []).length && !eu.areas.includes(PAG_AREA[page]);
+    if ((!chefe && SO_CHEFE.includes(page) && !(igreja && ["marca", "redes"].includes(page))) || bloqueada ||
+        (eu.papel === "cliente" && page === "publicacoes")) {
       location.hash = "#/";  // tela que este tipo de conta não usa
       return;
     }

@@ -8,6 +8,16 @@ from .comum import *  # noqa: F401,F403
 router = APIRouter()
 
 
+@router.put("/api/brand")
+def brand_salvar(data: dict = Body(...)):
+    """v1.16: salva os campos da marca de quem está usando (o responsável ou a conta Igreja)."""
+    if not (contas.manda_em_tudo() or contas.conta_propria()):
+        raise HTTPException(403, "Só o responsável pela conta do VOX Editor pode mudar a marca.")
+    store.salvar_marca(data if isinstance(data, dict) else {})
+    from .sistema import get_settings
+    return get_settings()
+
+
 @router.post("/api/brand/logo")
 async def brand_logo(request: Request):
     data = await request.body()
@@ -15,9 +25,9 @@ async def brand_logo(request: Request):
         raise HTTPException(400, "Arquivo vazio")
     if len(data) > 8 * 1024 * 1024:
         raise HTTPException(413, "Logo muito grande (máx. 8 MB)")
-    tmp = store.BRAND_DIR / "upload.bin"
+    tmp = store.marca_dir() / "upload.bin"
     tmp.write_bytes(data)
-    out = store.BRAND_DIR / "logo.png"
+    out = store.marca_dir() / "logo.png"
     try:  # converte qualquer imagem para PNG com transparência, no máximo 600 px
         ff.run([ff.ffmpeg(), "-y", "-hide_banner", "-loglevel", "error", "-i", str(tmp), "-frames:v", "1",
                 "-vf", "scale='min(600,iw)':-2:flags=lanczos,format=rgba", str(out)])
@@ -25,20 +35,20 @@ async def brand_logo(request: Request):
         raise HTTPException(400, "Não consegui ler a imagem do logo (use PNG ou JPG)")
     finally:
         tmp.unlink(missing_ok=True)
-    store.save_config({"brand": {"logo": "logo.png"}})
+    store.salvar_marca({"logo": "logo.png"})
     return {"ok": True}
 
 
 @router.delete("/api/brand/logo")
 def brand_logo_delete():
-    (store.BRAND_DIR / "logo.png").unlink(missing_ok=True)
-    store.save_config({"brand": {"logo": ""}})
+    (store.marca_dir() / "logo.png").unlink(missing_ok=True)
+    store.salvar_marca({"logo": ""})
     return {"ok": True}
 
 
 @router.get("/api/brand/logo")
 def brand_logo_get():
-    f = store.BRAND_DIR / "logo.png"
+    f = store.marca_dir() / "logo.png"
     if not f.exists():
         raise HTTPException(404, "Sem logo")
     return FileResponse(f, media_type="image/png", headers={"Cache-Control": "no-cache"})
@@ -52,12 +62,12 @@ async def brand_icon(net: str, request: Request):
     data = await request.body()
     if not data or len(data) > 5 * 1024 * 1024:
         raise HTTPException(400, "Envie uma imagem de até 5 MB")
-    tmp = store.BRAND_DIR / "icones" / "upload.bin"
+    tmp = store.marca_dir() / "icones" / "upload.bin"
     tmp.write_bytes(data)
     try:
         ff.run([ff.ffmpeg(), "-y", "-hide_banner", "-loglevel", "error", "-i", str(tmp), "-frames:v", "1",
                 "-vf", "scale=256:256:force_original_aspect_ratio=decrease:flags=lanczos,format=rgba,"
-                       "pad=256:256:(ow-iw)/2:(oh-ih)/2:color=black@0", str(store.BRAND_DIR / "icones" / f"{net}.png")])
+                       "pad=256:256:(ow-iw)/2:(oh-ih)/2:color=black@0", str(store.marca_dir() / "icones" / f"{net}.png")])
     except Exception:
         raise HTTPException(400, "Não consegui ler a imagem (use PNG ou JPG)")
     finally:
@@ -68,13 +78,13 @@ async def brand_icon(net: str, request: Request):
 @router.delete("/api/brand/icon/{net}")
 def brand_icon_delete(net: str):
     if net in socials.NETS:
-        (store.BRAND_DIR / "icones" / f"{net}.png").unlink(missing_ok=True)
+        (store.marca_dir() / "icones" / f"{net}.png").unlink(missing_ok=True)
     return {"ok": True}
 
 
 @router.get("/api/brand/icon/{net}")
 def brand_icon_get(net: str):
-    f = store.BRAND_DIR / "icones" / f"{net}.png"
+    f = store.marca_dir() / "icones" / f"{net}.png"
     if net not in socials.NETS or not f.exists():
         raise HTTPException(404, "Sem ícone")
     return FileResponse(f, media_type="image/png", headers={"Cache-Control": "no-cache"})

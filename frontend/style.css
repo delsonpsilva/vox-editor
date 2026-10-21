@@ -1910,3 +1910,18 @@ body.v17-restrito .shortcuts a[href="#/redes"],body.v17-restrito .shortcuts a[hr
 .pwa-ic{display:inline-flex;vertical-align:middle;width:30px;height:30px;align-items:center;justify-content:center;border-radius:8px;background:var(--card2);color:var(--accent);margin-right:4px}
 .pwa-dlg .row.end{display:flex;justify-content:flex-end}
 .pwa-dlg{height:auto;max-height:90vh;margin:auto}
+
+/* ---------------- v1.16: conta Igreja (espaço próprio) e áreas liberadas ---------------- */
+.v116-fora{display:none!important}
+body.v17-restrito.papel-igreja a[data-page="marca"],body.v17-restrito.papel-igreja a[data-page="redes"]{display:flex!important}
+body.v17-restrito.papel-igreja #btn-frames-brand{display:inline-flex!important}
+body.papel-igreja [data-app-cfg],body.papel-igreja .v116-destinos,body.papel-igreja #slot-add,
+body.papel-igreja #slots [data-sdel]{display:none!important}
+.v17-p-igreja{background:rgba(67,56,202,.18);color:#A5B4FC}
+.v17-areas{display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:12px;background:var(--card);border:1px solid var(--line)}
+.v17-areas.hidden{display:none}
+.v17-areas .lbl{font-size:13px;font-weight:600}
+.v17-areas-lst{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+@media (max-width:600px){.v17-areas-lst{grid-template-columns:1fr}}
+.v17-areas-lst .v17-check{flex-direction:row!important;align-items:center;justify-content:flex-start;gap:8px;font-size:13px;color:var(--text)}
+.v17-areas-lst .v17-check input{width:auto;height:auto;margin:0}

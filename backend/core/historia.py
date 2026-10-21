@@ -898,7 +898,7 @@ def montar(pid: str, words: list[dict], cenas: list[dict], visuais: list[dict], 
                                y=0.42 if vertical else 0.46, fadeIn=0.3, fadeOut=0.3, volume=0.0))
     fim = total
     marca = store.load_config().get("brand") or {}
-    logo = store.BRAND_DIR / "logo.png"
+    logo = store.marca_dir() / "logo.png"
     logo_md = None
     if logo.exists() and (opts.get("logo") or opts.get("encerramento")):
         dest = montagem.pasta_midias(pid) / "marca_logo.png"
@@ -1390,7 +1390,7 @@ def status() -> dict:
                                 "destaque": "Karaokê", "uma_palavra": "Uma palavra por vez", "impacto": "Impacto",
                                 "neon": "Neon", "caixa": "Faixa de fundo", "classico": "Clássica",
                                 "texto": "Texto simples (editável na Montagem)"},
-            "marca": {"logo": (store.BRAND_DIR / "logo.png").exists(),
+            "marca": {"logo": (store.marca_dir() / "logo.png").exists(),
                       "handle": bool((cfg.get("brand") or {}).get("handle"))},
             "visuais": VISUAIS, "estilos": {"realista": "Foto realista", "biblico": "Época bíblica (realista)",
                                             "pintura": "Pintura a óleo", "desenho": "Desenho de livro infantil",

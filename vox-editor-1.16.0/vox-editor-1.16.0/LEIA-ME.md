@@ -1,4 +1,16 @@
-# VOX Editor — edição de vídeo com cortes inteligentes e montagem manual (versão 1.15.2)
+# VOX Editor — edição de vídeo com cortes inteligentes e montagem manual (versão 1.16)
+
+## Novidades da versão 1.16 — conta Igreja (espaço próprio e separado)
+
+Na versão online, em **Contas > + Nova conta**, tem o tipo novo **Igreja (espaço próprio)**:
+
+- A igreja entra com o e-mail e a senha que você criar e **não vê nada seu**: nem projetos, nem exportados, nem a sua marca, nem as suas publicações. Você (responsável) continua vendo tudo.
+- **Redes próprias**: em Redes sociais a igreja conecta o Instagram, o Facebook, o YouTube e o TikTok **dela**, e publica só neles (inclusive os Stories). As suas contas não aparecem para ela.
+- **Marca própria**: logo, @, cores e selos da igreja ficam só para ela e entram nos cortes, resumos e stories dela.
+- **Áreas liberadas**: você marca o que a conta usa (Editar vídeo e cortes, Montagem do zero, História → Vídeo, Resumo do Culto, Stories do Culto, Importar link). O que não for liberado some da tela e fica bloqueado no servidor.
+- **Abre direto em**: escolha a tela que a conta vê ao entrar (ex.: Stories do Culto).
+- Configurações, Inteligência artificial, Modelos, destinos próprios e Contas continuam só com você. A IA e os apps oficiais das redes são os seus (a igreja usa sem ver as chaves).
+- Por dentro: as tarefas (exportar, resumo, stories) agora rodam em nome de quem pediu, e cada publicação guarda de quem é a conta da rede.
 
 ## Novidades da versão 1.15.2 — criar o próprio evento, letras e app no celular
 
