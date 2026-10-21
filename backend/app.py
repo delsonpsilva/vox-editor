@@ -5,7 +5,7 @@ Aqui ficam só a criação do app, a entrada, as proteções (middlewares), a or
 from __future__ import annotations
 
 # os instaladores (PUBLICAR.bat, vox-atualizar) leem a versão da linha abaixo: deixe só VERSION = "x.y.z"
-VERSION = "1.15.1"
+VERSION = "1.15.2"
 
 from .rotas.comum import *  # noqa: F401,F403  (senha, contas, store, jobs... usados abaixo e pelos testes)
 from .rotas import ROTEADORES

@@ -91,3 +91,11 @@ INCLUDING ANY GENERAL, SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL
 DAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
 OTHER DEALINGS IN THE FONT SOFTWARE.
+
+
+-----------------------------------------------------------
+Fontes adicionadas nas versões 1.15 a 1.15.2 (Google Fonts), todas sob a mesma
+SIL Open Font License 1.1 acima, de seus respectivos autores:
+Playfair Display, Great Vibes, Cinzel, Cinzel Decorative, Montserrat, DM Serif Display,
+Abril Fatface, Marcellus, Alex Brush, Allura, Pacifico, Lobster, Kaushan Script,
+Oswald, Bangers, Righteous.

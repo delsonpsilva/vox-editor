@@ -22,6 +22,7 @@ def _opcoes(data: dict) -> dict:
     return {"modelo": txt("modelo", 20), "cor": txt("cor", 20), "linha1": txt("linha1", 40),
             "destaque": txt("destaque", 40), "linha3": txt("linha3", 60), "logo": txt("logo", 20),
             "enquadrar": txt("enquadrar", 20), "tamanho": txt("tamanho", 20), "evento": txt("evento", 40),
+            "fonte_destaque": txt("fonte_destaque", 20), "fonte_linha1": txt("fonte_linha1", 20),
             "data_na_tela": bool(o.get("data_na_tela"))}
 
 
@@ -309,3 +310,46 @@ def stories_resumo(data: dict = Body(...)):
         return {**(r or {}), "arquivos": n}
     j = jobs.submit("resumo", pid, tarefa, queue="analysis", label="Resumo do culto (dos stories)")
     return {"id": pid, "job": j["id"]}
+
+
+# ---------- v1.15.2: meus eventos (criados pela pessoa) e letras ----------
+
+@router.post("/api/stories/eventos")
+def stories_evento_salvar(data: dict = Body(...)):
+    try:
+        novo = stories.salvar_evento(_pid(), data)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return {"novo": novo, "status": stories_status()}
+
+
+@router.delete("/api/stories/eventos/{eid}")
+def stories_evento_apagar(eid: str):
+    stories.apagar_evento(_pid(), eid)
+    return {"status": stories_status()}
+
+
+@router.post("/api/stories/fontes")
+async def stories_fonte_enviar(request: Request):
+    dados = await request.body()
+    nome = unquote(request.headers.get("x-filename", "fonte.ttf"))
+    try:
+        novo = stories.salvar_fonte(dados, nome)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return {"novo": novo, "fontes": stories_status()["fontes"]}
+
+
+@router.delete("/api/stories/fontes/{fid}")
+def stories_fonte_apagar(fid: str):
+    stories.apagar_fonte(fid)
+    return {"fontes": stories_status()["fontes"]}
+
+
+@router.get("/api/stories/fontes/{fid}")
+def stories_fonte_ver(fid: str):
+    f = stories.arquivo_fonte(fid)
+    if not f:
+        raise HTTPException(404, "Fonte não encontrada")
+    return FileResponse(f, media_type="font/otf" if f.suffix == ".otf" else "font/ttf",
+                        headers={"Cache-Control": "max-age=86400"})

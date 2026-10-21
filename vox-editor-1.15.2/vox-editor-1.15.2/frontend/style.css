@@ -1873,3 +1873,40 @@ body.v17-restrito .shortcuts a[href="#/redes"],body.v17-restrito .shortcuts a[hr
 .st-res-ia{margin:6px 0 12px}
 #st-res-criar{min-width:220px}
 @media (max-width:900px){#pg-stories #st-resumo-pane{order:5}#pg-stories #st-prontos-pane{order:6}}
+
+/* ---------------- v1.15.2: letras, meus eventos e instalar no celular ---------------- */
+.st-fontes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:6px;max-height:300px;overflow:auto;padding-right:4px}
+.st-fgrupo{grid-column:1/-1;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:6px 0 0}
+.st-fonte{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:62px;padding:6px 4px;
+  border-radius:9px;border:1px solid var(--line2);background:var(--card);color:var(--text);cursor:pointer;font:inherit;overflow:hidden}
+.st-fonte:hover{border-color:var(--accent)}
+.st-fonte.active{border-color:var(--accent);background:var(--accent-soft)}
+.st-amostra{font-size:20px;line-height:1.15;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
+.st-fonte small{font-size:10.5px;color:var(--muted)}
+.st-fonte-add{margin:-4px 0 12px;font-size:12.5px}
+.st-salvar-ev{margin-top:4px}
+.st-ev{position:relative}
+.st-ev.meu{border-style:dashed}
+.st-ev-x{position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:#DC2626;color:#fff;font-size:13px;line-height:20px;text-align:center;display:none}
+.st-ev:hover .st-ev-x,.st-fonte:hover .st-ev-x{display:block}
+@media (pointer:coarse){.st-ev.meu .st-ev-x,.st-fonte .st-ev-x{display:block;top:2px;right:2px}}
+.pwa-side{display:flex;align-items:center;gap:10px;margin:10px 0 0;padding:10px 12px;border-radius:12px;border:1px dashed var(--accent);
+  background:var(--accent-soft);color:var(--text);font:inherit;font-size:13.5px;font-weight:600;cursor:pointer;text-align:left}
+.pwa-side svg{color:var(--accent);flex-shrink:0}
+.pwa-side.hidden{display:none}
+.pwa-banner{position:fixed;left:10px;right:10px;bottom:calc(74px + env(safe-area-inset-bottom));z-index:60;display:flex;align-items:center;gap:10px;
+  padding:10px 12px;border-radius:14px;background:var(--panel);border:1px solid var(--line2);box-shadow:0 10px 30px rgba(0,0,0,.45)}
+.pwa-banner.hidden{display:none}
+.pwa-banner img{border-radius:10px;flex-shrink:0}
+.pwa-banner div{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.pwa-banner b{font-size:14px}
+.pwa-banner span{font-size:12px;color:var(--muted);line-height:1.35}
+.pwa-x{border:0;background:none;color:var(--muted);font-size:22px;line-height:1;cursor:pointer;padding:0 2px}
+@media (min-width:901px){.pwa-banner{left:auto;right:20px;bottom:20px;max-width:380px}}
+.pwa-dlg{max-width:440px;width:calc(100% - 24px);border:1px solid var(--line2);border-radius:16px;background:var(--panel);color:var(--text);padding:20px}
+.pwa-dlg::backdrop{background:rgba(0,0,0,.6)}
+.pwa-dlg h2{font-size:18px;margin:0 0 12px}
+.pwa-ol{margin:0 0 14px;padding-left:20px;display:flex;flex-direction:column;gap:12px;line-height:1.45}
+.pwa-ic{display:inline-flex;vertical-align:middle;width:30px;height:30px;align-items:center;justify-content:center;border-radius:8px;background:var(--card2);color:var(--accent);margin-right:4px}
+.pwa-dlg .row.end{display:flex;justify-content:flex-end}
+.pwa-dlg{height:auto;max-height:90vh;margin:auto}

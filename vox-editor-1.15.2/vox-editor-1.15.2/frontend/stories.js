@@ -22,11 +22,13 @@
   function opcoes() {
     const l3 = [$("#st-l3").value.trim(), $("#st-data").checked ? extenso($("#st-dia").value) : ""].filter(Boolean).join(" · ");
     return { modelo: T.modelo, cor: T.cor, linha1: $("#st-l1").value.trim(), destaque: $("#st-l2").value.trim(), linha3: l3,
-      logo: T.logo, enquadrar: $("#st-enq").value, tamanho: $("#st-tam").value, evento: T.evento, data_na_tela: $("#st-data").checked };
+      logo: T.logo, enquadrar: $("#st-enq").value, tamanho: $("#st-tam").value, evento: T.evento, data_na_tela: $("#st-data").checked,
+      fonte_destaque: T.fd || "", fonte_linha1: $("#st-fonte1").value || "" };
   }
   function lembrar() {
     const o = opcoes();
     guardar({ modelo: o.modelo, cor: o.cor, logo: o.logo, enquadrar: o.enquadrar, tamanho: o.tamanho, data_na_tela: o.data_na_tela,
+      fonte_destaque: o.fonte_destaque, fonte_linha1: o.fonte_linha1,
       redes: $$("#st-redes input:checked").map((x) => x.value), auto: $("#st-auto") ? $("#st-auto").checked : true });
   }
 
@@ -39,6 +41,7 @@
       if (p.modelo) T.modelo = p.modelo;
       if (p.cor) T.cor = p.cor;
       if (p.logo != null) T.logo = p.logo;
+      T.fd = p.fonte_destaque || ""; T.f1pref = p.fonte_linha1 || "";
       $("#st-enq").innerHTML = Object.entries(st.enquadrar).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join("");
       $("#st-tam").innerHTML = Object.entries(st.tamanhos).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join("");
       if (p.enquadrar) $("#st-enq").value = p.enquadrar;
@@ -49,7 +52,7 @@
       T.carregado = true;
     }
     if (!st.logos.some((l) => l.id === T.logo) && T.logo !== "nenhum") T.logo = st.logos.length ? st.logos[0].id : "nenhum";
-    desenharEventos(); desenharCores(); desenharLogos(); desenharRedes(); desenharModelos();
+    desenharEventos(); desenharCores(); desenharLogos(); desenharRedes(); desenharModelos(); desenharFontes();
     if (!T.evento && !$("#st-l2").value) escolherEvento(st.sugestao[0], true);
     else desenharSug();
     listar();
@@ -71,11 +74,11 @@
       const evs = g.eventos.filter((e) => !q || semAcento(nomeEv(e)).includes(q));
       if (!evs.length) return "";
       return `<div class="st-grupo"><span class="st-gnome">${esc(g.nome)}</span><div class="st-evs">` +
-        evs.map((e) => `<button type="button" class="st-ev ${e.id === T.evento ? "active" : ""}" data-ev="${e.id}">${e.linha1 ? `<small>${esc(e.linha1)}</small>` : ""}<b>${esc(e.destaque)}</b></button>`).join("") +
+        evs.map((e) => `<button type="button" class="st-ev ${e.meu ? "meu" : ""} ${e.id === T.evento ? "active" : ""}" data-ev="${e.id}">${e.linha1 ? `<small>${esc(e.linha1)}</small>` : ""}<b${e.fonte_destaque ? ` style="font-family:'vox-${e.fonte_destaque}'"` : ""}>${esc(e.destaque)}</b>${e.meu ? `<span class="st-ev-x" data-ev-x="${e.id}" role="button" aria-label="Apagar meu evento">×</span>` : ""}</button>`).join("") +
         `</div></div>`;
     }).join("");
     $("#st-eventos").innerHTML = html + `<div class="st-grupo"><span class="st-gnome">Outro</span><div class="st-evs">
-      <button type="button" class="st-ev ${T.evento === "outro" ? "active" : ""}" data-ev="outro"><small>Escrever</small><b>Outro nome…</b></button></div></div>`;
+      <button type="button" class="st-ev ${T.evento === "outro" ? "active" : ""}" data-ev="outro"><small>Não achou?</small><b>+ Criar evento</b></button></div></div>`;
   }
 
   function escolherEvento(id, silencioso) {
@@ -83,11 +86,17 @@
     T.evento = id;
     if (id === "outro") {
       $("#st-l1").value = ""; $("#st-l2").value = ""; $("#st-l1").focus();
+      toast("Escreva o nome do evento, escolha a letra e toque em “Salvar como meu evento”.");
     } else {
       const e = evPorId(id);
       if (!e) return;
       $("#st-l1").value = e.linha1; $("#st-l2").value = e.destaque;
+      if (e.meu) {  // meu evento traz as letras que foram salvas com ele
+        T.fd = e.fonte_destaque || "";
+        $("#st-fonte1").value = [...$("#st-fonte1").options].some((o) => o.value === e.fonte_linha1) ? e.fonte_linha1 : "";
+      }
     }
+    desenharFontes(); botaoSalvar();
     $$("#st-eventos .st-ev, #st-sug .chip-btn").forEach((b) => b.classList.toggle("active", b.dataset.ev === id));
     desenharSug();
     if (!silencioso) agendarPrevias(150);
@@ -133,6 +142,76 @@
       T.st.logos = js.logos; T.logo = js.novo.id;
       desenharLogos(); agendarPrevias(50); lembrar();
       toast("Logo guardado. Ele fica salvo para os próximos stories.");
+    } catch (e) { toast(e.message, true); }
+  }
+
+  /* ---------------- letras (fontes) ---------------- */
+  const carregadas = new Set();
+  function carregarFonte(f) {
+    if (carregadas.has(f.id) || !window.FontFace) return;
+    carregadas.add(f.id);
+    const url = f.arquivo ? "/fontes/" + encodeURIComponent(f.arquivo) : "/api/stories/fontes/" + f.id;
+    new FontFace("vox-" + f.id, `url(${url})`).load().then((ff) => { document.fonts.add(ff); }).catch(() => {});
+  }
+
+  function desenharFontes() {
+    if (!T.st || !T.st.fontes) return;
+    const fs = T.st.fontes;
+    if (T.fd && !fs.some((f) => f.id === T.fd)) T.fd = "";
+    fs.forEach(carregarFonte);
+    const grupos = {};
+    fs.forEach((f) => (grupos[f.grupo] = grupos[f.grupo] || []).push(f));
+    const sel = $("#st-fonte1"), v1 = sel.value || T.f1pref || "";
+    sel.innerHTML = `<option value="">Automática (do modelo)</option>` + Object.entries(grupos).map(([g, lst]) =>
+      `<optgroup label="${esc(g)}">${lst.map((f) => `<option value="${f.id}">${esc(f.nome)}</option>`).join("")}</optgroup>`).join("");
+    sel.value = [...sel.options].some((o) => o.value === v1) ? v1 : "";
+    T.f1pref = "";
+    $("#st-fontes").innerHTML = `<button type="button" class="st-fonte ${!T.fd ? "active" : ""}" data-fonte=""><span class="st-amostra">Aa</span><small>Automática</small></button>` +
+      Object.entries(grupos).map(([g, lst]) => `<span class="st-fgrupo">${esc(g)}</span>` + lst.map((f) =>
+        `<button type="button" class="st-fonte ${f.id === T.fd ? "active" : ""}" data-fonte="${f.id}" title="${esc(f.nome)}">
+          <span class="st-amostra" style="font-family:'vox-${f.id}',serif"></span><small>${esc(f.nome)}</small>
+          ${f.id.startsWith("u-") ? `<span class="st-ev-x" data-fonte-x="${f.id}" role="button" aria-label="Apagar letra">×</span>` : ""}</button>`).join("")).join("");
+    amostras();
+  }
+
+  function amostras() {
+    const t = ($("#st-l2").value.trim() || "Culto").slice(0, 14);
+    $$("#st-fontes .st-fonte[data-fonte]:not([data-fonte='']) .st-amostra").forEach((el) => { el.textContent = t; });
+  }
+
+  async function enviarFonte(f) {
+    if (!f) return;
+    if (!/\.(ttf|otf)$/i.test(f.name)) { toast("Envie um arquivo de fonte .ttf ou .otf (de sites como fonts.google.com).", true); return; }
+    try {
+      const r = await fetch("/api/stories/fontes", { method: "POST", headers: { "x-filename": encodeURIComponent(f.name) }, body: f });
+      const js = await r.json();
+      if (!r.ok) throw new Error(js.detail || "Não deu certo");
+      T.st.fontes = js.fontes; T.fd = js.novo.id;
+      desenharFontes(); botaoSalvar(); lembrar(); agendarPrevias(50);
+      toast("Letra guardada: " + js.novo.nome);
+    } catch (e) { toast(e.message, true); }
+  }
+
+  /* ---------------- meus eventos ---------------- */
+  function botaoSalvar() {
+    const b = $("#st-salvar-ev");
+    const tem = !!$("#st-l2").value.trim();
+    const meu = (T.evento || "").startsWith("m-");
+    const livre = !T.evento || T.evento === "outro";
+    b.classList.toggle("hidden", !(tem && (livre || meu)));
+    b.textContent = meu ? "★ Salvar as letras neste evento" : "★ Salvar como meu evento";
+  }
+
+  async function salvarEvento() {
+    const o = opcoes();
+    if (!o.destaque) { toast("Escreva o nome em destaque.", true); $("#st-l2").focus(); return; }
+    try {
+      const r = await api("POST", "/api/stories/eventos", { linha1: o.linha1, destaque: o.destaque, fonte_destaque: o.fonte_destaque, fonte_linha1: o.fonte_linha1 });
+      Object.assign(T.st, { grupos: r.status.grupos, sugestao: r.status.sugestao });
+      T.evento = r.novo.id;
+      $("#st-busca").value = "";
+      desenharEventos(); desenharSug(); botaoSalvar();
+      toast("Salvo em “Meus eventos”. Da próxima vez é só tocar nele.");
     } catch (e) { toast(e.message, true); }
   }
 
@@ -452,7 +531,17 @@
       desenharArqs();
     });
 
-    const cliqueEv = (e) => { const b = e.target.closest("[data-ev]"); if (b) { T.mexeuEvento = true; escolherEvento(b.dataset.ev); } };
+    const cliqueEv = async (e) => {
+      const x = e.target.closest("[data-ev-x]");
+      if (x) {
+        e.stopPropagation();
+        if (!(await ask("Apagar este evento?", "Ele sai de “Meus eventos”. Os stories já feitos continuam.", null, "Apagar"))) return;
+        try { T.st = Object.assign(T.st, (await api("DELETE", "/api/stories/eventos/" + x.dataset.evX)).status); } catch (err) { toast(err.message, true); return; }
+        if (T.evento === x.dataset.evX) T.evento = "";
+        desenharEventos(); desenharSug(); botaoSalvar(); return;
+      }
+      const b = e.target.closest("[data-ev]"); if (b) { T.mexeuEvento = true; escolherEvento(b.dataset.ev); }
+    };
     $("#st-eventos").addEventListener("click", cliqueEv);
     $("#st-sug").addEventListener("click", cliqueEv);
     $("#st-busca").addEventListener("input", desenharEventos);
@@ -461,9 +550,26 @@
     });
     ["#st-l1", "#st-l2", "#st-l3"].forEach((s) => $(s).addEventListener("input", () => {
       if (T.evento && T.evento !== "outro") { const e = evPorId(T.evento); if (e && (e.linha1 !== $("#st-l1").value || e.destaque !== $("#st-l2").value)) { T.evento = ""; desenharEventos(); desenharSug(); } }
+      botaoSalvar(); amostras();
       agendarPrevias();
     }));
     $("#st-data").addEventListener("change", () => agendarPrevias(50));
+    $("#st-fontes").addEventListener("click", async (e) => {
+      const x = e.target.closest("[data-fonte-x]");
+      if (x) {
+        e.stopPropagation();
+        if (!(await ask("Apagar esta letra?", "Ela sai da lista de letras dos stories.", null, "Apagar"))) return;
+        try { T.st.fontes = (await api("DELETE", "/api/stories/fontes/" + x.dataset.fonteX)).fontes; } catch (err) { toast(err.message, true); return; }
+        if (T.fd === x.dataset.fonteX) T.fd = "";
+        desenharFontes(); agendarPrevias(50); lembrar(); return;
+      }
+      const b = e.target.closest("[data-fonte]"); if (!b) return;
+      T.fd = b.dataset.fonte; desenharFontes(); botaoSalvar(); lembrar(); agendarPrevias(50);
+    });
+    $("#st-fonte1").addEventListener("change", () => { botaoSalvar(); lembrar(); agendarPrevias(50); });
+    $("#st-fonte-add").addEventListener("click", () => $("#st-fonte-arq").click());
+    $("#st-fonte-arq").addEventListener("change", (e) => { enviarFonte(e.target.files[0]); e.target.value = ""; });
+    $("#st-salvar-ev").addEventListener("click", salvarEvento);
     $("#st-dia").addEventListener("change", () => { if (!$("#st-data").checked) $("#st-data").checked = true; agendarPrevias(50); });
     $("#st-enq").addEventListener("change", () => { lembrar(); agendarPrevias(50); });
     $("#st-tam").addEventListener("change", lembrar);

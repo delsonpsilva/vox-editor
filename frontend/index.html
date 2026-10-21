@@ -7,6 +7,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icone-192.png">
+<meta name="apple-mobile-web-app-title" content="VOX Editor">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Editor IA</title>
 <link rel="stylesheet" href="style.css">
 <script>/* v1.11: tema claro/escuro escolhido neste aparelho, aplicado antes de desenhar a tela */
@@ -66,6 +69,7 @@ try{var t=localStorage.getItem("vox_tema");if(t==="claro"){document.documentElem
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span class="lbl">Configurações</span></button>
         </div>
       </nav>
+      <button type="button" class="pwa-side hidden" id="pwa-side"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M12 7v7"/><path d="M9 11l3 3 3-3"/></svg><span>Instalar o app no celular</span></button>
       <div class="side-foot">
         <div class="storage">
           <div class="row between"><span>Espaço usado</span><b id="st-used">—</b></div>
@@ -384,7 +388,14 @@ try{var t=localStorage.getItem("vox_tema");if(t==="claro"){document.documentElem
               <label class="field">Destaque <input id="st-l2" maxlength="40" placeholder="Ex.: Ação de Graças"></label>
               <label class="field">Linha de baixo <em class="hint">(opcional)</em> <input id="st-l3" maxlength="60" placeholder="Ex.: Pr. Delson Silva · tema da noite"></label>
               <label class="hs-check"><input type="checkbox" id="st-data"> <span>Colocar a data</span> <input id="st-dia" type="date"></label>
+              <button type="button" class="btn small st-salvar-ev hidden" id="st-salvar-ev">★ Salvar como meu evento</button>
             </div>
+            <div class="field">Letra do destaque <em class="hint">(Automática = a do modelo)</em>
+              <div class="st-fontes" id="st-fontes"></div>
+            </div>
+            <label class="field">Letra da linha de cima <select id="st-fonte1"></select></label>
+            <button type="button" class="linkbtn st-fonte-add" id="st-fonte-add">+ Enviar uma letra minha (.ttf ou .otf)</button>
+            <input id="st-fonte-arq" type="file" accept=".ttf,.otf,font/ttf,font/otf" hidden>
             <div class="field">Cor do destaque <div class="st-cores" id="st-cores"></div></div>
             <div class="field">Logo da igreja
               <div class="st-logos" id="st-logos"></div>
@@ -1385,6 +1396,20 @@ try{var t=localStorage.getItem("vox_tema");if(t==="claro"){document.documentElem
   <div class="cmdk-foot"><span><kbd>↑</kbd><kbd>↓</kbd> escolher</span><span><kbd>Enter</kbd> abrir</span><span><kbd>Ctrl</kbd><kbd>K</kbd> abre de qualquer tela</span></div>
 </dialog>
 
+<!-- v1.15.2: instalar no celular (Android e iPhone) -->
+<div class="pwa-banner hidden" id="pwa-banner" role="region" aria-label="Instalar o app">
+  <img src="icone-192.png" alt="" width="44" height="44">
+  <div><b>Instale o VOX Editor</b><span>Fica com ícone na tela do celular e abre direto, sem navegador.</span></div>
+  <button type="button" class="btn small primary" id="pwa-instalar">Instalar</button>
+  <button type="button" class="pwa-x" id="pwa-fechar" aria-label="Agora não">×</button>
+</div>
+<dialog id="pwa-dlg" class="pwa-dlg">
+  <form method="dialog">
+    <h2>Colocar o VOX Editor na tela do celular</h2>
+    <div id="pwa-passos"></div>
+    <div class="row end"><button class="btn primary" value="ok">Entendi</button></div>
+  </form>
+</dialog>
 <div id="toast" class="toast hidden"></div>
 <script src="app.js"></script>
 <script src="montagem.js"></script>
@@ -1396,5 +1421,6 @@ try{var t=localStorage.getItem("vox_tema");if(t==="claro"){document.documentElem
 <script src="historia.js"></script>
 <script src="resumo.js"></script>
 <script src="stories.js"></script>
+<script src="instalar.js"></script>
 </body>
 </html>

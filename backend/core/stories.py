@@ -90,6 +90,95 @@ CORES = {  # nome, tons do degradê (escuro -> claro), cor sólida
     "verde": ("Verde", ["#0D4D2A", "#1E9E57", "#7BE3A6", "#E1FFEE", "#22B866", "#0F5A31"], "#34D399"),
     "roxo": ("Roxo", ["#3B0F6E", "#7C3AED", "#C4A3FF", "#F1E8FF", "#8B5CF6", "#4C1D95"], "#A78BFA"),
 }
+# Letras (fontes livres, licença OFL). id -> (arquivo, nome, grupo)
+FONTES = {
+    "playfair": ("PlayfairDisplay-ExtraBold.ttf", "Playfair", "Elegantes"),
+    "dmserif": ("DMSerifDisplay-Regular.ttf", "DM Serif", "Elegantes"),
+    "abril": ("AbrilFatface-Regular.ttf", "Abril", "Elegantes"),
+    "cinzel": ("Cinzel-Bold.ttf", "Cinzel", "Elegantes"),
+    "cinzeldec": ("CinzelDecorative-Bold.ttf", "Cinzel Decorativa", "Elegantes"),
+    "marcellus": ("Marcellus-Regular.ttf", "Marcellus", "Elegantes"),
+    "greatvibes": ("GreatVibes-Regular.ttf", "Great Vibes", "Cursivas"),
+    "alexbrush": ("AlexBrush-Regular.ttf", "Alex Brush", "Cursivas"),
+    "allura": ("Allura-Regular.ttf", "Allura", "Cursivas"),
+    "pacifico": ("Pacifico-Regular.ttf", "Pacifico", "Cursivas"),
+    "lobster": ("Lobster-Regular.ttf", "Lobster", "Cursivas"),
+    "kaushan": ("KaushanScript-Regular.ttf", "Kaushan", "Cursivas"),
+    "anton": ("Anton-Regular.ttf", "Anton", "Fortes"),
+    "bebas": ("BebasNeue-Regular.ttf", "Bebas", "Fortes"),
+    "oswald": ("Oswald-Bold.ttf", "Oswald", "Fortes"),
+    "archivo": ("ArchivoBlack-Regular.ttf", "Archivo Black", "Fortes"),
+    "montserrat": ("Montserrat-ExtraBold.ttf", "Montserrat", "Fortes"),
+    "poppins": ("Poppins-Bold.ttf", "Poppins", "Fortes"),
+    "bangers": ("Bangers-Regular.ttf", "Bangers", "Fortes"),
+    "righteous": ("Righteous-Regular.ttf", "Righteous", "Fortes"),
+}
+
+
+def pasta_fontes() -> Path:
+    p = store.BRAND_DIR / "fontes-stories" / re.sub(r"[^\w-]", "_", _dono())
+    p.mkdir(parents=True, exist_ok=True)
+    return p
+
+
+def fontes_minhas() -> list[dict]:
+    out = []
+    for f in sorted(pasta_fontes().glob("*.ttf")) + sorted(pasta_fontes().glob("*.otf")):
+        meta = f.with_suffix(".json")
+        nome = ""
+        if meta.exists():
+            try:
+                nome = json.loads(meta.read_text(encoding="utf-8")).get("nome", "")
+            except Exception:
+                pass
+        out.append({"id": "u-" + f.stem, "nome": nome or "Minha letra", "grupo": "Minhas letras", "ext": f.suffix})
+    return out
+
+
+def arquivo_fonte(fid: str) -> Path | None:
+    """Caminho da fonte escolhida (do catálogo ou enviada pela pessoa)."""
+    if not fid:
+        return None
+    if fid in FONTES:
+        f = store.FONTS / FONTES[fid][0]
+        return f if f.exists() else None
+    m = re.fullmatch(r"u-([0-9a-f]{10})", fid)
+    if m:
+        for ext in (".ttf", ".otf"):
+            f = pasta_fontes() / f"{m.group(1)}{ext}"
+            if f.exists():
+                return f
+    return None
+
+
+def salvar_fonte(dados: bytes, nome: str) -> dict:
+    from PIL import ImageFont
+    import io
+    if not dados or len(dados) > 15 * 1024 * 1024:
+        raise ValueError("Envie uma fonte .ttf ou .otf de até 15 MB")
+    ext = ".otf" if (nome or "").lower().endswith(".otf") or dados[:4] == b"OTTO" else ".ttf"
+    try:
+        ImageFont.truetype(io.BytesIO(dados), 60)
+    except Exception:
+        raise ValueError("Não consegui ler essa fonte. Use um arquivo .ttf ou .otf.")
+    fid = secrets.token_hex(5)
+    (pasta_fontes() / f"{fid}{ext}").write_bytes(dados)
+    limpo = re.sub(r"\.(ttf|otf)$", "", nome or "", flags=re.I).replace("-", " ").replace("_", " ").strip()[:30] or "Minha letra"
+    (pasta_fontes() / f"{fid}.json").write_text(json.dumps({"nome": limpo}, ensure_ascii=False), encoding="utf-8")
+    return {"id": "u-" + fid, "nome": limpo}
+
+
+def apagar_fonte(fid: str) -> None:
+    m = re.fullmatch(r"u-([0-9a-f]{10})", fid or "")
+    if m:
+        for ext in (".ttf", ".otf", ".json"):
+            (pasta_fontes() / f"{m.group(1)}{ext}").unlink(missing_ok=True)
+
+
+def _cursiva(fid: str) -> bool:
+    return fid in FONTES and FONTES[fid][2] == "Cursivas"
+
+
 ENQUADRAR = {"auto": "Automático", "desfocado": "Inteiro + fundo desfocado", "preencher": "Preencher a tela"}
 TAMANHOS = {"partes": "Partes de 60 s (Stories)", "inicio": "Só o primeiro minuto", "inteiro": "Inteiro (só para baixar)"}
 MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro",
@@ -159,7 +248,7 @@ def _domingo_n(ano: int, mes: int, n: int) -> date:
     return d + timedelta(weeks=n - 1)
 
 
-def sugestao(dia: date | None = None, usados: dict | None = None) -> list[str]:
+def sugestao(dia: date | None = None, usados: dict | None = None, meus: set | None = None) -> list[str]:
     """Eventos mais prováveis para o dia (do mais provável para o menos)."""
     d = dia or date.today()
     out: list[str] = []
@@ -197,7 +286,7 @@ def sugestao(dia: date | None = None, usados: dict | None = None) -> list[str]:
         out.append(k)
     vistos, final = set(), []
     for k in out:
-        if k in EVENTOS and k not in vistos:
+        if (k in EVENTOS or k in (meus or set())) and k not in vistos:
             vistos.add(k)
             final.append(k)
     return final[:6]
@@ -363,7 +452,7 @@ def _fonte(nome: str, tam: int):
     from PIL import ImageFont
     chave = (nome, tam)
     if chave not in _FONTES:
-        f = store.FONTS / nome
+        f = Path(nome) if Path(nome).is_absolute() else store.FONTS / nome
         try:
             _FONTES[chave] = ImageFont.truetype(str(f), tam)
         except Exception:
@@ -553,6 +642,13 @@ def desenhar(op: dict):
     l2 = (op.get("destaque") or "").strip() or "Culto"
     l3 = (op.get("linha3") or "").strip()
     lid = op.get("logo") or ""
+    _fd, _fl = op.get("fonte_destaque") or "", op.get("fonte_linha1") or ""
+    FD = str(arquivo_fonte(_fd)) if arquivo_fonte(_fd) else None   # letra escolhida para o destaque
+    FL = str(arquivo_fonte(_fl)) if arquivo_fonte(_fl) else None   # letra escolhida para a linha de cima
+    maius_d = not FD or (_fd in FONTES and FONTES[_fd][2] == "Fortes")  # cursiva em maiúsculas fica feia
+    up1 = (lambda t: t) if (FL and (_cursiva(_fl) or _fl.startswith("u-"))) else (lambda t: t.upper())
+    esp1 = 0.0 if FL and _cursiva(_fl) else None
+    t1 = (lambda n: int(n * 1.6)) if esp1 == 0.0 else (lambda n: n)  # cursiva pequena precisa de letra maior
     semente = int(hashlib.md5(l2.encode()).hexdigest()[:6], 16)
     ov = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     mask = Image.new("L", (W, H), 0)
@@ -582,19 +678,21 @@ def desenhar(op: dict):
     kick = None
     if modelo in ("ouro", "topo", "vidro"):
         if l1:
-            f, _ = _caber(l1.upper(), "Montserrat-ExtraBold.ttf", 66, LARG, 34, 0.14)
-            kick = _camada_texto(l1.upper(), f, espaco=int(f.size * 0.14))
+            e1 = 0.14 if esp1 is None else esp1
+            f, _ = _caber(up1(l1), FL or "Montserrat-ExtraBold.ttf", t1(66), LARG, t1(34), e1)
+            kick = _camada_texto(up1(l1), f, espaco=int(f.size * e1))
     elif modelo == "assinatura":
         if l1:
-            f, _ = _caber(l1.upper(), "Cinzel-Bold.ttf", 70, LARG, 36, 0.10)
-            kick = _camada_texto(l1.upper(), f, espaco=int(f.size * 0.10))
+            e1 = 0.10 if esp1 is None else esp1
+            f, _ = _caber(up1(l1), FL or "Cinzel-Bold.ttf", t1(70), LARG, t1(36), e1)
+            kick = _camada_texto(up1(l1), f, espaco=int(f.size * e1))
     sub = None
     if l3:
         f, _ = _caber(l3, "Montserrat-SemiBold.ttf", 40, LARG, 26)
         sub = _camada_texto(l3, f, cor=(240, 240, 240), sombra=0.6)
 
     if modelo in ("ouro", "topo"):
-        linhas = _destaque_linhas(l2, "PlayfairDisplay-ExtraBold.ttf", 300 if modelo == "ouro" else 250, LARG, 110, 185)
+        linhas = _destaque_linhas(l2, FD or "PlayfairDisplay-ExtraBold.ttf", 300 if modelo == "ouro" else 250, LARG, 110, 185)
         dest = [_camada_destaque(t, f, cor, "metal", semente + i) for i, (t, f) in enumerate(linhas)]
         logo = _logo_img(lid, (190, 150))
         logo_canto = None
@@ -645,7 +743,7 @@ def desenhar(op: dict):
         return ov, mask, 0.12
 
     if modelo == "assinatura":
-        linhas = _destaque_linhas(l2, "GreatVibes-Regular.ttf", 320, LARG, 120, 230)
+        linhas = _destaque_linhas(l2, FD or "GreatVibes-Regular.ttf", 320, LARG, 120, 230)
         dest = [_camada_destaque(t, f, cor, "metal", semente + i) for i, (t, f) in enumerate(linhas)]
         logo = _logo_img(lid, (150, 120))
         alt = (kick.height - 40 if kick else 0) + sum(c.height - 90 for c in dest) + 90 + (sub.height if sub else 0)
@@ -669,12 +767,13 @@ def desenhar(op: dict):
     if modelo == "faixa":
         cor_s = _hex(CORES[cor][2] if cor != "branco" else "#FF8A3D")
         degrade(1080, H, 235)
-        linhas = _destaque_linhas(l2.upper(), "Anton-Regular.ttf", 230, LARG, 110, 170)
+        linhas = _destaque_linhas(l2.upper() if maius_d else l2, FD or "Anton-Regular.ttf", 230, LARG, 110, 170)
         dest = [_camada_texto(t, f, sombra=0.5) for t, f in linhas]
         y = 1700 - sum(c.height - 40 for c in dest) - (sub.height + 10 if sub else 0)
         if l1:
-            f, _ = _caber(l1.upper(), "Montserrat-ExtraBold.ttf", 42, 700, 28, 0.12)
-            tx = _camada_texto(l1.upper(), f, cor=(20, 20, 20), espaco=int(f.size * 0.12), sombra=0)
+            e1 = 0.12 if esp1 is None else esp1
+            f, _ = _caber(up1(l1), FL or "Montserrat-ExtraBold.ttf", t1(42), 700, t1(28), e1)
+            tx = _camada_texto(up1(l1), f, cor=(20, 20, 20), espaco=int(f.size * e1), sombra=0)
             pill = Image.new("RGBA", (tx.width + 6, tx.height - 10), (*cor_s, 255))
             pm = Image.new("L", pill.size, 0)
             ImageDraw.Draw(pm).rounded_rectangle((0, 0, pill.width - 1, pill.height - 1), radius=pill.height // 2, fill=255)
@@ -697,12 +796,13 @@ def desenhar(op: dict):
 
     if modelo == "neon":
         neon_cor = cor if cor not in ("dourado", "prata", "rose", "branco") else "azul"
-        linhas = _destaque_linhas(l2.upper(), "BebasNeue-Regular.ttf", 260, LARG, 120, 200)
+        linhas = _destaque_linhas(l2.upper() if maius_d else l2, FD or "BebasNeue-Regular.ttf", 260, LARG, 120, 200)
         dest = [_camada_destaque(t, f, neon_cor, "neon") for t, f in linhas]
         k = None
         if l1:
-            f, _ = _caber(l1.upper(), "Montserrat-SemiBold.ttf", 48, LARG, 28, 0.35)
-            k = _camada_texto(l1.upper(), f, cor=_hex(CORES[neon_cor][2]), espaco=int(f.size * 0.35), sombra=0.4)
+            e1 = 0.35 if esp1 is None else esp1
+            f, _ = _caber(up1(l1), FL or "Montserrat-SemiBold.ttf", t1(48), LARG, t1(28), e1)
+            k = _camada_texto(up1(l1), f, cor=_hex(CORES[neon_cor][2]), espaco=int(f.size * e1), sombra=0.4)
         logo = _logo_img(lid, (160, 130))
         alt = (k.height - 30 if k else 0) + sum(c.height - 110 for c in dest) + 110 + (sub.height if sub else 0) \
             + (logo.height + 10 if logo else 0)
@@ -726,11 +826,12 @@ def desenhar(op: dict):
     # vidro: cartão transparente com o logo do lado
     logo = _logo_img(lid, (210, 210))
     larg_txt = 800 - (logo.width + 40 if logo else 0)
-    linhas = _destaque_linhas(l2, "PlayfairDisplay-ExtraBold.ttf", 150, larg_txt, 70)
+    linhas = _destaque_linhas(l2, FD or "PlayfairDisplay-ExtraBold.ttf", 150, larg_txt, 70)
     dest = [_camada_destaque(t, f, cor, "metal", semente + i) for i, (t, f) in enumerate(linhas)]
     if l1:
-        f, _ = _caber(l1.upper(), "Montserrat-ExtraBold.ttf", 44, larg_txt, 26, 0.14)
-        kick = _camada_texto(l1.upper(), f, espaco=int(f.size * 0.14))
+        e1 = 0.14 if esp1 is None else esp1
+        f, _ = _caber(up1(l1), FL or "Montserrat-ExtraBold.ttf", t1(44), larg_txt, t1(26), e1)
+        kick = _camada_texto(up1(l1), f, espaco=int(f.size * e1))
     if l3:
         f, _ = _caber(l3, "Montserrat-SemiBold.ttf", 34, larg_txt, 22)
         sub = _camada_texto(l3, f, cor=(240, 240, 240), sombra=0.6)
@@ -806,7 +907,7 @@ def _grafo(modo: str, escurecer: float, zoom_seg: float = 0.0, saida_previa: boo
 def _arquivos_capa(op: dict, destino: Path) -> tuple[Path, Path, float]:
     ov, mask, esc = desenhar(op)
     destino.mkdir(parents=True, exist_ok=True)
-    chave = hashlib.md5(json.dumps({k: op.get(k) for k in ("modelo", "cor", "linha1", "destaque", "linha3", "logo")},
+    chave = hashlib.md5(json.dumps({k: op.get(k) for k in ("modelo", "cor", "linha1", "destaque", "linha3", "logo", "fonte_destaque", "fonte_linha1")},
                                    sort_keys=True, ensure_ascii=False).encode()).hexdigest()[:10]
     fo, fm = destino / f"capa-{chave}.png", destino / f"mask-{chave}.png"
     ov.save(fo)
@@ -946,9 +1047,9 @@ def gerar(pid: str, iids: list[str], op: dict, progresso: Progresso = None) -> d
     def lembrar(p):
         d = _dados(p)
         ev = op.get("evento") or ""
-        if ev in EVENTOS:
+        if ev in EVENTOS or any(m["id"] == ev for m in d.get("meus_eventos") or []):
             d["usados"][ev] = int(d["usados"].get(ev, 0)) + 1
-        d["ultimo"] = {k: op.get(k) for k in ("modelo", "cor", "logo", "enquadrar", "tamanho", "data_na_tela")}
+        d["ultimo"] = {k: op.get(k) for k in ("modelo", "cor", "logo", "enquadrar", "tamanho", "data_na_tela", "fonte_destaque", "fonte_linha1")}
         d["evento_atual"] = {k: op.get(k) for k in ("evento", "linha1", "destaque")} | {"quando": time.time()}
     store.update(pid, lembrar)
     prog(1.0, "Pronto!")
@@ -972,16 +1073,54 @@ def limpar_temporarios(pid: str) -> None:
             f.unlink(missing_ok=True)
 
 
+def meus_eventos(pid: str) -> list[dict]:
+    return list(_dados(store.load(pid)).get("meus_eventos") or [])
+
+
+def salvar_evento(pid: str, ev: dict) -> dict:
+    l1 = str(ev.get("linha1") or "").strip()[:40]
+    l2 = str(ev.get("destaque") or "").strip()[:40]
+    if not l2:
+        raise ValueError("Escreva o nome em destaque do evento.")
+    fd = str(ev.get("fonte_destaque") or "")
+    fl = str(ev.get("fonte_linha1") or "")
+    novo = {"id": "m-" + secrets.token_hex(4), "linha1": l1, "destaque": l2,
+            "fonte_destaque": fd if arquivo_fonte(fd) else "", "fonte_linha1": fl if arquivo_fonte(fl) else "",
+            "criado": time.time()}
+
+    def gravar(p):
+        lst = _dados(p).setdefault("meus_eventos", [])
+        for x in lst:  # mesmo nome: só atualiza as letras
+            if x["linha1"].lower() == l1.lower() and x["destaque"].lower() == l2.lower():
+                x.update(fonte_destaque=novo["fonte_destaque"], fonte_linha1=novo["fonte_linha1"])
+                novo.update(id=x["id"])
+                return
+        lst.insert(0, novo)
+        del lst[80:]
+    store.update(pid, gravar)
+    return novo
+
+
+def apagar_evento(pid: str, eid: str) -> None:
+    store.update(pid, lambda p: _dados(p).update(
+        meus_eventos=[x for x in _dados(p).get("meus_eventos") or [] if x["id"] != eid]))
+
+
 def status() -> dict:
     proj = projeto()
     d = _dados(proj)
-    return {"pid": proj["id"],
-            "grupos": [{"nome": g, "eventos": [{"id": k, "linha1": a, "destaque": b} for k, a, b in itens]}
-                       for g, itens in GRUPOS],
+    meus = d.get("meus_eventos") or []
+    grupos = [{"nome": g, "eventos": [{"id": k, "linha1": a, "destaque": b} for k, a, b in itens]} for g, itens in GRUPOS]
+    if meus:
+        grupos.insert(0, {"nome": "Meus eventos", "meus": True, "eventos": [
+            {k: x.get(k, "") for k in ("id", "linha1", "destaque", "fonte_destaque", "fonte_linha1")} | {"meu": True}
+            for x in meus]})
+    fontes = [{"id": k, "nome": v[1], "grupo": v[2], "arquivo": v[0]} for k, v in FONTES.items()] + fontes_minhas()
+    return {"pid": proj["id"], "grupos": grupos, "fontes": fontes,
             "modelos": [{"id": k, **v} for k, v in MODELOS.items()],
             "cores": [{"id": k, "nome": v[0], "hex": v[2]} for k, v in CORES.items()],
             "enquadrar": ENQUADRAR, "tamanhos": TAMANHOS, "logos": logos(),
-            "sugestao": sugestao(usados=d.get("usados")), "ultimo": d.get("ultimo") or {}}
+            "sugestao": sugestao(usados=d.get("usados"), meus={x["id"] for x in meus}), "ultimo": d.get("ultimo") or {}}
 
 
 # --------------------------------------------------------------------------------------------

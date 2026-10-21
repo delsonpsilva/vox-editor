@@ -1,4 +1,10 @@
-# VOX Editor — edição de vídeo com cortes inteligentes e montagem manual (versão 1.15.1)
+# VOX Editor — edição de vídeo com cortes inteligentes e montagem manual (versão 1.15.2)
+
+## Novidades da versão 1.15.2 — criar o próprio evento, letras e app no celular
+
+- **+ Criar evento**: não achou o evento na lista? Escreva a linha de cima e o destaque, escolha as letras e toque em **★ Salvar como meu evento**. Ele vai para o grupo **Meus eventos**, no topo da lista, com as letras salvas junto.
+- **Letras**: 20 letras livres para o destaque (Elegantes, Cursivas e Fortes), com amostra usando o próprio nome do evento, e uma escolha separada para a linha de cima. "Automática" usa a letra do modelo. Dá para **enviar uma letra sua** (.ttf ou .otf).
+- **Instalar no celular**: no online, pelo celular, aparece o aviso **Instalar o VOX Editor** (e o botão no menu Mais). No Android instala direto com ícone na tela; no iPhone mostra os 3 toques no Safari (Compartilhar > Adicionar à Tela de Início). Depois de instalado, abre direto, sem barra do navegador.
 
 ## Novidades da versão 1.15.1 — excluir stories e resumão do culto
 

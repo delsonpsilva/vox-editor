@@ -140,5 +140,32 @@ check(j and j["status"] == "concluido", "resumo montado" + ("" if not j or j["st
 check(((j or {}).get("result") or {}).get("arquivos") == 2, "usou os 2 arquivos originais")
 check(any(x["id"] == rj["id"] for x in c.get("/api/resumo/lista").json()), "aparece em Seus resumos")
 
+# 10. v1.15.2: letras e meus eventos
+st = c.get("/api/stories/status").json()
+check(len(st["fontes"]) >= 20, f"lista de letras ({len(st['fontes'])})")
+for fnt in st["fontes"]:
+    check(stories.arquivo_fonte(fnt["id"]) is not None, f"letra {fnt['nome']} existe")
+fonte_arq = ROOT / "fontes" / "Lobster-Regular.ttf"
+r = c.post("/api/stories/fontes", content=fonte_arq.read_bytes(), headers={"x-filename": "Minha-Letra.ttf"})
+check(r.status_code == 200 and r.json()["novo"]["id"].startswith("u-"), "envia uma letra própria")
+fid = r.json()["novo"]["id"]
+check(c.get(f"/api/stories/fontes/{fid}").status_code == 200, "letra própria aparece")
+check(c.post("/api/stories/fontes", content=b"nada", headers={"x-filename": "x.ttf"}).status_code == 400, "recusa fonte inválida")
+r = c.post("/api/stories/eventos", json={"linha1": "Culto de", "destaque": "Gratidão a Deus", "fonte_destaque": "alexbrush",
+                                         "fonte_linha1": fid})
+check(r.status_code == 200 and r.json()["status"]["grupos"][0]["nome"] == "Meus eventos", "salva meu evento (vai para o topo)")
+ev = r.json()["novo"]
+for m in ("ouro", "faixa", "neon", "vidro"):
+    r = c.post("/api/stories/previa", json={"item": f["id"], "modelo": m, "linha1": "Culto de", "destaque": "Gratidão a Deus",
+                                            "fonte_destaque": "alexbrush", "fonte_linha1": fid})
+    check(r.status_code == 200 and r.content[:2] == b"\xff\xd8", f"prévia com letra escolhida ({m})")
+r = c.post("/api/stories/eventos", json={"linha1": "Culto de", "destaque": "Gratidão a Deus", "fonte_destaque": "lobster"})
+check(r.json()["novo"]["id"] == ev["id"] and len(r.json()["status"]["grupos"][0]["eventos"]) == 1, "mesmo nome só atualiza as letras")
+c.delete(f"/api/stories/eventos/{ev['id']}")
+check(c.get("/api/stories/status").json()["grupos"][0]["nome"] != "Meus eventos", "apaga meu evento")
+c.delete(f"/api/stories/fontes/{fid}")
+check(stories.arquivo_fonte(fid) is None, "apaga a letra própria")
+check(c.get("/sw.js").status_code == 200 and c.get("/instalar.js").status_code == 200, "arquivos do instalar no celular")
+
 print("\n" + ("TUDO CERTO" if not falhas else f"{falhas} FALHA(S)"))
 sys.exit(1 if falhas else 0)
