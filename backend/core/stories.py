@@ -282,12 +282,18 @@ def apagar_logo(lid: str) -> None:
 # --------------------------------------------------------------------------------------------
 # Arquivos enviados
 # --------------------------------------------------------------------------------------------
-def receber(pid: str, caminho: Path, nome: str) -> dict:
+def receber(pid: str, caminho: Path, nome: str, modificado_ms: float | None = None, fuso: int | None = None) -> dict:
     """Confere o vídeo/foto que chegou, tira um quadro para as prévias e registra no projeto."""
     kind = montagem.tipo_por_extensao(nome)
     if kind not in ("video", "image"):
         caminho.unlink(missing_ok=True)
         raise ValueError("Envie um vídeo ou uma foto (JPG, PNG, WEBP).")
+    quando = None
+    try:  # hora em que foi gravado (para o resumo seguir a ordem do culto)
+        from . import resumo
+        quando = resumo.hora_da_midia(caminho, kind, modificado_ms, fuso)
+    except Exception:
+        pass
     iid = secrets.token_hex(4)
     base = pasta(pid)
     quadro = base / "src" / f"{iid}-quadro.jpg"
@@ -327,7 +333,7 @@ def receber(pid: str, caminho: Path, nome: str) -> dict:
                     "-frames:v", "1", "-q:v", "3", str(quadro)])
     item = {"id": iid, "nome": nome, "tipo": kind, "arquivo": caminho.name, "quadro": quadro.name,
             "duracao": round(float(info.get("duration") or 0), 2), "w": info.get("width", 0), "h": info.get("height", 0),
-            "audio": bool(info.get("has_audio")), "criado": time.time(), "saidas": []}
+            "audio": bool(info.get("has_audio")), "criado": time.time(), "quando": quando, "saidas": []}
     store.update(pid, lambda p: _dados(p)["itens"].insert(0, item))
     return item
 
@@ -943,6 +949,7 @@ def gerar(pid: str, iids: list[str], op: dict, progresso: Progresso = None) -> d
         if ev in EVENTOS:
             d["usados"][ev] = int(d["usados"].get(ev, 0)) + 1
         d["ultimo"] = {k: op.get(k) for k in ("modelo", "cor", "logo", "enquadrar", "tamanho", "data_na_tela")}
+        d["evento_atual"] = {k: op.get(k) for k in ("evento", "linha1", "destaque")} | {"quando": time.time()}
     store.update(pid, lembrar)
     prog(1.0, "Pronto!")
     return {"saidas": saidas, "quantos": len(saidas)}
@@ -955,7 +962,7 @@ def lista(pid: str) -> list[dict]:
     out = []
     for it in _dados(proj)["itens"][:60]:
         saidas = [s for s in it.get("saidas", []) if (renders / s["file"]).exists()]
-        out.append({k: it.get(k) for k in ("id", "nome", "tipo", "duracao", "w", "h", "criado")} | {"saidas": saidas})
+        out.append({k: it.get(k) for k in ("id", "nome", "tipo", "duracao", "w", "h", "criado", "quando")} | {"saidas": saidas})
     return out
 
 
@@ -975,3 +982,68 @@ def status() -> dict:
             "cores": [{"id": k, "nome": v[0], "hex": v[2]} for k, v in CORES.items()],
             "enquadrar": ENQUADRAR, "tamanhos": TAMANHOS, "logos": logos(),
             "sugestao": sugestao(usados=d.get("usados")), "ultimo": d.get("ultimo") or {}}
+
+
+# --------------------------------------------------------------------------------------------
+# v1.15.1: excluir stories prontos e juntar os arquivos do culto num Resumo
+# --------------------------------------------------------------------------------------------
+def agendado(pid: str, arquivo: str) -> bool:
+    from . import publish
+    return any(it.get("project") == pid and it.get("file") == arquivo and it.get("status") in ("agendado", "publicando")
+               for it in publish.queue())
+
+
+def apagar_pronto(pid: str, arquivo: str) -> bool:
+    """Apaga o story (vídeo e a foto JPG, se tiver). Devolve False se ele está na fila de publicação."""
+    if "/" in arquivo or "\\" in arquivo or not arquivo.startswith("story-"):
+        raise ValueError("Nome inválido")
+    if agendado(pid, arquivo):
+        return False
+    renders = store.pdir(pid) / "renders"
+    (renders / arquivo).unlink(missing_ok=True)
+    (renders / f"{Path(arquivo).stem}.jpg").unlink(missing_ok=True)
+    (store.pdir(pid) / "cache" / f"rt-{Path(arquivo).stem}.jpg").unlink(missing_ok=True)
+
+    def tirar(p):
+        p["renders"] = [r for r in p.get("renders") or [] if r.get("file") != arquivo]
+        for it in _dados(p)["itens"]:
+            it["saidas"] = [x for x in it.get("saidas") or [] if x.get("file") != arquivo]
+    store.update(pid, tirar)
+    return True
+
+
+EVENTO_RESUMO = {  # evento dos Stories -> tipo do Resumo do Culto
+    "santa_ceia": "santa_ceia", "batismo": "batismo", "casamento": "casamento", "aniversario": "aniversario",
+    "bodas": "casamento", "jovens": "jovens", "adolescentes": "jovens", "congresso_jovens": "jovens",
+    "congresso_adolescentes": "jovens", "encontro_jovens": "jovens", "congresso": "conferencia",
+    "congresso_mulheres": "conferencia", "congresso_criancas": "conferencia", "congresso_varoes": "conferencia",
+    "congresso_missoes": "conferencia", "encontro_mulheres": "conferencia", "encontro_casais": "conferencia",
+    "conferencia": "conferencia", "seminario": "conferencia", "retiro": "conferencia", "acampamento": "conferencia",
+    "cruzada": "conferencia", "festividade": "conferencia", "convencao": "conferencia", "simposio": "conferencia",
+    "escola_lideres": "conferencia",
+}
+
+
+def juntar_no_resumo(pid_st: str, iids: list[str], destino: str) -> int:
+    """Copia os vídeos/fotos originais (sem a capa) para o projeto do resumo, na ordem em que foram enviados."""
+    import os
+    proj = store.load(pid_st)
+    itens = [it for it in _dados(proj)["itens"] if it["id"] in iids]
+    itens.sort(key=lambda it: it.get("criado") or 0)
+    n = 0
+    for it in itens:
+        src = pasta(pid_st) / "src" / it["arquivo"]
+        if not src.exists():
+            continue
+        alvo = montagem.pasta_midias(destino) / f"{secrets.token_hex(4)}_{Path(it['arquivo']).name.split('_', 1)[-1]}"
+        try:
+            os.link(src, alvo)  # mesmo disco: não ocupa espaço de novo
+        except Exception:
+            shutil.copy2(src, alvo)
+        extra = {"quando": it["quando"]} if it.get("quando") else None
+        nome = it.get("nome") or alvo.name
+        if montagem.tipo_por_extensao(nome) != it["tipo"]:
+            nome = Path(nome).stem + Path(it["arquivo"]).suffix
+        montagem.adicionar_midia(destino, alvo, nome, extra)
+        n += 1
+    return n

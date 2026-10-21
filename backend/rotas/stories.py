@@ -43,6 +43,13 @@ def stories_status():
         except Exception:
             pass
     st["redes"] = nets
+    try:
+        from ..core import resumo as _rs
+        rs = _rs.status()
+        modelo = (store.load_config().get("ai") or {}).get("model") or ""
+        st["ia"] = {"ligada": bool(rs.get("ia")), "nome": rs.get("ia_nome") or "", "modelo": modelo}
+    except Exception:
+        st["ia"] = {"ligada": False, "nome": "", "modelo": ""}
     return st
 
 
@@ -89,8 +96,16 @@ async def stories_arquivo(request: Request):
                 fh.write(chunk)
         if size == 0:
             raise HTTPException(400, "Arquivo vazio")
+        try:
+            modificado = float(request.headers.get("x-modificado") or 0) or None
+        except ValueError:
+            modificado = None
+        try:
+            fuso = int(request.headers.get("x-fuso")) if request.headers.get("x-fuso") not in (None, "") else None
+        except ValueError:
+            fuso = None
         from starlette.concurrency import run_in_threadpool
-        return await run_in_threadpool(stories.receber, pid, dest, nome)
+        return await run_in_threadpool(stories.receber, pid, dest, nome, modificado, fuso)
     except HTTPException:
         dest.unlink(missing_ok=True)
         raise
@@ -214,3 +229,83 @@ def stories_logo_ver(lid: str):
     if not f:
         raise HTTPException(404, "Sem logo")
     return FileResponse(f, media_type="image/png", headers={"Cache-Control": "no-cache"})
+
+
+# ---------- v1.15.1: excluir stories prontos ----------
+
+@router.delete("/api/stories/prontos/{arquivo}")
+def stories_pronto_apagar(arquivo: str):
+    pid = _pid()
+    try:
+        ok = stories.apagar_pronto(pid, arquivo)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    if not ok:
+        raise HTTPException(409, "Este story está agendado em Publicações. Cancele a publicação lá antes de excluir.")
+    return {"ok": True}
+
+
+@router.post("/api/stories/prontos/limpar")
+def stories_prontos_limpar(data: dict = Body(default={})):
+    """Exclui vários de uma vez (ou todos). Os que estão na fila de publicação ficam."""
+    pid = _pid()
+    proj = store.load(pid)
+    todos = [r["file"] for r in proj.get("renders") or [] if str(r.get("file", "")).startswith("story-")]
+    alvo = [str(x) for x in (data.get("arquivos") or todos) if str(x) in todos]
+    apagados, ficaram = 0, 0
+    for f in alvo:
+        try:
+            if stories.apagar_pronto(pid, f):
+                apagados += 1
+            else:
+                ficaram += 1
+        except ValueError:
+            pass
+    return {"apagados": apagados, "ficaram": ficaram}
+
+
+# ---------- v1.15.1: Resumo do Culto com os arquivos dos stories ----------
+
+@router.post("/api/stories/resumo")
+def stories_resumo(data: dict = Body(...)):
+    from ..core import resumo as _rs
+    _limites(minutos=False)
+    pid_st = _pid()
+    iids = [str(x) for x in (data.get("itens") or [])][:200]
+    if not iids:
+        raise HTTPException(400, "Não há vídeos ou fotos para o resumo.")
+    o = data.get("opcoes") if isinstance(data.get("opcoes"), dict) else {}
+    ev_st = str(o.get("evento") or "")
+    titulo = str(o.get("titulo") or "").strip()[:60] or "Resumo do Culto"
+    formato = o.get("formato") if o.get("formato") in montagem.FORMATOS else "9:16"
+    marca = (store.BRAND_DIR / "logo.png").exists()
+    opts = {"formato": formato, "duracao": str(o.get("duracao") or "60"), "ritmo": o.get("ritmo") or "calmo",
+            "evento": stories.EVENTO_RESUMO.get(ev_st, "culto"), "data": str(o.get("data") or "")[:10],
+            "musica": "__auto__", "cor": o.get("cor") or "cinema", "enquadramento": "auto", "som_original": True,
+            "legenda": True, "legenda_estilo": "palavra_ativa", "rotulos": True, "abertura": True,
+            "encerramento": True, "logo": marca, "ordem": "hora", "usar_ia": True, "titulo": titulo}
+    proj = montagem.projeto_em_branco(titulo, formato)
+    pid = proj["id"]
+    store.update(pid, lambda p: p.update(resumo={"criado": time.time(), "de_stories": True}))
+
+    def tarefa(pr):
+        def prog(x, msg=""):
+            pr(x, msg)
+            if msg:
+                store.update(pid, lambda p: p.update(progress={"pct": round(x, 3), "msg": msg}))
+        store.update(pid, lambda p: p.update(status="processando", progress={"pct": 0, "msg": "Juntando os arquivos…"}))
+        prog(0.01, "Juntando os vídeos e fotos do culto…")
+        n = stories.juntar_no_resumo(pid_st, iids, pid)
+        if not n:
+            store.update(pid, lambda p: p.update(status="pronto", progress={"pct": 1, "msg": ""}))
+            raise RuntimeError("Os arquivos dos stories não estão mais aqui (foram apagados).")
+        _previas_pendentes(pid, montagem.carregar(pid))
+        try:
+            r = _rs.criar(pid, opts, prog)
+        except Exception as e:
+            store.update(pid, lambda p: p.update(status="pronto", progress={"pct": 1, "msg": str(e)[:300]}))
+            raise
+        store.update(pid, lambda p: p.update(status="pronto", progress={"pct": 1, "msg": ""}))
+        return {**(r or {}), "arquivos": n}
+    j = jobs.submit("resumo", pid, tarefa, queue="analysis", label="Resumo do culto (dos stories)")
+    return {"id": pid, "job": j["id"]}

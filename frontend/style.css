@@ -1858,3 +1858,18 @@ body.v17-restrito .shortcuts a[href="#/redes"],body.v17-restrito .shortcuts a[hr
   #pg-stories #st-andamento{order:4}
   #pg-stories #st-prontos-pane{order:5}
 }
+
+/* v1.15.1: excluir e resumo a partir dos stories */
+.st-pr-cab{gap:10px;flex-wrap:wrap}
+.st-pr-cab h2{margin:0}
+.st-pbts .st-del{color:#F87171}
+.st-pbts .st-del:hover{background:rgba(220,38,38,.12)}
+.st-resumo-pane{border:1px solid rgba(194,65,12,.45);background:linear-gradient(135deg,rgba(194,65,12,.12),transparent 60%)}
+.st-res-cab{display:flex;gap:12px;align-items:flex-start}
+.st-res-cab h2{margin:0 0 4px}
+.st-res-cab .hint{margin:0}
+.st-res-ic{flex-shrink:0;width:40px;height:40px;border-radius:10px;background:#C2410C;color:#fff;display:flex;align-items:center;justify-content:center}
+.st-res-ops{display:flex;gap:18px;flex-wrap:wrap;margin:14px 0 6px}
+.st-res-ia{margin:6px 0 12px}
+#st-res-criar{min-width:220px}
+@media (max-width:900px){#pg-stories #st-resumo-pane{order:5}#pg-stories #st-prontos-pane{order:6}}

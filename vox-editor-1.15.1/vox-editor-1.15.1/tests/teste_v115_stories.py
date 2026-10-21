@@ -112,5 +112,33 @@ ns = publish.public_status()
 check(ns["instagram_story"]["app"] == "meta" and ns["instagram_story"]["story"], "Instagram Stories pela conta da Meta")
 check("instagram_story" in publish.POSTERS and "facebook_story" in publish.POSTERS, "envio para Stories existe")
 
+# 8. v1.15.1: excluir story pronto e excluir todos
+alvo = res["saidas"][0]["file"]
+r = c.delete(f"/api/stories/prontos/{alvo}")
+check(r.status_code == 200 and not (pasta / alvo).exists(), "exclui um story pronto")
+check(all(x["file"] != alvo for x in c.get("/api/renders").json()), "some de Exportados")
+foto_st = next(s for s in res["saidas"] if s["jpg"])
+publish.add([publish.new_item(job["pid"], foto_st["file"], "instagram_story", time.time() + 99999, "", "", "public", "x")])
+r = c.delete(f"/api/stories/prontos/{foto_st['file']}")
+check(r.status_code == 409, "não exclui story agendado")
+r = c.post("/api/stories/prontos/limpar", json={})
+check(r.status_code == 200 and r.json()["ficaram"] == 1, "excluir todos deixa o agendado")
+check(c.get("/api/stories/status").json()["ia"]["ligada"] is False, "informa se a IA está ligada")
+
+# 9. v1.15.1: resumo do culto com os arquivos dos stories
+r = c.post("/api/stories/resumo", json={"itens": [v["id"], f["id"]], "opcoes": {"duracao": "30", "ritmo": "calmo",
+                                         "titulo": "Culto da Virada", "evento": "virada", "data": "2025-12-31"}})
+check(r.status_code == 200, "começa o resumo dos stories")
+rj = r.json()
+for _ in range(900):
+    js = c.get(f"/api/jobs/{rj['id']}").json()
+    j = next((x for x in js if x["id"] == rj["job"]), None)
+    if j and j["status"] in ("concluido", "erro", "cancelado"):
+        break
+    time.sleep(1)
+check(j and j["status"] == "concluido", "resumo montado" + ("" if not j or j["status"] == "concluido" else f": {j.get('error')}"))
+check(((j or {}).get("result") or {}).get("arquivos") == 2, "usou os 2 arquivos originais")
+check(any(x["id"] == rj["id"] for x in c.get("/api/resumo/lista").json()), "aparece em Seus resumos")
+
 print("\n" + ("TUDO CERTO" if not falhas else f"{falhas} FALHA(S)"))
 sys.exit(1 if falhas else 0)

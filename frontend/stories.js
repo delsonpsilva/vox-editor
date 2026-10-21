@@ -173,6 +173,8 @@
     const xhr = new XMLHttpRequest(); it.xhr = xhr;
     xhr.open("POST", "/api/stories/arquivo");
     xhr.setRequestHeader("x-filename", encodeURIComponent(it.f.name));
+    if (it.f.lastModified) xhr.setRequestHeader("x-modificado", String(it.f.lastModified));
+    xhr.setRequestHeader("x-fuso", String(new Date().getTimezoneOffset()));
     xhr.upload.onprogress = (e) => { if (e.lengthComputable) { it.pct = e.loaded / e.total; desenharArq(it); } };
     const fim = () => { T.enviando--; it.xhr = null; bombear(); desenharArqs(); };
     xhr.onload = () => {
@@ -352,8 +354,64 @@
             <a class="btn small" href="/api/projects/${r.pid}/renders/${encodeURIComponent(s.file)}" download="${esc(s.file)}">Baixar vídeo</a>
             ${s.jpg ? `<a class="btn small ghost" href="/api/projects/${r.pid}/renders/${encodeURIComponent(s.jpg)}" download="${esc(s.jpg)}">Baixar foto</a>` : ""}
             <button type="button" class="btn small primary" data-pub="${i}">Publicar</button>
+            <button type="button" class="btn small ghost st-del" data-del="${i}">Excluir</button>
           </div></div></div>`).join("");
     T.prontos = prontos;
+    T.todosItens = r.itens;
+    desenharResumo();
+  }
+
+  /* ---------------- resumo do culto com os arquivos dos stories ---------------- */
+  const mesmoDia = (t) => { const a = new Date(t * 1000), b = new Date(); return a.toDateString() === b.toDateString(); };
+  function itensDoResumo() {
+    const lst = T.todosItens || [];
+    const hoje = lst.filter((x) => mesmoDia(x.criado));
+    if (hoje.length) return { ids: hoje.map((x) => x.id), lista: hoje, hoje: true };
+    const marc = lst.filter((x) => T.sel.has(x.id));
+    return { ids: marc.map((x) => x.id), lista: marc, hoje: false };
+  }
+  function desenharResumo() {
+    const r = itensDoResumo();
+    const pane = $("#st-resumo-pane");
+    pane.classList.toggle("hidden", r.lista.length < 2);
+    if (r.lista.length < 2) return;
+    const v = r.lista.filter((x) => x.tipo === "video").length, f = r.lista.length - v;
+    const partes = [v && `${v} vídeo${v === 1 ? "" : "s"}`, f && `${f} foto${f === 1 ? "" : "s"}`].filter(Boolean).join(" e ");
+    $("#st-res-txt").textContent = `Junte ${r.hoje ? "os" : "os marcados:"} ${partes}${r.hoje ? " dos stories de hoje" : ""} num resumão com música, títulos e a sua marca. Abre na Montagem para você ajustar.`;
+    const ia = (T.st || {}).ia || {};
+    $("#st-res-ia").innerHTML = ia.ligada
+      ? `Inteligência artificial <b class="ok">ligada</b> (${esc(ia.nome)}${ia.modelo ? " · " + esc(ia.modelo) : ""}): ela escolhe as frases mais fortes da pregação e o título.`
+      : `Inteligência artificial <b>desligada</b>: o programa monta sozinho. Para frases e título escolhidos pela IA, coloque a chave em <a href="#/ia">Inteligência artificial</a>.`;
+  }
+
+  async function fazerResumo() {
+    if (T.ocupado) return;
+    const r = itensDoResumo();
+    if (r.ids.length < 2) { toast("Precisa de pelo menos 2 vídeos ou fotos.", true); return; }
+    const dur = ($("#st-res-dur .chip-btn.active") || {}).dataset.v || "60";
+    const ritmo = ($("#st-res-ritmo .chip-btn.active") || {}).dataset.v || "calmo";
+    const titulo = [$("#st-l1").value.trim(), $("#st-l2").value.trim()].filter(Boolean).join(" ") || "Resumo do Culto";
+    T.ocupado = true; const b = $("#st-res-criar"); b.disabled = true; b.textContent = "Montando…";
+    try {
+      const j = await api("POST", "/api/stories/resumo", { itens: r.ids, opcoes: { duracao: dur, ritmo, titulo, evento: T.evento,
+        data: $("#st-dia").value || "", cor: ritmo === "animado" ? "vivo" : "cinema" } });
+      andamento("Montando o resumo do culto…", 0, "Na fila…");
+      for (;;) {
+        await new Promise((ok) => setTimeout(ok, 1000));
+        let js; try { js = await api("GET", "/api/jobs/" + j.id); } catch (_) { continue; }
+        const x = js.find((y) => y.id === j.job); if (!x) continue;
+        andamento(x.status === "na fila" ? "Na fila…" : "Montando o resumo do culto…", x.pct || 0, x.msg);
+        if (x.status === "concluido") {
+          const res = x.result || {};
+          andamento("Resumo pronto!", 1, res.aviso || "Abrindo na Montagem…");
+          toast(res.aviso || "Resumo montado! Abrindo na Montagem…", !!res.aviso);
+          setTimeout(() => { location.hash = "#/p/" + j.id + "/montagem"; }, res.aviso ? 5000 : 1200);
+          break;
+        }
+        if (x.status === "erro" || x.status === "cancelado") { andamento("Não deu certo", 0, x.error || "Cancelado"); toast(x.error || "Cancelado", true); break; }
+      }
+    } catch (e) { toast(e.message, true); }
+    T.ocupado = false; b.disabled = false; b.textContent = "Fazer o resumo do culto";
   }
 
   /* ---------------- ligar tudo ---------------- */
@@ -441,7 +499,27 @@
       if (m && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); m.click(); }
     });
     $("#st-criar").addEventListener("click", () => criar());
-    $("#st-prontos").addEventListener("click", (e) => {
+    $("#st-limpar").addEventListener("click", async () => {
+      const n = (T.prontos || []).length;
+      if (!n || !(await ask(`Excluir ${n === 1 ? "o story pronto" : "todos os " + n + " stories prontos"}?`, "Saem daqui e de Exportados. Os que estão agendados em Publicações ficam.", null, "Excluir todos"))) return;
+      try {
+        const r = await api("POST", "/api/stories/prontos/limpar", {});
+        toast(`${r.apagados} excluído${r.apagados === 1 ? "" : "s"}` + (r.ficaram ? ` · ${r.ficaram} ficou(aram) porque está(ão) agendado(s)` : ""));
+      } catch (err) { toast(err.message, true); }
+      listar();
+    });
+    ["#st-res-dur", "#st-res-ritmo"].forEach((sel) => $$(sel + " .chip-btn").forEach((b) => b.addEventListener("click", () =>
+      $$(sel + " .chip-btn").forEach((x) => x.classList.toggle("active", x === b)))));
+    $("#st-res-criar").addEventListener("click", fazerResumo);
+    $("#st-prontos").addEventListener("click", async (e) => {
+      const d = e.target.closest("[data-del]");
+      if (d) {
+        const s = T.prontos[+d.dataset.del];
+        if (!(await ask("Excluir este story?", "O vídeo" + (s.jpg ? " e a foto" : "") + " saem daqui e de Exportados. O arquivo original que você enviou continua.", null, "Excluir"))) return;
+        try { await api("DELETE", "/api/stories/prontos/" + encodeURIComponent(s.file)); toast("Story excluído."); } catch (err) { toast(err.message, true); }
+        listar();
+        return;
+      }
       const p = e.target.closest("[data-pub]");
       if (p) {
         const s = T.prontos[+p.dataset.pub];

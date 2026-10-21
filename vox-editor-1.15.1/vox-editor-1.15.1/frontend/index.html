@@ -343,8 +343,33 @@ try{var t=localStorage.getItem("vox_tema");if(t==="claro"){document.documentElem
               <div class="bar hs-bar"><i id="st-and-bar"></i></div>
               <p class="hint" id="st-and-msg">Começando…</p>
             </section>
+            <section class="pane hidden st-resumo-pane" id="st-resumo-pane">
+              <div class="st-res-cab">
+                <span class="st-res-ic" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="9" height="12" rx="1.5"/><rect x="13" y="3" width="9" height="8" rx="1.5"/><rect x="13" y="13" width="9" height="8" rx="1.5"/><path d="M5.5 10.5l2 1.5-2 1.5z"/></svg></span>
+                <div><h2>Fechar o culto com um resumão</h2>
+                <p class="hint" id="st-res-txt">Junte os vídeos e fotos dos stories de hoje num resumo com música, títulos e a sua marca.</p></div>
+              </div>
+              <div class="st-res-ops">
+                <div class="field">Duração
+                  <div class="chips" id="st-res-dur">
+                    <button type="button" class="chip-btn" data-v="30">30 s</button>
+                    <button type="button" class="chip-btn active" data-v="60">1 min</button>
+                    <button type="button" class="chip-btn" data-v="90">1min30</button>
+                    <button type="button" class="chip-btn" data-v="180">3 min</button>
+                  </div>
+                </div>
+                <div class="field">Clima
+                  <div class="chips" id="st-res-ritmo">
+                    <button type="button" class="chip-btn active" data-v="calmo">Emocionante</button>
+                    <button type="button" class="chip-btn" data-v="animado">Animado</button>
+                  </div>
+                </div>
+              </div>
+              <p class="hint st-res-ia" id="st-res-ia"></p>
+              <button type="button" class="btn primary" id="st-res-criar">Fazer o resumo do culto</button>
+            </section>
             <section class="pane hidden" id="st-prontos-pane">
-              <h2>Stories prontos</h2>
+              <div class="row between st-pr-cab"><h2>Stories prontos</h2><button type="button" class="btn small ghost" id="st-limpar">Excluir todos</button></div>
               <p class="hint">Também ficam em Exportados. Baixe para postar pelo celular (Status do WhatsApp, por exemplo) ou mande para as redes.</p>
               <div class="st-prontos" id="st-prontos"></div>
             </section>

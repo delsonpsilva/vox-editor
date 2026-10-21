@@ -1,12 +1,12 @@
-VOX Editor 1.15.0 — Stories do Culto
-====================================
+VOX Editor 1.15.1 — Stories do Culto (excluir + resumão do culto)
+=================================================================
 (Este pacote já inclui tudo das versões anteriores.)
 
 NO PC (Windows)
 1. Feche o VOX Editor, se estiver aberto.
-2. Extraia o vox-editor-1.15.0.zip (botão direito > Extrair tudo) e dê dois cliques no INSTALAR-1.15.0.bat.
+2. Extraia o vox-editor-1.15.1.zip (botão direito > Extrair tudo) e dê dois cliques no INSTALAR-1.15.1.bat.
    Ele guarda uma cópia dos arquivos antigos e copia a versão nova para C:\editor-ia.
-3. Abra o programa. Embaixo, à esquerda, deve aparecer "versão 1.15.0".
+3. Abra o programa. Embaixo, à esquerda, deve aparecer "versão 1.15.1".
    Se a tela não mudar: feche o programa e dê dois cliques no LIMPAR-CACHE-DA-TELA.bat.
    (Não precisa rodar o ATUALIZAR.bat: esta versão não instala nada novo.)
 4. Quando estiver tudo certo, dois cliques no PUBLICAR.bat.
@@ -20,6 +20,11 @@ TESTAR (menu Stories do Culto)
 - Em "Logo da igreja", clique em "+ Enviar logo" e escolha o PNG da igreja (fica guardado).
 - No modelo que gostar, clique em "Criar com este".
 - Pronto: o story aparece em "Stories prontos" (e em Exportados) para baixar ou publicar.
+
+NOVO NA 1.15.1
+- Em "Stories prontos": botão Excluir em cada um e "Excluir todos".
+- No fim do culto: painel "Fechar o culto com um resumão" > escolha 1 min e Emocionante > "Fazer o resumo do culto".
+  Ele junta os vídeos e fotos dos stories de hoje e abre o resumo pronto na Montagem.
 
 POSTAR SOZINHO NOS STORIES
 - Funciona com a mesma conexão do Instagram/Facebook em Redes sociais (não precisa conectar de novo).

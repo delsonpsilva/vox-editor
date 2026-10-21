@@ -1,4 +1,11 @@
-# VOX Editor — edição de vídeo com cortes inteligentes e montagem manual (versão 1.15)
+# VOX Editor — edição de vídeo com cortes inteligentes e montagem manual (versão 1.15.1)
+
+## Novidades da versão 1.15.1 — excluir stories e resumão do culto
+
+- Cada story pronto tem o botão **Excluir** (e "Excluir todos"), para não ir enchendo a lista. Story agendado em Publicações não é excluído (cancele lá antes).
+- Novo painel **Fechar o culto com um resumão**: junta os vídeos e fotos originais dos stories de hoje (sem a capa) e monta o Resumo do Culto com música, títulos, frases da pregação e a sua marca. Escolha a duração e o clima (Emocionante ou Animado). Abre na Montagem e aparece em "Seus resumos".
+- O painel mostra se a inteligência artificial está ligada e qual modelo está em uso.
+- Os stories agora guardam a hora em que cada vídeo/foto foi gravado, para o resumo seguir a ordem do culto.
 
 ## Novidades da versão 1.15 — Stories do Culto
 
